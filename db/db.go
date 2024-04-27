@@ -15,6 +15,11 @@ const (
 	maxOpenConns = 300
 	maxIdleConns = 100
 	connMaxLife  = time.Minute * 15
+
+	ErrFileNotExists = "first .: file does not exist"
+	ErrMigrationNoChange = "no change"
+	ErrDirtyDatabase = "database is dirty"
+	ErrNoMigration = "no migration"
 )
 
 func MustMigrate(db *sql.DB, migrationDir string) {
@@ -32,15 +37,22 @@ func MustMigrate(db *sql.DB, migrationDir string) {
 
 	version, dirty, err := migrate.Version()
 	if err != nil {
-		panic(err)
+		if err.Error() == ErrNoMigration {
+			log.Println(err)
+		} else {
+			panic(err)
+		}
 	}
 	if dirty {
-		panic("database is dirty")
+		panic(ErrDirtyDatabase)
 	}
 	log.Println("migration version:", version)
 
 	if err = migrate.Up(); err != nil {
-		if err.Error() == "no change" {
+		if err.Error() == ErrMigrationNoChange {
+			return
+		}
+		if err.Error() == ErrFileNotExists {
 			return
 		}
 		panic(err)
@@ -49,7 +61,7 @@ func MustMigrate(db *sql.DB, migrationDir string) {
 }
 
 func MustConnectToDb(psqlUrl string) *sql.DB {
-	// open a database driver or instance 
+	// open a database driver or instance
 	// Open may just validate its arguments without creating a connection to the database
 	db, err := sql.Open("postgres", psqlUrl)
 	if err != nil {
@@ -67,6 +79,7 @@ func MustConnectToDb(psqlUrl string) *sql.DB {
 	db.SetConnMaxLifetime(connMaxLife)
 
 	// there is a 'SchemeFromURL' function that splits the migrationDir by ':', so db/migration will be the URL
-	MustMigrate(db, "files:db/migration")
+	MustMigrate(db, "file:db/migration")
+	log.Println("connected to database...")
 	return db
 }
