@@ -1,18 +1,24 @@
 package main
 
 import (
+	"database/sql"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/joho/godotenv"
+	"github.com/saeidalz13/battleship-backend/db"
 )
+
+var DB *sql.DB
 
 var upgrader = websocket.Upgrader{
 	HandshakeTimeout: time.Second * 4, // arbitrary duration
 	// arbitrary buffer size
-	ReadBufferSize:   2048,
-	WriteBufferSize:  2048,
+	ReadBufferSize:  2048,
+	WriteBufferSize: 2048,
 }
 
 func manageWsConn(ws *websocket.Conn) {
@@ -45,8 +51,8 @@ func manageWsConn(ws *websocket.Conn) {
 
 func HandleWs(w http.ResponseWriter, r *http.Request) {
 	/*
-	! TODO: this accept connection from any origin
-	! TODO: Must change for production
+		! TODO: this accept connection from any origin
+		! TODO: Must change for production
 	*/
 	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 
@@ -66,6 +72,14 @@ func HandleWs(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	if os.Getenv("STAGE") != "prod" {
+		if err := godotenv.Load(".env"); err != nil {
+			panic(err)
+		}
+	}
+	psqlUrl := os.Getenv("PSQL_URL")
+	DB = db.MustConnectToDb(psqlUrl)
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /battleship", HandleWs)
 
