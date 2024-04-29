@@ -10,9 +10,52 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
 	"github.com/saeidalz13/battleship-backend/db"
+	"github.com/saeidalz13/battleship-backend/models"
 )
 
 var DB *sql.DB
+var defaultPort int16 = 8000
+
+type Server struct {
+	Port  *int16
+	Db    *sql.DB
+	Games map[string]models.Game
+}
+
+func NewServer(optFuncs ...Option) *Server {
+	var server Server
+	for _, opt := range optFuncs {
+		if err := opt(&server); err != nil {
+			panic(err)
+		}
+	}
+	if server.Port == nil {
+		server.Port = &defaultPort
+	}
+	if server.Games == nil {
+		server.Games = make(map[string]models.Game)
+	}
+	return &server
+}
+
+func WithPort(port int16) Option {
+	return func(s *Server) error {
+		if port > 10000 {
+			panic("choose a port less than 10000")
+		}
+		s.Port = &port
+		return nil
+	}
+}
+
+func WithDb(db *sql.DB) Option {
+	return func(s *Server) error {
+		s.Db = db
+		return nil
+	}
+}
+
+type Option func(*Server) error
 
 var upgrader = websocket.Upgrader{
 	HandshakeTimeout: time.Second * 4, // arbitrary duration
@@ -49,7 +92,7 @@ func manageWsConn(ws *websocket.Conn) {
 	}
 }
 
-func HandleWs(w http.ResponseWriter, r *http.Request) {
+func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
 	/*
 		! TODO: this accept connection from any origin
 		! TODO: Must change for production
@@ -80,8 +123,10 @@ func main() {
 	psqlUrl := os.Getenv("PSQL_URL")
 	DB = db.MustConnectToDb(psqlUrl)
 
+	server := NewServer(WithPort(9191), WithDb(DB))
+
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /battleship", HandleWs)
+	mux.HandleFunc("GET /battleship", server.HandleWs)
 
 	log.Println("listening to port 9191...")
 	log.Fatalln(http.ListenAndServe(":9191", mux))
