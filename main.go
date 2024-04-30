@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"log"
 	"net/http"
 	"os"
@@ -9,7 +10,9 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
-	"github.com/saeidalz13/battleship-backend/db"
+
+	// "github.com/saeidalz13/battleship-backend/db"
+	"github.com/saeidalz13/battleship-backend/internal"
 	"github.com/saeidalz13/battleship-backend/models"
 )
 
@@ -17,9 +20,10 @@ var DB *sql.DB
 var defaultPort int16 = 8000
 
 type Server struct {
-	Port  *int16
-	Db    *sql.DB
-	Games map[string]models.Game
+	Port    *int16
+	Db      *sql.DB
+	Games   map[string]*models.Game
+	Players map[string]*models.Player
 }
 
 func NewServer(optFuncs ...Option) *Server {
@@ -33,7 +37,10 @@ func NewServer(optFuncs ...Option) *Server {
 		server.Port = &defaultPort
 	}
 	if server.Games == nil {
-		server.Games = make(map[string]models.Game)
+		server.Games = make(map[string]*models.Game)
+	}
+	if server.Players == nil {
+		server.Players = make(map[string]*models.Player) 
 	}
 	return &server
 }
@@ -64,7 +71,7 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 2048,
 }
 
-func manageWsConn(ws *websocket.Conn) {
+func (s *Server) manageWsConn(ws *websocket.Conn) {
 	defer func() {
 		ws.Close()
 		log.Println("connection closed:", ws.RemoteAddr().String())
@@ -84,6 +91,29 @@ func manageWsConn(ws *websocket.Conn) {
 
 		log.Println("message type:", messageType)
 		log.Print("payload:", string(payload))
+
+		var signal models.SignalStruct
+		if err := json.Unmarshal(payload, &signal); err != nil {
+			log.Println(err)
+			continue
+		}
+
+		switch {
+		case signal.Code == models.CodeStartGame:
+			newId, newGame, newPlayer := internal.StartGame(ws.RemoteAddr().String())
+			s.Games[newId] = newGame
+			s.Players[ws.RemoteAddr().String()] = newPlayer
+
+
+		case signal.Code == models.CodeEndGame:
+			log.Println("end game")
+
+		case signal.Code == models.CodeAttack:
+			log.Println("attack!")
+
+		default:
+			continue
+		}
 
 		if err := ws.WriteMessage(messageType, []byte("server response: message received client!")); err != nil {
 			log.Println(err)
@@ -111,7 +141,7 @@ func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
 	log.Println("a new connection established!", ws.RemoteAddr().String())
 
 	// managing connection on another goroutine
-	go manageWsConn(ws)
+	go s.manageWsConn(ws)
 }
 
 func main() {
@@ -120,10 +150,10 @@ func main() {
 			panic(err)
 		}
 	}
-	psqlUrl := os.Getenv("PSQL_URL")
-	DB = db.MustConnectToDb(psqlUrl)
+	// psqlUrl := os.Getenv("PSQL_URL")
+	// DB = db.MustConnectToDb(psqlUrl)
 
-	server := NewServer(WithPort(9191), WithDb(DB))
+	server := NewServer(WithPort(9191))
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /battleship", server.HandleWs)
