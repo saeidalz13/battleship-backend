@@ -1,4 +1,4 @@
-package internal
+package utils 
 
 import (
 	"github.com/google/uuid"
@@ -6,13 +6,11 @@ import (
 )
 
 func StartGame(remoteAddr string) (string, *models.Game, *models.Player) {
-	newId := uuid.New()
-	newPlayer := &models.Player{
-		IsReady:    false,
-		RemoteAddr: remoteAddr,
-		Grid:       models.NewGrid(),
-	}
-	newGame := models.NewGame(newId.String(), newPlayer)
+	newGameUuid := uuid.NewString()
+	newPlayerUuid := uuid.NewString()
 
-	return newId.String(), newGame, newPlayer
+	newPlayer := models.NewPlayer(newPlayerUuid, remoteAddr)
+	newGame := models.NewGame(newGameUuid, newPlayer)
+
+	return newGameUuid, newGame, newPlayer
 }

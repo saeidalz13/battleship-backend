@@ -13,19 +13,29 @@ func NewGrid() [][]int {
 
 type Player struct {
 	IsReady    bool
+	Uuid       string
 	RemoteAddr string
-	Grid       [][]int
+}
+
+func NewPlayer(uuid, remoteAddr string) *Player {
+	return &Player{
+		IsReady:    false,
+		Uuid:       uuid,
+		RemoteAddr: remoteAddr,
+	}
 }
 
 type Game struct {
-	Id   string
+	Uuid string
 	Host *Player
 	Join *Player
+	Grid [][]int
 }
 
-func NewGame(id string, host *Player) *Game {
+func NewGame(uuid string, host *Player) *Game {
 	return &Game{
-		Id:   id,
+		Uuid: uuid,
 		Host: host,
+		Grid: NewGrid(),
 	}
 }

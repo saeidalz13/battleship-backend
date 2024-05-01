@@ -1,15 +1,20 @@
 package models
 
-
 const (
-  CodeStartGame = iota  
-  CodeEndGame
-  CodeAttack
-  CodeReady 
+	CodeStartGame = iota
+	CodeEndGame
+	CodeAttack
+	CodeReady
 )
 
 type SignalStruct struct {
-  Code int `json:"code"` 
+	Code int `json:"code"`
+}
+
+type StartGameResp struct {
+	GameUuid string
+	HostUuid string
+	Grid     [][]int
 }
 
 // type IncomingMessage struct {

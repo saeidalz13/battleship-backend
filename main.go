@@ -12,8 +12,8 @@ import (
 	"github.com/joho/godotenv"
 
 	// "github.com/saeidalz13/battleship-backend/db"
-	"github.com/saeidalz13/battleship-backend/internal"
 	"github.com/saeidalz13/battleship-backend/models"
+	"github.com/saeidalz13/battleship-backend/utils"
 )
 
 var DB *sql.DB
@@ -40,7 +40,7 @@ func NewServer(optFuncs ...Option) *Server {
 		server.Games = make(map[string]*models.Game)
 	}
 	if server.Players == nil {
-		server.Players = make(map[string]*models.Player) 
+		server.Players = make(map[string]*models.Player)
 	}
 	return &server
 }
@@ -100,10 +100,24 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 
 		switch {
 		case signal.Code == models.CodeStartGame:
-			newId, newGame, newPlayer := internal.StartGame(ws.RemoteAddr().String())
+			newId, newGame, newPlayer := utils.StartGame(ws.RemoteAddr().String())
 			s.Games[newId] = newGame
 			s.Players[ws.RemoteAddr().String()] = newPlayer
 
+			newResp := models.StartGameResp{
+				GameUuid: newGame.Uuid,
+				HostUuid: newPlayer.Uuid,
+				Grid:     newGame.Grid,
+			}
+
+			jsonResp, err := json.Marshal(newResp)
+			if err != nil {
+				log.Println(err)
+			}
+			if err := ws.WriteJSON(jsonResp); err != nil {
+				log.Println(err)
+				continue
+			}
 
 		case signal.Code == models.CodeEndGame:
 			log.Println("end game")
