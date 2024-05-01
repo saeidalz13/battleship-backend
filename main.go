@@ -107,7 +107,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 			newResp := models.StartGameResp{
 				GameUuid: newGame.Uuid,
 				HostUuid: newPlayer.Uuid,
-				Grid:     newPlayer.Grid,
+				HostGrid: newPlayer.Grid,
 			}
 
 			jsonResp, err := json.Marshal(newResp)

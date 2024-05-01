@@ -14,7 +14,7 @@ type SignalStruct struct {
 type StartGameResp struct {
 	GameUuid string
 	HostUuid string
-	Grid     [][]int
+	HostGrid [][]int
 }
 
 // type IncomingMessage struct {
