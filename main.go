@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -25,6 +26,8 @@ type Server struct {
 	Games   map[string]*models.Game
 	Players map[string]*models.Player
 }
+
+type Option func(*Server) error
 
 func NewServer(optFuncs ...Option) *Server {
 	var server Server
@@ -62,11 +65,15 @@ func WithDb(db *sql.DB) Option {
 	}
 }
 
-type Option func(*Server) error
+var allowedOrigins = map[string]bool{
+	"https://www.allowed_url.com": true,
+}
 
 var upgrader = websocket.Upgrader{
-	HandshakeTimeout: time.Second * 4, // arbitrary duration
-	// arbitrary buffer size
+	// good average time since this is not a high-latency operation such as video streaming
+	HandshakeTimeout: time.Second * 5, 
+
+	// probably more that enough but this is a good average size 
 	ReadBufferSize:  2048,
 	WriteBufferSize: 2048,
 }
@@ -89,15 +96,25 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 			break
 		}
 
+		// log the incoming messages
 		log.Println("message type:", messageType)
-		log.Print("payload:", string(payload))
+		log.Printf("payload: %s, len: %d", string(payload), len(payload))
 
+
+		// the incoming message must be of type json containing the field "code"
+		// which would allow us to determine what action is required
+		// any other format of incoming message is invalid and will be ignored
 		var signal models.SignalStruct
 		if err := json.Unmarshal(payload, &signal); err != nil {
 			log.Println(err)
+			if err := ws.WriteMessage(websocket.TextMessage, []byte("incoming message is invalid; must be of type json")); err != nil {
+				log.Println(err)
+				break
+			}
 			continue
 		}
 
+		// This is where we choose the action based on the code in incoming json
 		switch {
 		case signal.Code == models.CodeStartGame:
 			newId, newGame, newPlayer := utils.StartGame(ws.RemoteAddr().String())
@@ -128,21 +145,10 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 		default:
 			continue
 		}
-
-		if err := ws.WriteMessage(messageType, []byte("server response: message received client!")); err != nil {
-			log.Println(err)
-			continue
-		}
 	}
 }
 
 func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
-	/*
-		! TODO: this accept connection from any origin
-		! TODO: Must change for production
-	*/
-	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
-
 	// use Upgrade method to make a websocket connection
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -151,11 +157,21 @@ func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Put this connection in a database (psql)
 	log.Println("a new connection established!", ws.RemoteAddr().String())
 
 	// managing connection on another goroutine
 	go s.manageWsConn(ws)
+}
+
+func chooseCorsCheckOriginFunc(stage string) func(r *http.Request) bool {
+	if stage == "prod" {
+		return func(r *http.Request) bool {
+			origin := r.Header.Get("Origin")
+			return allowedOrigins[origin]
+		}
+	} else {
+		return func(r *http.Request) bool { return true }
+	}
 }
 
 func main() {
@@ -164,6 +180,13 @@ func main() {
 			panic(err)
 		}
 	}
+	stage := os.Getenv("STAGE")
+	if stage != "dev" && stage != "prod" {
+		panic("stage must be either dev or prod")
+	} 
+
+	checkOrigin := chooseCorsCheckOriginFunc(stage)
+	upgrader.CheckOrigin = checkOrigin
 	// psqlUrl := os.Getenv("PSQL_URL")
 	// DB = db.MustConnectToDb(psqlUrl)
 

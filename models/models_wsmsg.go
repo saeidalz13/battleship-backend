@@ -12,9 +12,9 @@ type SignalStruct struct {
 }
 
 type StartGameResp struct {
-	GameUuid string
-	HostUuid string
-	HostGrid [][]int
+	GameUuid string  `json:"game_uuid"`
+	HostUuid string  `json:"host_uuid"`
+	HostGrid [][]int `json:"host_grid"`
 }
 
 // type IncomingMessage struct {
