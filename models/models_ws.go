@@ -1,9 +1,13 @@
 package models
 
 const (
-	CodeStartGame = iota
+	CodeCreateGame = iota
+	CodeStartGame
 	CodeEndGame
+	CodeJoinGame
+	CodeSelectGrid
 	CodeAttack
+	CodeAttackResult
 	CodeReady
 )
 
@@ -11,7 +15,7 @@ type SignalStruct struct {
 	Code int `json:"code"`
 }
 
-type StartGameResp struct {
-	GameUuid string  `json:"game_uuid"`
-	HostUuid string  `json:"host_uuid"`
+type CreateGameResp struct {
+	GameUuid string `json:"game_uuid"`
+	HostUuid string `json:"host_uuid"`
 }

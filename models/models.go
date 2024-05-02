@@ -1,5 +1,7 @@
 package models
 
+import "github.com/gorilla/websocket"
+
 func NewGrid() [][]int {
 	grid := make([][]int, 0)
 	col := []int{0, 0, 0, 0, 0}
@@ -14,18 +16,18 @@ func NewGrid() [][]int {
 type Player struct {
 	IsReady     bool
 	Uuid        string
-	RemoteAddr  string
 	AttackGrid  [][]int
 	DefenceGrid [][]int
+	WsConn      *websocket.Conn
 }
 
-func NewPlayer(uuid, remoteAddr string) *Player {
+func NewPlayer(uuid string, ws *websocket.Conn) *Player {
 	return &Player{
 		IsReady:     false,
 		Uuid:        uuid,
-		RemoteAddr:  remoteAddr,
 		AttackGrid:  NewGrid(),
 		DefenceGrid: NewGrid(),
+		WsConn:      ws,
 	}
 }
 
