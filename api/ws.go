@@ -12,10 +12,9 @@ import (
 	"github.com/saeidalz13/battleship-backend/models"
 )
 
-
 const (
 	StageProd = "prod"
-	StageDev = "dev"
+	StageDev  = "dev"
 )
 
 var defaultPort int16 = 8000
@@ -59,6 +58,7 @@ func NewServer(optFuncs ...Option) *Server {
 		ReadBufferSize:  2048,
 		WriteBufferSize: 2048,
 	}
+
 	server.Upgrader = upgrader
 	if server.Upgrader.CheckOrigin == nil {
 		server.Upgrader.CheckOrigin = func(r *http.Request) bool { return true }
@@ -92,6 +92,7 @@ func WithStage(stage string) Option {
 			}
 			return nil
 		}
+
 		if stage == StageDev {
 			s.Upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 			return nil
@@ -139,6 +140,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 		// This is where we choose the action based on the code in incoming json
 		switch {
 		case signal.Code == models.CodeStartGame:
+			// TODO: return player id too
 			newId, newGame, newPlayer := StartGame(ws.RemoteAddr().String())
 			s.Games[newId] = newGame
 			s.Players[ws.RemoteAddr().String()] = newPlayer
@@ -146,7 +148,6 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 			newResp := models.StartGameResp{
 				GameUuid: newGame.Uuid,
 				HostUuid: newPlayer.Uuid,
-				HostGrid: newPlayer.Grid,
 			}
 
 			jsonResp, err := json.Marshal(newResp)

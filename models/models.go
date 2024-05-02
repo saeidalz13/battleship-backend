@@ -12,18 +12,20 @@ func NewGrid() [][]int {
 }
 
 type Player struct {
-	IsReady    bool
-	Uuid       string
-	RemoteAddr string
-	Grid       [][]int
+	IsReady     bool
+	Uuid        string
+	RemoteAddr  string
+	AttackGrid  [][]int
+	DefenceGrid [][]int
 }
 
 func NewPlayer(uuid, remoteAddr string) *Player {
 	return &Player{
-		IsReady:    false,
-		Uuid:       uuid,
-		RemoteAddr: remoteAddr,
-		Grid:       NewGrid(),
+		IsReady:     false,
+		Uuid:        uuid,
+		RemoteAddr:  remoteAddr,
+		AttackGrid:  NewGrid(),
+		DefenceGrid: NewGrid(),
 	}
 }
 
