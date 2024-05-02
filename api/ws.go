@@ -140,20 +140,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 		// This is where we choose the action based on the code in incoming json
 		switch {
 		case signal.Code == models.CodeCreateGame:
-			newId, newGame, newPlayerUuid, newPlayer := StartGame(ws)
-			s.Games[newId] = newGame
-			s.Players[newPlayerUuid] = newPlayer
-
-			newResp := models.CreateGameResp{
-				GameUuid: newGame.Uuid,
-				HostUuid: newPlayer.Uuid,
-			}
-
-			jsonResp, err := json.Marshal(newResp)
-			if err != nil {
-				log.Println(err)
-			}
-			if err := ws.WriteJSON(jsonResp); err != nil {
+			if err := CreateGame(s, ws); err != nil {
 				log.Println(err)
 				continue
 			}
@@ -165,12 +152,10 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 			log.Println("attack!")
 
 		case signal.Code == models.CodeReady:
-			log.Println("ready!")
-
-			// Ready means the defence grid has been set and this player is ready to start the game
-			// struct => code, grid, player_id, game_id
-			// unmarshal, then set the player defence grid, set isReady to true
-			// if both host and join are ready, send a signal CodeStartGame to both players
+			if err := ManageReadyPlayer(s, ws, payload); err != nil {
+				log.Println(err)
+				continue
+			}
 
 		default:
 			continue

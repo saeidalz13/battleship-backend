@@ -15,15 +15,17 @@ func NewGrid() [][]int {
 
 type Player struct {
 	IsReady     bool
+	IsHost      bool
 	Uuid        string
 	AttackGrid  [][]int
 	DefenceGrid [][]int
 	WsConn      *websocket.Conn
 }
 
-func NewPlayer(uuid string, ws *websocket.Conn) *Player {
+func NewPlayer(uuid string, ws *websocket.Conn, isHost bool) *Player {
 	return &Player{
 		IsReady:     false,
+		IsHost:      isHost,
 		Uuid:        uuid,
 		AttackGrid:  NewGrid(),
 		DefenceGrid: NewGrid(),
@@ -42,4 +44,8 @@ func NewGame(uuid string, host *Player) *Game {
 		Uuid: uuid,
 		Host: host,
 	}
+}
+
+func (g *Game) GetPlayers() []*Player {
+	return []*Player{g.Host, g.Join}
 }
