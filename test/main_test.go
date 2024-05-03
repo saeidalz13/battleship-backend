@@ -30,7 +30,7 @@ func TestMain(m *testing.M) {
 	}()
 
 	// Give the server time to start
-	time.Sleep(time.Second*2)
+	time.Sleep(time.Second * 2)
 
 	dialer := websocket.Dialer{
 		HandshakeTimeout: 10 * time.Second,
