@@ -1,6 +1,9 @@
 package models
 
-import "github.com/gorilla/websocket"
+import (
+	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
+)
 
 const (
 	// Create game
@@ -62,12 +65,12 @@ type Player struct {
 	WsConn      *websocket.Conn
 }
 
-func NewPlayer(uuid string, ws *websocket.Conn, isHost, isTurn bool) *Player {
+func NewPlayer(ws *websocket.Conn, isHost, isTurn bool) *Player {
 	return &Player{
 		IsReady:     false,
 		IsTurn:      isTurn,
 		IsHost:      isHost,
-		Uuid:        uuid,
+		Uuid:        uuid.NewString()[:10],
 		AttackGrid:  NewGrid(),
 		DefenceGrid: NewGrid(),
 		WsConn:      ws,
@@ -75,18 +78,18 @@ func NewPlayer(uuid string, ws *websocket.Conn, isHost, isTurn bool) *Player {
 }
 
 type Game struct {
-	Uuid string
-	Host *Player
-	Join *Player
+	Uuid       string
+	HostPlayer *Player
+	JoinPlayer *Player
 }
 
-func NewGame(uuid string, host *Player) *Game {
+func NewGame(host *Player) *Game {
 	return &Game{
-		Uuid: uuid,
-		Host: host,
+		Uuid:       uuid.NewString()[:6],
+		HostPlayer: host,
 	}
 }
 
 func (g *Game) GetPlayers() []*Player {
-	return []*Player{g.Host, g.Join}
+	return []*Player{g.HostPlayer, g.JoinPlayer}
 }

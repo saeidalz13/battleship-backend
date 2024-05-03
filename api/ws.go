@@ -159,15 +159,14 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 					log.Println(err)
 					continue
 				}
+			} else {
+				// TODO: should you give me x and y? or the entire grid? seems redundant...
+				if err := ws.WriteJSON(models.RespSuccessAttack{Code: models.CodeRespSuccessAttack, IsTurn: false}); err != nil {
+					log.Println(err)
+					continue
+				}
+				// TODO: Notify the other player about this event and tell them it's their turn
 			}
-
-			// TODO: should you give me x and y? or the entire grid? seems redundant...
-			if err := ws.WriteJSON(models.RespSuccessAttack{Code: models.CodeRespSuccessAttack, IsTurn: false}); err != nil {
-				log.Println(err)
-				continue
-			}
-
-			// TODO: Notify the other player about this event and tell them it's their turn
 
 		case models.CodeReqReady:
 			game, err := ManageReadyPlayer(s, ws, payload)
@@ -178,18 +177,19 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 					continue
 				}
 				continue
-			}
-			// send response to the player that sent the request
-			if err := ws.WriteJSON(models.RespReadyPlayer{Success: true}); err != nil {
-				log.Println(err)
-				continue
-			}
-
-			if game.Host.IsReady && game.Join.IsReady {
-				jsonResp := models.Signal{Code: models.CodeRespSuccessStartGame}
-				if err := SendJSONBothPlayers(game, jsonResp); err != nil {
+			} else {
+				// send response to the player that sent the request
+				if err := ws.WriteJSON(models.RespReadyPlayer{Success: true}); err != nil {
 					log.Println(err)
 					continue
+				}
+
+				if game.HostPlayer.IsReady && game.JoinPlayer.IsReady {
+					jsonResp := models.Signal{Code: models.CodeRespSuccessStartGame}
+					if err := SendJSONBothPlayers(game, jsonResp); err != nil {
+						log.Println(err)
+						continue
+					}
 				}
 			}
 
@@ -200,10 +200,12 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 				if err := ws.WriteJSON(models.NewRespFail(models.CodeRespFailJoinGame, err.Error(), "failed to join the player")); err != nil {
 					continue
 				}
-			}
-			if err := SendJSONBothPlayers(game, resp); err != nil {
-				log.Println(err)
-				continue
+			} else {
+				LogSuccess("confirmation sent to join player connection: ", game.JoinPlayer)
+				if err := SendJSONBothPlayers(game, resp); err != nil {
+					log.Println(err)
+					continue
+				}
 			}
 
 		default:

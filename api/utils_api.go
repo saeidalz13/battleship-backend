@@ -2,21 +2,18 @@ package api
 
 import (
 	"encoding/json"
+	"log"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/saeidalz13/battleship-backend/models"
 )
 
 func CreateGame(s *Server, ws *websocket.Conn) *models.RespCreateGame {
-	newGameUuid := uuid.NewString()[:6]
-	newPlayerUuid := uuid.NewString()
+	newPlayer := models.NewPlayer(ws, true, true)
+	newGame := models.NewGame(newPlayer)
 
-	newPlayer := models.NewPlayer(newPlayerUuid, ws, true, true)
-	newGame := models.NewGame(newGameUuid, newPlayer)
-
-	s.Games[newGameUuid] = newGame
-	s.Players[newPlayerUuid] = newPlayer
+	s.Games[newGame.Uuid] = newGame
+	s.Players[newPlayer.Uuid] = newPlayer
 
 	return &models.RespCreateGame{
 		Code:     models.CodeRespCreateGame,
@@ -48,23 +45,25 @@ func ManageReadyPlayer(s *Server, ws *websocket.Conn, payload []byte) (*models.G
 	return game, nil
 }
 
-func JoinPlayerToGame(s *Server, ws *websocket.Conn, payload []byte) (*models.Game, *models.RespJoinGame, error) {
+func JoinPlayerToGame(s *Server, ws *websocket.Conn, payload []byte) (*models.Game, models.RespJoinGame, error) {
 	var joinGameReq models.ReqJoinGame
 	if err := json.Unmarshal(payload, &joinGameReq); err != nil {
-		return nil, nil, err
+		return nil, models.RespJoinGame{}, err
 	}
+	LogSuccess("unmarshaled join game payload: ", joinGameReq)
 
 	game, prs := s.Games[joinGameReq.GameUuid]
 	if !prs {
-		return nil, nil, ErrorGameNotExist(joinGameReq.GameUuid)
+		return nil, models.RespJoinGame{}, ErrorGameNotExist(joinGameReq.GameUuid)
 	}
+	LogSuccess("found game in database: ", game)
 
-	joinPlayerUuid := uuid.NewString()
-	joinPlayer := models.NewPlayer(joinPlayerUuid, ws, false, false)
+	joinPlayer := models.NewPlayer(ws, false, false)
+	LogSuccess("new player created: ", joinPlayer)
 
-	game.Join = joinPlayer
-	resp := models.RespJoinGame{Code: models.CodeRespSuccessJoinGame, PlayerUuid: joinPlayerUuid}
-	return game, &resp, nil
+	game.JoinPlayer = joinPlayer
+	resp := models.RespJoinGame{Code: models.CodeRespSuccessJoinGame, PlayerUuid: joinPlayer.Uuid}
+	return game, resp, nil
 }
 
 func Attack(s *Server, ws *websocket.Conn, payload []byte) error {
@@ -84,11 +83,11 @@ func Attack(s *Server, ws *websocket.Conn, payload []byte) error {
 	player.IsTurn = false
 
 	if player.IsHost {
-		game.Host.AttackGrid = reqAttack.AttackGrid
-		game.Host.IsTurn = false
+		game.HostPlayer.AttackGrid = reqAttack.AttackGrid
+		game.HostPlayer.IsTurn = false
 	} else {
-		game.Join.AttackGrid = reqAttack.AttackGrid
-		game.Join.IsTurn = false
+		game.JoinPlayer.AttackGrid = reqAttack.AttackGrid
+		game.JoinPlayer.IsTurn = false
 	}
 	return nil
 }
@@ -103,6 +102,11 @@ func SendJSONBothPlayers(game *models.Game, v interface{}) error {
 		if err := player.WsConn.WriteJSON(v); err != nil {
 			return err
 		}
+		LogSuccess("message sent to player:", player.Uuid)
 	}
 	return nil
+}
+
+func LogSuccess(msg string, v interface{}) {
+	log.Printf(msg+" %+v", v)
 }
