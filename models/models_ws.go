@@ -28,6 +28,9 @@ const (
 	CodeReqReady
 	CodeRespSuccessReady
 	CodeRespFailReady
+
+	// Misc
+	CodeRespInvalidSignal
 )
 
 type Signal struct {

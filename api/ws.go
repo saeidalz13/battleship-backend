@@ -171,7 +171,10 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 				continue
 			}
 		default:
-			continue
+			if err := ws.WriteJSON(models.NewRespFail(models.CodeRespInvalidSignal, "", "invalid code in request payload")); err != nil {
+				log.Println(err)
+				continue
+			}
 		}
 	}
 }
