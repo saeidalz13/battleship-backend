@@ -12,10 +12,9 @@ import (
 	"github.com/saeidalz13/battleship-backend/models"
 )
 
-
 const (
 	StageProd = "prod"
-	StageDev = "dev"
+	StageDev  = "dev"
 )
 
 var defaultPort int16 = 8000
@@ -59,6 +58,7 @@ func NewServer(optFuncs ...Option) *Server {
 		ReadBufferSize:  2048,
 		WriteBufferSize: 2048,
 	}
+
 	server.Upgrader = upgrader
 	if server.Upgrader.CheckOrigin == nil {
 		server.Upgrader.CheckOrigin = func(r *http.Request) bool { return true }
@@ -92,6 +92,7 @@ func WithStage(stage string) Option {
 			}
 			return nil
 		}
+
 		if stage == StageDev {
 			s.Upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 			return nil
@@ -126,7 +127,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 		// the incoming message must be of type json containing the field "code"
 		// which would allow us to determine what action is required
 		// any other format of incoming message is invalid and will be ignored
-		var signal models.SignalStruct
+		var signal models.Signal
 		if err := json.Unmarshal(payload, &signal); err != nil {
 			log.Println(err)
 			if err := ws.WriteMessage(websocket.TextMessage, []byte("incoming message is invalid; must be of type json")); err != nil {
@@ -137,35 +138,43 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 		}
 
 		// This is where we choose the action based on the code in incoming json
-		switch {
-		case signal.Code == models.CodeStartGame:
-			newId, newGame, newPlayer := StartGame(ws.RemoteAddr().String())
-			s.Games[newId] = newGame
-			s.Players[ws.RemoteAddr().String()] = newPlayer
-
-			newResp := models.StartGameResp{
-				GameUuid: newGame.Uuid,
-				HostUuid: newPlayer.Uuid,
-				HostGrid: newPlayer.Grid,
-			}
-
-			jsonResp, err := json.Marshal(newResp)
-			if err != nil {
-				log.Println(err)
-			}
-			if err := ws.WriteJSON(jsonResp); err != nil {
+		switch signal.Code {
+		case models.CodeReqCreateGame:
+			if err := CreateGame(s, ws); err != nil {
 				log.Println(err)
 				continue
 			}
 
-		case signal.Code == models.CodeEndGame:
+		case models.CodeEndGame:
 			log.Println("end game")
 
-		case signal.Code == models.CodeAttack:
+		case models.CodeReqAttack:
 			log.Println("attack!")
 
+		case models.CodeReqReady:
+			if err := ManageReadyPlayer(s, ws, payload); err != nil {
+				log.Println(err)
+				if err := ws.WriteJSON(models.NewRespFail(models.CodeRespFailReady, err.Error(), "failed to make the player ready")); err != nil {
+					// TODO: to be decided what to do if writing to connection failed
+					continue
+				}
+				continue
+			}
+
+		case models.CodeReqJoinGame:
+			if err := JoinPlayerToGame(s, ws, payload); err != nil {
+				log.Println(err)
+				if err := ws.WriteJSON(models.NewRespFail(models.CodeRespFailJoinGame, err.Error(), "failed to join the player")); err != nil {
+					// TODO: to be decided what to do if writing to connection failed
+					continue
+				}
+				continue
+			}
 		default:
-			continue
+			if err := ws.WriteJSON(models.NewRespFail(models.CodeRespInvalidSignal, "", "invalid code in request payload")); err != nil {
+				log.Println(err)
+				continue
+			}
 		}
 	}
 }

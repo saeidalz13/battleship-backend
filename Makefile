@@ -13,3 +13,9 @@ new_migration:
 # For security reasons, DATABASE_URL should be replaced by the developers on local drive
 migrate_down:
 	migrate -path db/migration -database DATABASE_URL -verbose down $(n)
+
+.PHONY: test
+
+# Test
+test:
+	go test -v ./test -count=1
