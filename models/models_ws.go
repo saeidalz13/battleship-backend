@@ -18,6 +18,8 @@ const (
 
 	// Select grid
 	CodeReqSelectGrid
+	CodeRespSuccessSelectGrid
+	CodeRespFailSelectGrid
 
 	// Attack
 	CodeReqAttack
@@ -52,6 +54,7 @@ func NewGrid() GridInt {
 
 type Player struct {
 	IsReady     bool
+	IsTurn      bool
 	IsHost      bool
 	Uuid        string
 	AttackGrid  GridInt
@@ -59,9 +62,10 @@ type Player struct {
 	WsConn      *websocket.Conn
 }
 
-func NewPlayer(uuid string, ws *websocket.Conn, isHost bool) *Player {
+func NewPlayer(uuid string, ws *websocket.Conn, isHost, isTurn bool) *Player {
 	return &Player{
 		IsReady:     false,
+		IsTurn:      isTurn,
 		IsHost:      isHost,
 		Uuid:        uuid,
 		AttackGrid:  NewGrid(),

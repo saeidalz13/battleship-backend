@@ -149,7 +149,10 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 			log.Println("end game")
 
 		case models.CodeReqAttack:
-			log.Println("attack!")
+			if err := Attack(s, ws, payload); err != nil {
+				log.Printf("failed to attack: %v\n", err)
+				continue
+			}
 
 		case models.CodeReqReady:
 			if err := ManageReadyPlayer(s, ws, payload); err != nil {

@@ -13,7 +13,7 @@ func CreateGame(s *Server, ws *websocket.Conn) error {
 	newGameUuid := uuid.NewString()[:6]
 	newPlayerUuid := uuid.NewString()
 
-	newPlayer := models.NewPlayer(newPlayerUuid, ws, true)
+	newPlayer := models.NewPlayer(newPlayerUuid, ws, true, true)
 	newGame := models.NewGame(newGameUuid, newPlayer)
 
 	s.Games[newGameUuid] = newGame
@@ -77,7 +77,7 @@ func JoinPlayerToGame(s *Server, ws *websocket.Conn, payload []byte) error {
 	}
 
 	joinPlayerUuid := uuid.NewString()
-	joinPlayer := models.NewPlayer(joinPlayerUuid, ws, false)
+	joinPlayer := models.NewPlayer(joinPlayerUuid, ws, false, false)
 
 	game.Join = joinPlayer
 
@@ -87,6 +87,40 @@ func JoinPlayerToGame(s *Server, ws *websocket.Conn, payload []byte) error {
 	}
 	return nil
 }
+
+func Attack(s *Server, ws *websocket.Conn, payload []byte) error {
+	var reqAttack models.ReqAttack
+	if err := json.Unmarshal(payload, &reqAttack); err != nil {
+		return err
+	}
+
+	game, prs := s.Games[reqAttack.GameUuid]
+	if !prs {
+		return ErrorGameNotExist(reqAttack.GameUuid)
+	}
+	player, prs := s.Players[reqAttack.PlayerUuid]
+	if !prs {
+		return ErrorPlayerNotExist(reqAttack.PlayerUuid)
+	}
+	player.IsTurn = false
+	
+	if player.IsHost {
+		game.Host.AttackGrid = reqAttack.AttackGrid	
+		game.Host.IsTurn = false
+	} else {
+		game.Join.AttackGrid = reqAttack.AttackGrid	
+		game.Join.IsTurn = false
+	}
+
+	// TODO: should you give me x and y? or the entire grid? seems redundant...
+	if err := ws.WriteJSON(models.RespSuccessAttack{Code: models.CodeRespSuccessAttack, IsTurn: false}); err != nil {
+		return err
+	}
+	
+	// TODO: Notify the other player about this event and tell them it's their turn
+	return nil
+}
+
 
 func SendJSONBothPlayers(game *models.Game, v interface{}) error {
 	playerOfGames := game.GetPlayers()
