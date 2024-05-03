@@ -1,32 +1,85 @@
 package models
 
+import "github.com/gorilla/websocket"
+
 const (
-	CodeCreateGame = iota
-	CodeStartGame
+	// Create game
+	CodeReqCreateGame = iota
+	CodeRespCreateGame
+
+	// Start game
+	CodeRespSuccessStartGame
 	CodeEndGame
-	CodeJoinGame
-	CodeSelectGrid
-	CodeAttack
-	CodeAttackResult
-	CodeReady
+
+	// Join game
+	CodeReqJoinGame
+	CodeRespSuccessJoinGame
+	CodeRespFailJoinGame
+
+	// Select grid
+	CodeReqSelectGrid
+
+	// Attack
+	CodeReqAttack
+	CodeRespSuccessAttack
+	CodeRespFailAttack
+
+	// Ready
+	CodeReqReady
+	CodeRespSuccessReady
+	CodeRespFailReady
 )
 
-type SignalStruct struct {
+type Signal struct {
 	Code int `json:"code"`
 }
 
-type ReadyPlayerReq struct {
-	DefenceGrid [][]int `json:"defence_grid"`
-	PlayerUuid  string  `json:"player_uuid"`
-	GameUuid    string  `json:"game_uuid"`
+type GridInt [][]int
+
+func NewGrid() GridInt {
+	grid := make(GridInt, 0)
+	col := []int{0, 0, 0, 0, 0}
+
+	rowColSize := 5
+	for i := 0; i <= rowColSize; i++ {
+		grid = append(grid, col)
+	}
+	return grid
 }
 
-type ReadyPlayerResp struct {
-	Success bool `json:"success"`
+type Player struct {
+	IsReady     bool
+	IsHost      bool
+	Uuid        string
+	AttackGrid  GridInt
+	DefenceGrid GridInt
+	WsConn      *websocket.Conn
 }
 
+func NewPlayer(uuid string, ws *websocket.Conn, isHost bool) *Player {
+	return &Player{
+		IsReady:     false,
+		IsHost:      isHost,
+		Uuid:        uuid,
+		AttackGrid:  NewGrid(),
+		DefenceGrid: NewGrid(),
+		WsConn:      ws,
+	}
+}
 
-type CreateGameResp struct {
-	GameUuid string `json:"game_uuid"`
-	HostUuid string `json:"host_uuid"`
+type Game struct {
+	Uuid string
+	Host *Player
+	Join *Player
+}
+
+func NewGame(uuid string, host *Player) *Game {
+	return &Game{
+		Uuid: uuid,
+		Host: host,
+	}
+}
+
+func (g *Game) GetPlayers() []*Player {
+	return []*Player{g.Host, g.Join}
 }

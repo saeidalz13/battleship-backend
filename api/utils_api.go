@@ -19,7 +19,8 @@ func CreateGame(s *Server, ws *websocket.Conn) error {
 	s.Games[newGameUuid] = newGame
 	s.Players[newPlayerUuid] = newPlayer
 
-	newResp := models.CreateGameResp{
+	newResp := models.RespCreateGame{
+		Code:     models.CodeRespCreateGame,
 		GameUuid: newGame.Uuid,
 		HostUuid: newPlayer.Uuid,
 	}
@@ -32,7 +33,7 @@ func CreateGame(s *Server, ws *websocket.Conn) error {
 }
 
 func ManageReadyPlayer(s *Server, ws *websocket.Conn, payload []byte) error {
-	var readyPlayerReq models.ReadyPlayerReq
+	var readyPlayerReq models.ReqReadyPlayer
 	if err := json.Unmarshal(payload, &readyPlayerReq); err != nil {
 		return err
 	}
@@ -51,15 +52,46 @@ func ManageReadyPlayer(s *Server, ws *websocket.Conn, payload []byte) error {
 	player.IsReady = true
 
 	// send response to the player that sent the request
-	if err := ws.WriteJSON(models.ReadyPlayerResp{Success: true}); err != nil {
+	if err := ws.WriteJSON(models.RespReadyPlayer{Success: true}); err != nil {
 		return err
 	}
 
 	if game.Host.IsReady && game.Join.IsReady {
-		for _, player := range game.GetPlayers() {
-			if err := player.WsConn.WriteJSON(models.SignalStruct{Code: models.CodeStartGame}); err != nil {
-				return err
-			}
+		jsonResp := models.Signal{Code: models.CodeRespSuccessStartGame}
+		if err := SendJSONBothPlayers(game, jsonResp); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func JoinPlayerToGame(s *Server, ws *websocket.Conn, payload []byte) error {
+	var joinGameReq models.ReqJoinGame
+	if err := json.Unmarshal(payload, &joinGameReq); err != nil {
+		return err
+	}
+
+	joinPlayerUuid := uuid.NewString()
+	joinPlayer := models.NewPlayer(joinPlayerUuid, ws, false)
+
+	game, prs := s.Games[joinGameReq.GameUuid]
+	if !prs {
+		ErrorGameNotExist(joinGameReq.GameUuid)
+	}
+	game.Join = joinPlayer
+
+	jsonPlayerJoined := models.RespJoinGame{Code: models.CodeRespSuccessJoinGame, PlayerUuid: joinPlayerUuid}
+	if err := SendJSONBothPlayers(game, jsonPlayerJoined); err != nil {
+		return err
+	}
+	return nil
+}
+
+func SendJSONBothPlayers(game *models.Game, v interface{}) error {
+	playerOfGames := game.GetPlayers()
+	for _, player := range playerOfGames {
+		if err := player.WsConn.WriteJSON(v); err != nil {
+			return err
 		}
 	}
 	return nil
