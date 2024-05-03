@@ -79,7 +79,6 @@ func JoinPlayerToGame(s *Server, ws *websocket.Conn, payload []byte) error {
 		ErrorGameNotExist(joinGameReq.GameUuid)
 	}
 	game.Join = joinPlayer
-
 	jsonPlayerJoined := models.RespJoinGame{Code: models.CodeRespSuccessJoinGame, PlayerUuid: joinPlayerUuid}
 	if err := SendJSONBothPlayers(game, jsonPlayerJoined); err != nil {
 		return err

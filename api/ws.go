@@ -111,7 +111,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 	for {
 		// A WebSocket frame can be one of 6 types: text=1, binary=2, ping=9, pong=10, close=8 and continuation=0
 		// https://www.rfc-editor.org/rfc/rfc6455.html#section-11.8
-		messageType, payload, err := ws.ReadMessage()
+		_, payload, err := ws.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.Println(err)
@@ -121,8 +121,8 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 		}
 
 		// log the incoming messages
-		log.Println("message type:", messageType)
-		log.Printf("payload: %s, len: %d", string(payload), len(payload))
+		// log.Println("message type:", messageType)
+		// log.Printf("payload: %s, len: %d", string(payload), len(payload))
 
 		// the incoming message must be of type json containing the field "code"
 		// which would allow us to determine what action is required
