@@ -9,33 +9,45 @@ import (
 type Test struct {
 	Desc        string
 	ReqPayload  interface{}
-	RespPayload interface{}
 }
 
 func TestCreateGame(t *testing.T) {
 	test := Test{
-		Desc:        "should pass and receive the response in the defined structs",
+		Desc:        "should pass with valid code",
 		ReqPayload:  models.Signal{Code: models.CodeReqCreateGame},
-		RespPayload: &models.RespCreateGame{},
 	}
 	if err := ClientConn.WriteJSON(test.ReqPayload); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := ClientConn.ReadJSON(test.RespPayload); err != nil {
+	var respCreateGame models.RespCreateGame
+	if err := ClientConn.ReadJSON(&respCreateGame); err != nil {
 		t.Fatal(err)
 	}
+	createdGameUuid := respCreateGame.GameUuid 
+	// createdPlaerUuid := respCreateGame.HostUuid 
 
 	test = Test{
 		Desc:        "should fail with invalid code in the payload",
 		ReqPayload:  models.Signal{Code: -1},
-		RespPayload: &models.RespFail{},
 	}
 	if err := ClientConn.WriteJSON(test.ReqPayload); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := ClientConn.ReadJSON(test.RespPayload); err != nil {
+	var respFail models.RespFail
+	if err := ClientConn.ReadJSON(&respFail); err != nil {
+		t.Fatal(err)
+	}
+
+	test = Test{
+		Desc: "should join the game with valid game uuid",
+		ReqPayload: models.ReqJoinGame{Code: models.CodeReqJoinGame, GameUuid: createdGameUuid},
+	}
+
+	var respJoinGame models.RespCreateGame
+	if err := ClientConn.ReadJSON(&respJoinGame); err != nil {
 		t.Fatal(err)
 	}
 }
+
