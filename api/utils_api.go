@@ -40,11 +40,11 @@ func ManageReadyPlayer(s *Server, ws *websocket.Conn, payload []byte) error {
 
 	game, prs := s.Games[readyPlayerReq.GameUuid]
 	if !prs {
-		return fmt.Errorf("game with this uuid does not exist, uuid: %s", readyPlayerReq.GameUuid)
+		return ErrorGameNotExist(readyPlayerReq.GameUuid)
 	}
 	player, prs := s.Players[readyPlayerReq.PlayerUuid]
 	if !prs {
-		return fmt.Errorf("player with this uuid does not exist, uuid: %s", readyPlayerReq.PlayerUuid)
+		return ErrorPlayerNotExist(readyPlayerReq.PlayerUuid)
 	}
 
 	// Change player properties
@@ -71,14 +71,16 @@ func JoinPlayerToGame(s *Server, ws *websocket.Conn, payload []byte) error {
 		return err
 	}
 
+	game, prs := s.Games[joinGameReq.GameUuid]
+	if !prs {
+		return ErrorGameNotExist(joinGameReq.GameUuid)
+	}
+
 	joinPlayerUuid := uuid.NewString()
 	joinPlayer := models.NewPlayer(joinPlayerUuid, ws, false)
 
-	game, prs := s.Games[joinGameReq.GameUuid]
-	if !prs {
-		ErrorGameNotExist(joinGameReq.GameUuid)
-	}
 	game.Join = joinPlayer
+
 	jsonPlayerJoined := models.RespJoinGame{Code: models.CodeRespSuccessJoinGame, PlayerUuid: joinPlayerUuid}
 	if err := SendJSONBothPlayers(game, jsonPlayerJoined); err != nil {
 		return err

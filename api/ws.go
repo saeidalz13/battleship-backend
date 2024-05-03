@@ -141,7 +141,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 		switch signal.Code {
 		case models.CodeReqCreateGame:
 			if err := CreateGame(s, ws); err != nil {
-				log.Println(err)
+				log.Printf("failed to create new game: %v\n", err)
 				continue
 			}
 
@@ -153,7 +153,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 
 		case models.CodeReqReady:
 			if err := ManageReadyPlayer(s, ws, payload); err != nil {
-				log.Println(err)
+				log.Printf("failed to make the player ready: %v\n", err)
 				if err := ws.WriteJSON(models.NewRespFail(models.CodeRespFailReady, err.Error(), "failed to make the player ready")); err != nil {
 					// TODO: to be decided what to do if writing to connection failed
 					continue
@@ -163,7 +163,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 
 		case models.CodeReqJoinGame:
 			if err := JoinPlayerToGame(s, ws, payload); err != nil {
-				log.Println(err)
+				log.Printf("failed to join player: %v\n",err)
 				if err := ws.WriteJSON(models.NewRespFail(models.CodeRespFailJoinGame, err.Error(), "failed to join the player")); err != nil {
 					// TODO: to be decided what to do if writing to connection failed
 					continue
