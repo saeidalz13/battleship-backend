@@ -2,14 +2,13 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/saeidalz13/battleship-backend/models"
 )
 
-func CreateGame(s *Server, ws *websocket.Conn) error {
+func CreateGame(s *Server, ws *websocket.Conn) *models.RespCreateGame {
 	newGameUuid := uuid.NewString()[:6]
 	newPlayerUuid := uuid.NewString()
 
@@ -19,73 +18,53 @@ func CreateGame(s *Server, ws *websocket.Conn) error {
 	s.Games[newGameUuid] = newGame
 	s.Players[newPlayerUuid] = newPlayer
 
-	newResp := models.RespCreateGame{
+	return &models.RespCreateGame{
 		Code:     models.CodeRespCreateGame,
 		GameUuid: newGame.Uuid,
 		HostUuid: newPlayer.Uuid,
 	}
 
-	if err := ws.WriteJSON(newResp); err != nil {
-		return fmt.Errorf("failed to write json to ws conn, remote addr: %s; %v", ws.RemoteAddr().String(), err)
-	}
-
-	return nil
 }
 
-func ManageReadyPlayer(s *Server, ws *websocket.Conn, payload []byte) error {
+func ManageReadyPlayer(s *Server, ws *websocket.Conn, payload []byte) (*models.Game, error) {
 	var readyPlayerReq models.ReqReadyPlayer
 	if err := json.Unmarshal(payload, &readyPlayerReq); err != nil {
-		return err
+		return nil, err
 	}
 
 	game, prs := s.Games[readyPlayerReq.GameUuid]
 	if !prs {
-		return ErrorGameNotExist(readyPlayerReq.GameUuid)
+		return nil, ErrorGameNotExist(readyPlayerReq.GameUuid)
 	}
 	player, prs := s.Players[readyPlayerReq.PlayerUuid]
 	if !prs {
-		return ErrorPlayerNotExist(readyPlayerReq.PlayerUuid)
+		return nil, ErrorPlayerNotExist(readyPlayerReq.PlayerUuid)
 	}
 
 	// Change player properties
 	player.DefenceGrid = readyPlayerReq.DefenceGrid
 	player.IsReady = true
 
-	// send response to the player that sent the request
-	if err := ws.WriteJSON(models.RespReadyPlayer{Success: true}); err != nil {
-		return err
-	}
-
-	if game.Host.IsReady && game.Join.IsReady {
-		jsonResp := models.Signal{Code: models.CodeRespSuccessStartGame}
-		if err := SendJSONBothPlayers(game, jsonResp); err != nil {
-			return err
-		}
-	}
-	return nil
+	return game, nil
 }
 
-func JoinPlayerToGame(s *Server, ws *websocket.Conn, payload []byte) error {
+func JoinPlayerToGame(s *Server, ws *websocket.Conn, payload []byte) (*models.Game, *models.RespJoinGame, error) {
 	var joinGameReq models.ReqJoinGame
 	if err := json.Unmarshal(payload, &joinGameReq); err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	game, prs := s.Games[joinGameReq.GameUuid]
 	if !prs {
-		return ErrorGameNotExist(joinGameReq.GameUuid)
+		return nil, nil, ErrorGameNotExist(joinGameReq.GameUuid)
 	}
 
 	joinPlayerUuid := uuid.NewString()
 	joinPlayer := models.NewPlayer(joinPlayerUuid, ws, false, false)
 
 	game.Join = joinPlayer
-
-	jsonPlayerJoined := models.RespJoinGame{Code: models.CodeRespSuccessJoinGame, PlayerUuid: joinPlayerUuid}
-	if err := SendJSONBothPlayers(game, jsonPlayerJoined); err != nil {
-		return err
-	}
-	return nil
+	resp := models.RespJoinGame{Code: models.CodeRespSuccessJoinGame, PlayerUuid: joinPlayerUuid}
+	return game, &resp, nil
 }
 
 func Attack(s *Server, ws *websocket.Conn, payload []byte) error {
@@ -103,24 +82,20 @@ func Attack(s *Server, ws *websocket.Conn, payload []byte) error {
 		return ErrorPlayerNotExist(reqAttack.PlayerUuid)
 	}
 	player.IsTurn = false
-	
+
 	if player.IsHost {
-		game.Host.AttackGrid = reqAttack.AttackGrid	
+		game.Host.AttackGrid = reqAttack.AttackGrid
 		game.Host.IsTurn = false
 	} else {
-		game.Join.AttackGrid = reqAttack.AttackGrid	
+		game.Join.AttackGrid = reqAttack.AttackGrid
 		game.Join.IsTurn = false
 	}
-
-	// TODO: should you give me x and y? or the entire grid? seems redundant...
-	if err := ws.WriteJSON(models.RespSuccessAttack{Code: models.CodeRespSuccessAttack, IsTurn: false}); err != nil {
-		return err
-	}
-	
-	// TODO: Notify the other player about this event and tell them it's their turn
 	return nil
 }
 
+func EndGame(s *Server, ws *websocket.Conn, payload []byte) error {
+	return nil
+}
 
 func SendJSONBothPlayers(game *models.Game, v interface{}) error {
 	playerOfGames := game.GetPlayers()

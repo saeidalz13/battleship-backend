@@ -140,22 +140,38 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 		// This is where we choose the action based on the code in incoming json
 		switch signal.Code {
 		case models.CodeReqCreateGame:
-			if err := CreateGame(s, ws); err != nil {
+			createGameResp := CreateGame(s, ws)
+			if err := ws.WriteJSON(createGameResp); err != nil {
 				log.Printf("failed to create new game: %v\n", err)
 				continue
 			}
 
 		case models.CodeEndGame:
+			if err := EndGame(s, ws, payload); err != nil {
+				log.Printf("failed to end game: %v\n", err)
+			}
 			log.Println("end game")
 
 		case models.CodeReqAttack:
 			if err := Attack(s, ws, payload); err != nil {
 				log.Printf("failed to attack: %v\n", err)
+				if err := ws.WriteJSON(models.NewRespFail(models.CodeRespFailAttack, err.Error(), "failed to attack on server side")); err != nil {
+					log.Println(err)
+					continue
+				}
+			}
+
+			// TODO: should you give me x and y? or the entire grid? seems redundant...
+			if err := ws.WriteJSON(models.RespSuccessAttack{Code: models.CodeRespSuccessAttack, IsTurn: false}); err != nil {
+				log.Println(err)
 				continue
 			}
 
+			// TODO: Notify the other player about this event and tell them it's their turn
+
 		case models.CodeReqReady:
-			if err := ManageReadyPlayer(s, ws, payload); err != nil {
+			game, err := ManageReadyPlayer(s, ws, payload)
+			if err != nil {
 				log.Printf("failed to make the player ready: %v\n", err)
 				if err := ws.WriteJSON(models.NewRespFail(models.CodeRespFailReady, err.Error(), "failed to make the player ready")); err != nil {
 					// TODO: to be decided what to do if writing to connection failed
@@ -163,16 +179,33 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 				}
 				continue
 			}
-
-		case models.CodeReqJoinGame:
-			if err := JoinPlayerToGame(s, ws, payload); err != nil {
-				log.Printf("failed to join player: %v\n",err)
-				if err := ws.WriteJSON(models.NewRespFail(models.CodeRespFailJoinGame, err.Error(), "failed to join the player")); err != nil {
-					// TODO: to be decided what to do if writing to connection failed
-					continue
-				}
+			// send response to the player that sent the request
+			if err := ws.WriteJSON(models.RespReadyPlayer{Success: true}); err != nil {
+				log.Println(err)
 				continue
 			}
+
+			if game.Host.IsReady && game.Join.IsReady {
+				jsonResp := models.Signal{Code: models.CodeRespSuccessStartGame}
+				if err := SendJSONBothPlayers(game, jsonResp); err != nil {
+					log.Println(err)
+					continue
+				}
+			}
+
+		case models.CodeReqJoinGame:
+			game, resp, err := JoinPlayerToGame(s, ws, payload)
+			if err != nil {
+				log.Printf("failed to join player: %v\n", err)
+				if err := ws.WriteJSON(models.NewRespFail(models.CodeRespFailJoinGame, err.Error(), "failed to join the player")); err != nil {
+					continue
+				}
+			}
+			if err := SendJSONBothPlayers(game, resp); err != nil {
+				log.Println(err)
+				continue
+			}
+
 		default:
 			if err := ws.WriteJSON(models.NewRespFail(models.CodeRespInvalidSignal, "", "invalid code in request payload")); err != nil {
 				log.Println(err)
