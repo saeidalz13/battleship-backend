@@ -13,5 +13,5 @@ make test
 Alternatively, run `main.go` file to start the server. Then establish a websocket connection using `websocat` application.
 
 ```bash
-`websocat ws://localhost:SERVERPORT/battleship`
+websocat ws://localhost:SERVERPORT/battleship
 ```
