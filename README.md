@@ -7,3 +7,9 @@ Backend server for Battleship IOS game written in Golang. `gorilla/websocket` li
 considering you have `websockat` installed on the machine:
 
 `websocat ws://localhost:9191/battleship` 
+
+## Test
+
+```bash
+make test
+```
