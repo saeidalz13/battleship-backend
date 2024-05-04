@@ -3,6 +3,8 @@ package models
 import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+
+	"github.com/saeidalz13/battleship-backend/internal/log"
 )
 
 const (
@@ -84,10 +86,9 @@ type Game struct {
 	JoinPlayer *Player
 }
 
-func NewGame(host *Player) *Game {
+func NewGame() *Game {
 	return &Game{
 		Uuid:       uuid.NewString()[:6],
-		HostPlayer: host,
 	}
 }
 
@@ -96,10 +97,14 @@ func (g *Game) GetPlayers() []*Player {
 }
 
 
-func (g *Game) AddJoinPlayer(ws *websocket.Conn) {
-	NewPlayer(ws, false, false)
+func (g *Game) AddJoinPlayer(ws *websocket.Conn)  {
+	joinPlayer := NewPlayer(ws, false, false)
+	g.JoinPlayer = joinPlayer
+	log.LogCustom("join player created and added to game", joinPlayer.Uuid)
 }
 
 func (g *Game) AddHostPlayer(ws *websocket.Conn) {
-	NewPlayer(ws, true, true)
+	hostPlayer := NewPlayer(ws, true, true)
+	g.HostPlayer = hostPlayer
+	log.LogCustom("host player created and added to game", hostPlayer.Uuid)
 }

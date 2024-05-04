@@ -2,23 +2,23 @@ package api
 
 import (
 	"encoding/json"
-	"log"
 
 	"github.com/gorilla/websocket"
+	"github.com/saeidalz13/battleship-backend/internal/log"
 	"github.com/saeidalz13/battleship-backend/models"
 )
 
 func CreateGame(s *Server, ws *websocket.Conn) *models.RespCreateGame {
-	newPlayer := models.NewPlayer(ws, true, true)
-	newGame := models.NewGame(newPlayer)
-
+	newGame := models.NewGame()
 	s.Games[newGame.Uuid] = newGame
-	s.Players[newPlayer.Uuid] = newPlayer
+
+	newGame.AddHostPlayer(ws)
+	s.Players[newGame.HostPlayer.Uuid] = newGame.HostPlayer
 
 	return &models.RespCreateGame{
 		Code:     models.CodeSuccessCreateGame,
 		GameUuid: newGame.Uuid,
-		HostUuid: newPlayer.Uuid,
+		HostUuid: newGame.HostPlayer.Uuid,
 	}
 
 }
@@ -50,17 +50,15 @@ func JoinPlayerToGame(s *Server, ws *websocket.Conn, payload []byte) (*models.Ga
 	if err := json.Unmarshal(payload, &joinGameReq); err != nil {
 		return nil, models.RespJoinGame{}, err
 	}
-	LogSuccess("unmarshaled join game payload: ", joinGameReq)
+	log.LogCustom("unmarshaled join game payload:", joinGameReq)
 
 	game, prs := s.Games[joinGameReq.GameUuid]
 	if !prs {
 		return nil, models.RespJoinGame{}, ErrorGameNotExist(joinGameReq.GameUuid)
 	}
-	LogSuccess("found game in database: ", game)
+	log.LogCustom("found game in database:", game)
 
 	game.AddJoinPlayer(ws)
-	LogSuccess("join player created and added to game", nil)
-
 	resp := models.RespJoinGame{Code: models.CodeRespSuccessJoinGame, PlayerUuid: game.JoinPlayer.Uuid}
 	return game, resp, nil
 }
@@ -101,11 +99,7 @@ func SendJSONBothPlayers(game *models.Game, v interface{}) error {
 		if err := player.WsConn.WriteJSON(v); err != nil {
 			return err
 		}
-		LogSuccess("message sent to player:", player.Uuid)
+		log.LogCustom("message sent to player:", player.Uuid)
 	}
 	return nil
-}
-
-func LogSuccess(msg string, v interface{}) {
-	log.Printf(msg+" %+v", v)
 }
