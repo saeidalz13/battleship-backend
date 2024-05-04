@@ -16,7 +16,7 @@ func CreateGame(s *Server, ws *websocket.Conn) *models.RespCreateGame {
 	s.Players[newPlayer.Uuid] = newPlayer
 
 	return &models.RespCreateGame{
-		Code:     models.CodeRespCreateGame,
+		Code:     models.CodeSuccessCreateGame,
 		GameUuid: newGame.Uuid,
 		HostUuid: newPlayer.Uuid,
 	}
@@ -58,11 +58,10 @@ func JoinPlayerToGame(s *Server, ws *websocket.Conn, payload []byte) (*models.Ga
 	}
 	LogSuccess("found game in database: ", game)
 
-	joinPlayer := models.NewPlayer(ws, false, false)
-	LogSuccess("new player created: ", joinPlayer)
+	game.AddJoinPlayer(ws)
+	LogSuccess("join player created and added to game", nil)
 
-	game.JoinPlayer = joinPlayer
-	resp := models.RespJoinGame{Code: models.CodeRespSuccessJoinGame, PlayerUuid: joinPlayer.Uuid}
+	resp := models.RespJoinGame{Code: models.CodeRespSuccessJoinGame, PlayerUuid: game.JoinPlayer.Uuid}
 	return game, resp, nil
 }
 

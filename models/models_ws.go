@@ -8,7 +8,8 @@ import (
 const (
 	// Create game
 	CodeReqCreateGame = iota
-	CodeRespCreateGame
+	CodeSuccessCreateGame
+	CodeFailCreateGame
 
 	// Start game
 	CodeRespSuccessStartGame
@@ -92,4 +93,13 @@ func NewGame(host *Player) *Game {
 
 func (g *Game) GetPlayers() []*Player {
 	return []*Player{g.HostPlayer, g.JoinPlayer}
+}
+
+
+func (g *Game) AddJoinPlayer(ws *websocket.Conn) {
+	NewPlayer(ws, false, false)
+}
+
+func (g *Game) AddHostPlayer(ws *websocket.Conn) {
+	NewPlayer(ws, true, true)
 }
