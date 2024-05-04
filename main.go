@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"log"
 	"net/http"
 	"os"
@@ -10,8 +9,6 @@ import (
 	// "github.com/saeidalz13/battleship-backend/db"
 	"github.com/saeidalz13/battleship-backend/api"
 )
-
-var DB *sql.DB
 
 func main() {
 	if os.Getenv("STAGE") != "prod" {
