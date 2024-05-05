@@ -1,10 +1,10 @@
 package models
 
 import (
+	"log"
+
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-
-	"github.com/saeidalz13/battleship-backend/internal/log"
 )
 
 const (
@@ -80,6 +80,11 @@ func NewPlayer(ws *websocket.Conn, isHost, isTurn bool) *Player {
 	}
 }
 
+func (p *Player) AdjustAttackGrid(newGrid GridInt) {
+	p.AttackGrid = newGrid
+	log.Printf("player %s attack grid adjusted: %+v\n", p.Uuid, p.AttackGrid)
+}
+
 type Game struct {
 	Uuid       string
 	HostPlayer *Player
@@ -88,7 +93,7 @@ type Game struct {
 
 func NewGame() *Game {
 	return &Game{
-		Uuid:       uuid.NewString()[:6],
+		Uuid: uuid.NewString()[:6],
 	}
 }
 
@@ -96,15 +101,14 @@ func (g *Game) GetPlayers() []*Player {
 	return []*Player{g.HostPlayer, g.JoinPlayer}
 }
 
-
-func (g *Game) AddJoinPlayer(ws *websocket.Conn)  {
+func (g *Game) AddJoinPlayer(ws *websocket.Conn) {
 	joinPlayer := NewPlayer(ws, false, false)
 	g.JoinPlayer = joinPlayer
-	log.LogCustom("join player created and added to game", joinPlayer.Uuid)
+	log.Printf("join player created and added to game: %+v\n", joinPlayer.Uuid)
 }
 
 func (g *Game) AddHostPlayer(ws *websocket.Conn) {
 	hostPlayer := NewPlayer(ws, true, true)
 	g.HostPlayer = hostPlayer
-	log.LogCustom("host player created and added to game", hostPlayer.Uuid)
+	log.Printf("host player created and added to game: %+v\n", hostPlayer.Uuid)
 }

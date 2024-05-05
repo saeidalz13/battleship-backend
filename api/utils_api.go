@@ -2,9 +2,9 @@ package api
 
 import (
 	"encoding/json"
+	"log"
 
 	"github.com/gorilla/websocket"
-	"github.com/saeidalz13/battleship-backend/internal/log"
 	"github.com/saeidalz13/battleship-backend/models"
 )
 
@@ -50,13 +50,13 @@ func JoinPlayerToGame(s *Server, ws *websocket.Conn, payload []byte) (*models.Ga
 	if err := json.Unmarshal(payload, &joinGameReq); err != nil {
 		return nil, models.RespJoinGame{}, err
 	}
-	log.LogCustom("unmarshaled join game payload:", joinGameReq)
+	log.Printf("unmarshaled join game payload: %+v\n", joinGameReq)
 
 	game, prs := s.Games[joinGameReq.GameUuid]
 	if !prs {
 		return nil, models.RespJoinGame{}, ErrorGameNotExist(joinGameReq.GameUuid)
 	}
-	log.LogCustom("found game in database:", game)
+	log.Printf("found game in database: %+v\n", game)
 
 	game.AddJoinPlayer(ws)
 	resp := models.RespJoinGame{Code: models.CodeRespSuccessJoinGame, PlayerUuid: game.JoinPlayer.Uuid}
@@ -99,7 +99,7 @@ func SendJSONBothPlayers(game *models.Game, v interface{}) error {
 		if err := player.WsConn.WriteJSON(v); err != nil {
 			return err
 		}
-		log.LogCustom("message sent to player:", player.Uuid)
+		log.Printf("message sent to player: %+v\n", player.Uuid)
 	}
 	return nil
 }
