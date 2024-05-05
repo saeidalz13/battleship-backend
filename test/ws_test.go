@@ -25,7 +25,7 @@ func TestCreateGame(t *testing.T) {
 	test := Test{
 		Number:     0,
 		Desc:       "should fail with invalid code",
-		ReqPayload: md.Signal{Code: -1},
+		ReqPayload: md.NewMessage(-1),
 	}
 	if err := ClientConn.WriteJSON(test.ReqPayload); err != nil {
 		test.logError()
