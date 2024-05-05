@@ -9,57 +9,90 @@ import (
 	md "github.com/saeidalz13/battleship-backend/models"
 )
 
-func CreateGame(s *Server, ws *websocket.Conn) *md.Message {
-	newGame := md.NewGame()
-	s.Games[newGame.Uuid] = newGame
-
-	newGame.AddHostPlayer(ws)
-	s.Players[newGame.HostPlayer.Uuid] = newGame.HostPlayer
-
-	return &md.Message{
-		Code: md.CodeSuccessCreateGame,
-		Payload: md.RespCreateGame{
-			GameUuid: newGame.Uuid,
-			HostUuid: newGame.HostPlayer.Uuid,
-		},
-	}
+type WsRequestHandler interface {
+	CreateGame() (*md.Message, error)
+	ManageReadyPlayer() (*md.Message, *md.Game, error)
+	JoinPlayerToGame() (*md.Game, md.Message, error)
 }
 
-func ManageReadyPlayer(s *Server, ws *websocket.Conn, payload []byte) (*md.Game, error) {
+type WsRequest struct {
+	Server  *Server
+	Ws      *websocket.Conn
+	Payload []byte
+}
+
+// This tells the compiler that WsRequest struct must be of type of WsRequestHandler
+var _ WsRequestHandler = (*WsRequest)(nil)
+
+func NewWsRequest(server *Server, ws *websocket.Conn, payloads ...[]byte) *WsRequest {
+	if len(payloads) > 1 {
+		log.Println("cannot accept more than one payload")
+		return nil
+	}
+
+	wsReq := WsRequest{
+		Server: server,
+		Ws:     ws,
+	}
+	if len(payloads) != 0 {
+		wsReq.Payload = payloads[0]
+	}
+	return &wsReq
+}
+
+func (w *WsRequest) CreateGame() (*md.Message, error) {
+	newGame := md.NewGame()
+	w.Server.Games[newGame.Uuid] = newGame
+
+	newGame.AddHostPlayer(w.Ws)
+	w.Server.Players[newGame.HostPlayer.Uuid] = newGame.HostPlayer
+
+	resp := md.NewMessage(md.CodeSuccessCreateGame,
+		md.WithPayload(
+			md.RespCreateGame{
+				GameUuid: newGame.Uuid,
+				HostUuid: newGame.HostPlayer.Uuid,
+			},
+		))
+	return &resp, nil
+}
+
+func (w *WsRequest) ManageReadyPlayer() (*md.Message, *md.Game, error) {
 	var readyPlayerReq md.ReqReadyPlayer
-	if err := json.Unmarshal(payload, &readyPlayerReq); err != nil {
-		return nil, err
+	if err := json.Unmarshal(w.Payload, &readyPlayerReq); err != nil {
+		return nil, nil, err
 	}
 	log.Printf("unmarshaled ready player payload: %+v\n", readyPlayerReq)
 
-	game := s.FindGame(readyPlayerReq.GameUuid)
+	game := w.Server.FindGame(readyPlayerReq.GameUuid)
 	if game == nil {
-		return nil, cerr.ErrorGameNotExists(readyPlayerReq.GameUuid)
+		return nil, nil, cerr.ErrorGameNotExists(readyPlayerReq.GameUuid)
 	}
 
-	player := s.FindPlayer(readyPlayerReq.PlayerUuid)
+	player := w.Server.FindPlayer(readyPlayerReq.PlayerUuid)
 	if player == nil {
-		return nil, cerr.ErrorPlayerNotExist(readyPlayerReq.PlayerUuid)
+		return nil, nil, cerr.ErrorPlayerNotExist(readyPlayerReq.PlayerUuid)
 	}
 
 	player.SetReady(readyPlayerReq.DefenceGrid)
-	return game, nil
+	resp := md.NewMessage(md.CodeRespSuccessReady)
+	return &resp, game, nil
 }
 
-func JoinPlayerToGame(s *Server, ws *websocket.Conn, payload []byte) (*md.Game, md.Message, error) {
+func (w *WsRequest) JoinPlayerToGame() (*md.Game, md.Message, error) {
 	var joinGameReq md.ReqJoinGame
-	if err := json.Unmarshal(payload, &joinGameReq); err != nil {
+	if err := json.Unmarshal(w.Payload, &joinGameReq); err != nil {
 		return nil, md.Message{}, err
 	}
 	log.Printf("unmarshaled join game payload: %+v\n", joinGameReq)
 
-	game, prs := s.Games[joinGameReq.GameUuid]
-	if !prs {
+	game := w.Server.FindGame(joinGameReq.GameUuid)
+	if game == nil {
 		return nil, md.Message{}, cerr.ErrorGameNotExists(joinGameReq.GameUuid)
 	}
 	log.Printf("found game in database: %+v\n", game)
 
-	game.AddJoinPlayer(ws)
+	game.AddJoinPlayer(w.Ws)
 	resp := md.NewMessage(md.CodeRespSuccessJoinGame, md.WithPayload(md.RespJoinGame{PlayerUuid: game.JoinPlayer.Uuid}))
 
 	return game, resp, nil

@@ -160,8 +160,9 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 		switch signal.Code {
 		case md.CodeReqCreateGame:
 			// Finalized
-			createGameResp := CreateGame(s, ws)
-			if err := ws.WriteJSON(createGameResp); err != nil {
+			req := NewWsRequest(s, ws)
+			resp, _ := req.CreateGame()
+			if err := ws.WriteJSON(resp); err != nil {
 				log.Printf("failed to create new game: %v\n", err)
 				continue
 			}
@@ -175,7 +176,8 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 		case md.CodeReqAttack:
 			if err := Attack(s, ws, payload); err != nil {
 				log.Printf("failed to attack: %v\n", err)
-				if err := ws.WriteJSON(md.NewRespFail(md.CodeRespFailAttack, err.Error(), "failed to attack on server side")); err != nil {
+				respFail := md.NewMessage(md.CodeRespFailAttack, md.WithPayload(md.NewRespFail(err.Error(), "failed to handle attack request")))
+				if err := ws.WriteJSON(respFail); err != nil {
 					log.Println(err)
 					continue
 				}
@@ -189,15 +191,17 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 			}
 
 		case md.CodeReqReady:
-			game, err := ManageReadyPlayer(s, ws, payload)
+			req := NewWsRequest(s, ws, payload)
+			resp, game, err := req.ManageReadyPlayer()
 			if err != nil {
 				log.Printf("failed to make the player ready: %v\n", err)
-				if err := ws.WriteJSON(md.NewRespFail(md.CodeRespFailReady, err.Error(), "failed to make the player ready")); err != nil {
+				respFail := md.NewMessage(md.CodeRespFailReady, md.WithPayload(md.NewRespFail(err.Error(), "failed to make the player ready")))
+				if err := ws.WriteJSON(respFail); err != nil {
 					log.Println(err)
 				}
 				continue
 			} else {
-				if err := ws.WriteJSON(md.NewSignal(md.CodeRespSuccessReady)); err != nil {
+				if err := ws.WriteJSON(resp); err != nil {
 					log.Println(err)
 					continue
 				}
@@ -212,10 +216,12 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 
 		case md.CodeReqJoinGame:
 			// Finalized
-			game, resp, err := JoinPlayerToGame(s, ws, payload)
+			req := NewWsRequest(s, ws, payload)
+			game, resp, err := req.JoinPlayerToGame()
 			if err != nil {
 				log.Printf("failed to join player: %v\n", err)
-				if err := ws.WriteJSON(md.NewRespFail(md.CodeRespFailJoinGame, err.Error(), "failed to join the player")); err != nil {
+				respFail := md.NewMessage(md.CodeRespFailJoinGame, md.WithPayload(md.NewRespFail(err.Error(), "failed to join the player")))
+				if err := ws.WriteJSON(respFail); err != nil {
 					continue
 				}
 			} else {
@@ -231,7 +237,8 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 			}
 
 		default:
-			if err := ws.WriteJSON(md.NewRespFail(md.CodeRespInvalidSignal, "", "invalid code in request payload")); err != nil {
+			respInvalidSignal := md.NewMessage(md.CodeRespInvalidSignal)
+			if err := ws.WriteJSON(respInvalidSignal); err != nil {
 				log.Println(err)
 				continue
 			}
