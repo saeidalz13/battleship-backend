@@ -55,7 +55,7 @@ func TestCreateGame(t *testing.T) {
 	}
 	test.logSuccess(respCreateGame)
 	createdGameUuid := respCreateGame.GameUuid
-	// createdPlaerUuid := respCreateGame.HostUuid
+	createdPlayerUuid := respCreateGame.HostUuid
 
 	test = Test{
 		Number:     2,
@@ -88,4 +88,25 @@ func TestCreateGame(t *testing.T) {
 		t.Fatal(err)
 	}
 	test.logSuccess(respFailJoin)
+
+	test = Test{
+		Number: 4,
+		Desc:   "should set the defence grid and set ready",
+		ReqPayload: models.ReqReadyPlayer{
+			Code:        models.CodeReqReady,
+			DefenceGrid: models.NewGrid(),
+			GameUuid:    createdGameUuid,
+			PlayerUuid:  createdPlayerUuid,
+		},
+	}
+	if err := ClientConn.WriteJSON(test.ReqPayload); err != nil {
+		test.logError()
+		t.Fatal(err)
+	}
+	var respSuccessReady models.RespReadyPlayer
+	if err := ClientConn.ReadJSON(&respSuccessReady); err != nil {
+		test.logError()
+		t.Fatal(err)
+	}
+	test.logSuccess(respSuccessReady)
 }

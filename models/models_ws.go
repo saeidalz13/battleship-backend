@@ -22,10 +22,10 @@ const (
 	CodeRespSuccessJoinGame
 	CodeRespFailJoinGame
 
-	// Select grid
-	CodeReqSelectGrid
-	CodeRespSuccessSelectGrid
-	CodeRespFailSelectGrid
+	// // Select grid
+	// CodeReqSelectGrid
+	// CodeRespSuccessSelectGrid
+	// CodeRespFailSelectGrid
 
 	// Attack
 	CodeReqAttack
