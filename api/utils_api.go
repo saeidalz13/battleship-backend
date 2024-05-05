@@ -9,16 +9,16 @@ import (
 )
 
 func CreateGame(s *Server, ws *websocket.Conn) *models.RespCreateGame {
-	newPlayer := models.NewPlayer(ws, true, true)
-	newGame := models.NewGame(newPlayer)
-
+	newGame := models.NewGame()
 	s.Games[newGame.Uuid] = newGame
-	s.Players[newPlayer.Uuid] = newPlayer
+
+	newGame.AddHostPlayer(ws)
+	s.Players[newGame.HostPlayer.Uuid] = newGame.HostPlayer
 
 	return &models.RespCreateGame{
-		Code:     models.CodeRespCreateGame,
+		Code:     models.CodeSuccessCreateGame,
 		GameUuid: newGame.Uuid,
-		HostUuid: newPlayer.Uuid,
+		HostUuid: newGame.HostPlayer.Uuid,
 	}
 
 }
@@ -50,19 +50,16 @@ func JoinPlayerToGame(s *Server, ws *websocket.Conn, payload []byte) (*models.Ga
 	if err := json.Unmarshal(payload, &joinGameReq); err != nil {
 		return nil, models.RespJoinGame{}, err
 	}
-	LogSuccess("unmarshaled join game payload: ", joinGameReq)
+	log.Printf("unmarshaled join game payload: %+v\n", joinGameReq)
 
 	game, prs := s.Games[joinGameReq.GameUuid]
 	if !prs {
 		return nil, models.RespJoinGame{}, ErrorGameNotExist(joinGameReq.GameUuid)
 	}
-	LogSuccess("found game in database: ", game)
+	log.Printf("found game in database: %+v\n", game)
 
-	joinPlayer := models.NewPlayer(ws, false, false)
-	LogSuccess("new player created: ", joinPlayer)
-
-	game.JoinPlayer = joinPlayer
-	resp := models.RespJoinGame{Code: models.CodeRespSuccessJoinGame, PlayerUuid: joinPlayer.Uuid}
+	game.AddJoinPlayer(ws)
+	resp := models.RespJoinGame{Code: models.CodeRespSuccessJoinGame, PlayerUuid: game.JoinPlayer.Uuid}
 	return game, resp, nil
 }
 
@@ -102,11 +99,7 @@ func SendJSONBothPlayers(game *models.Game, v interface{}) error {
 		if err := player.WsConn.WriteJSON(v); err != nil {
 			return err
 		}
-		LogSuccess("message sent to player:", player.Uuid)
+		log.Printf("message sent to player: %+v\n", player.Uuid)
 	}
 	return nil
-}
-
-func LogSuccess(msg string, v interface{}) {
-	log.Printf(msg+" %+v", v)
 }

@@ -28,6 +28,5 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /battleship", server.HandleWs)
 
-	log.Println("listening to port 9191...")
 	log.Fatalln(http.ListenAndServe(":9191", mux))
 }

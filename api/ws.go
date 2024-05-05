@@ -140,6 +140,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 		// This is where we choose the action based on the code in incoming json
 		switch signal.Code {
 		case models.CodeReqCreateGame:
+			// Finalized
 			createGameResp := CreateGame(s, ws)
 			if err := ws.WriteJSON(createGameResp); err != nil {
 				log.Printf("failed to create new game: %v\n", err)
@@ -194,6 +195,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 			}
 
 		case models.CodeReqJoinGame:
+			// Finalized
 			game, resp, err := JoinPlayerToGame(s, ws, payload)
 			if err != nil {
 				log.Printf("failed to join player: %v\n", err)
@@ -201,8 +203,12 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 					continue
 				}
 			} else {
-				LogSuccess("confirmation sent to join player connection: ", game.JoinPlayer)
-				if err := SendJSONBothPlayers(game, resp); err != nil {
+				if err := ws.WriteJSON(resp); err != nil {
+					log.Println(err)
+					continue
+				}
+
+				if err := SendJSONBothPlayers(game, models.Signal{Code: models.CodeRespSuccessJoinGame}); err != nil {
 					log.Println(err)
 					continue
 				}
