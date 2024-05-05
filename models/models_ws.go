@@ -46,7 +46,32 @@ type Signal struct {
 }
 
 func NewSignal(code int) Signal {
-	return Signal{Code: code} 
+	return Signal{Code: code}
+}
+
+type Message struct {
+	Code    int         `json:"code"`
+	Payload interface{} `json:"payload,omitempty"`
+}
+
+type MessageOption func(*Message) error
+
+func NewMessage(code int, opts ...MessageOption) Message {
+	var message Message
+	for _, opt := range opts {
+		if err := opt(&message); err != nil {
+			log.Println("failed to create new message: ", err)
+			return message
+		}
+	}
+	return message
+}
+
+func WithPayload(p interface{}) MessageOption {
+	return func(m *Message) error {
+		m.Payload = p
+		return nil
+	}
 }
 
 type GridInt [][]int

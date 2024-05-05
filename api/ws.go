@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/saeidalz13/battleship-backend/models"
+	md "github.com/saeidalz13/battleship-backend/models"
 )
 
 const (
@@ -27,11 +27,11 @@ type Server struct {
 	Port     *int
 	Upgrader websocket.Upgrader
 	Db       *sql.DB
-	Games    map[string]*models.Game
-	Players  map[string]*models.Player
+	Games    map[string]*md.Game
+	Players  map[string]*md.Player
 }
 
-func (s *Server) FindGame(gameUuid string) *models.Game {
+func (s *Server) FindGame(gameUuid string) *md.Game {
 	game, prs := s.Games[gameUuid]
 	if !prs {
 		return nil 
@@ -40,7 +40,7 @@ func (s *Server) FindGame(gameUuid string) *models.Game {
 	return game 
 }
 
-func (s *Server) FindPlayer(playerUuid string) *models.Player {
+func (s *Server) FindPlayer(playerUuid string) *md.Player {
 	player, prs := s.Players[playerUuid]
 	if !prs {
 		return nil 
@@ -50,6 +50,7 @@ func (s *Server) FindPlayer(playerUuid string) *models.Player {
 }
 
 type Option func(*Server) error
+
 
 func NewServer(optFuncs ...Option) *Server {
 	var server Server
@@ -62,10 +63,10 @@ func NewServer(optFuncs ...Option) *Server {
 		server.Port = &defaultPort
 	}
 	if server.Games == nil {
-		server.Games = make(map[string]*models.Game)
+		server.Games = make(map[string]*md.Game)
 	}
 	if server.Players == nil {
-		server.Players = make(map[string]*models.Player)
+		server.Players = make(map[string]*md.Player)
 	}
 
 	upgrader := websocket.Upgrader{
@@ -145,7 +146,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 		// the incoming message must be of type json containing the field "code"
 		// which would allow us to determine what action is required
 		// any other format of incoming message is invalid and will be ignored
-		var signal models.Signal
+		var signal md.Signal
 		if err := json.Unmarshal(payload, &signal); err != nil {
 			log.Println(err)
 			if err := ws.WriteMessage(websocket.TextMessage, []byte("incoming message is invalid; must be of type json")); err != nil {
@@ -157,7 +158,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 
 		// This is where we choose the action based on the code in incoming json
 		switch signal.Code {
-		case models.CodeReqCreateGame:
+		case md.CodeReqCreateGame:
 			// Finalized
 			createGameResp := CreateGame(s, ws)
 			if err := ws.WriteJSON(createGameResp); err != nil {
@@ -165,56 +166,56 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 				continue
 			}
 
-		case models.CodeRespEndGame:
+		case md.CodeRespEndGame:
 			if err := EndGame(s, ws, payload); err != nil {
 				log.Printf("failed to end game: %v\n", err)
 			}
 			log.Println("end game")
 
-		case models.CodeReqAttack:
+		case md.CodeReqAttack:
 			if err := Attack(s, ws, payload); err != nil {
 				log.Printf("failed to attack: %v\n", err)
-				if err := ws.WriteJSON(models.NewRespFail(models.CodeRespFailAttack, err.Error(), "failed to attack on server side")); err != nil {
+				if err := ws.WriteJSON(md.NewRespFail(md.CodeRespFailAttack, err.Error(), "failed to attack on server side")); err != nil {
 					log.Println(err)
 					continue
 				}
 			} else {
 				// TODO: should you give me x and y? or the entire grid? seems redundant...
-				if err := ws.WriteJSON(models.RespSuccessAttack{Code: models.CodeRespSuccessAttack, IsTurn: false}); err != nil {
+				if err := ws.WriteJSON(md.NewMessage(0)); err != nil {
 					log.Println(err)
 					continue
 				}
 				// TODO: Notify the other player about this event and tell them it's their turn
 			}
 
-		case models.CodeReqReady:
+		case md.CodeReqReady:
 			game, err := ManageReadyPlayer(s, ws, payload)
 			if err != nil {
 				log.Printf("failed to make the player ready: %v\n", err)
-				if err := ws.WriteJSON(models.NewRespFail(models.CodeRespFailReady, err.Error(), "failed to make the player ready")); err != nil {
+				if err := ws.WriteJSON(md.NewRespFail(md.CodeRespFailReady, err.Error(), "failed to make the player ready")); err != nil {
 					log.Println(err)
 				}
 				continue
 			} else {
-				if err := ws.WriteJSON(models.NewSignal(models.CodeRespSuccessReady)); err != nil {
+				if err := ws.WriteJSON(md.NewSignal(md.CodeRespSuccessReady)); err != nil {
 					log.Println(err)
 					continue
 				}
 
 				if game.HostPlayer.IsReady && game.JoinPlayer.IsReady {
-					if err := SendJSONBothPlayers(game, models.NewSignal(models.CodeRespStartGame)); err != nil {
+					if err := SendJSONBothPlayers(game, md.NewSignal(md.CodeRespStartGame)); err != nil {
 						log.Println(err)
 					}
 					continue
 				}
 			}
 
-		case models.CodeReqJoinGame:
+		case md.CodeReqJoinGame:
 			// Finalized
 			game, resp, err := JoinPlayerToGame(s, ws, payload)
 			if err != nil {
 				log.Printf("failed to join player: %v\n", err)
-				if err := ws.WriteJSON(models.NewRespFail(models.CodeRespFailJoinGame, err.Error(), "failed to join the player")); err != nil {
+				if err := ws.WriteJSON(md.NewRespFail(md.CodeRespFailJoinGame, err.Error(), "failed to join the player")); err != nil {
 					continue
 				}
 			} else {
@@ -223,14 +224,14 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 					continue
 				}
 
-				if err := SendJSONBothPlayers(game, models.Signal{Code: models.CodeRespSuccessJoinGame}); err != nil {
+				if err := SendJSONBothPlayers(game, md.Signal{Code: md.CodeRespSuccessJoinGame}); err != nil {
 					log.Println(err)
 					continue
 				}
 			}
 
 		default:
-			if err := ws.WriteJSON(models.NewRespFail(models.CodeRespInvalidSignal, "", "invalid code in request payload")); err != nil {
+			if err := ws.WriteJSON(md.NewRespFail(md.CodeRespInvalidSignal, "", "invalid code in request payload")); err != nil {
 				log.Println(err)
 				continue
 			}

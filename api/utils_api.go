@@ -6,26 +6,27 @@ import (
 
 	"github.com/gorilla/websocket"
 	cerr "github.com/saeidalz13/battleship-backend/internal/customerr"
-	"github.com/saeidalz13/battleship-backend/models"
+	md "github.com/saeidalz13/battleship-backend/models"
 )
 
-func CreateGame(s *Server, ws *websocket.Conn) *models.RespCreateGame {
-	newGame := models.NewGame()
+func CreateGame(s *Server, ws *websocket.Conn) *md.Message {
+	newGame := md.NewGame()
 	s.Games[newGame.Uuid] = newGame
 
 	newGame.AddHostPlayer(ws)
 	s.Players[newGame.HostPlayer.Uuid] = newGame.HostPlayer
 
-	return &models.RespCreateGame{
-		Code:     models.CodeSuccessCreateGame,
-		GameUuid: newGame.Uuid,
-		HostUuid: newGame.HostPlayer.Uuid,
+	return &md.Message{
+		Code: md.CodeSuccessCreateGame,
+		Payload: md.RespCreateGame{
+			GameUuid: newGame.Uuid,
+			HostUuid: newGame.HostPlayer.Uuid,
+		},
 	}
-
 }
 
-func ManageReadyPlayer(s *Server, ws *websocket.Conn, payload []byte) (*models.Game, error) {
-	var readyPlayerReq models.ReqReadyPlayer
+func ManageReadyPlayer(s *Server, ws *websocket.Conn, payload []byte) (*md.Game, error) {
+	var readyPlayerReq md.ReqReadyPlayer
 	if err := json.Unmarshal(payload, &readyPlayerReq); err != nil {
 		return nil, err
 	}
@@ -45,26 +46,27 @@ func ManageReadyPlayer(s *Server, ws *websocket.Conn, payload []byte) (*models.G
 	return game, nil
 }
 
-func JoinPlayerToGame(s *Server, ws *websocket.Conn, payload []byte) (*models.Game, models.RespJoinGame, error) {
-	var joinGameReq models.ReqJoinGame
+func JoinPlayerToGame(s *Server, ws *websocket.Conn, payload []byte) (*md.Game, md.Message, error) {
+	var joinGameReq md.ReqJoinGame
 	if err := json.Unmarshal(payload, &joinGameReq); err != nil {
-		return nil, models.RespJoinGame{}, err
+		return nil, md.Message{}, err
 	}
 	log.Printf("unmarshaled join game payload: %+v\n", joinGameReq)
 
 	game, prs := s.Games[joinGameReq.GameUuid]
 	if !prs {
-		return nil, models.RespJoinGame{}, cerr.ErrorGameNotExists(joinGameReq.GameUuid)
+		return nil, md.Message{}, cerr.ErrorGameNotExists(joinGameReq.GameUuid)
 	}
 	log.Printf("found game in database: %+v\n", game)
 
 	game.AddJoinPlayer(ws)
-	resp := models.RespJoinGame{Code: models.CodeRespSuccessJoinGame, PlayerUuid: game.JoinPlayer.Uuid}
+	resp := md.NewMessage(md.CodeRespSuccessJoinGame, md.WithPayload(md.RespJoinGame{PlayerUuid: game.JoinPlayer.Uuid}))
+
 	return game, resp, nil
 }
 
 func Attack(s *Server, ws *websocket.Conn, payload []byte) error {
-	var reqAttack models.ReqAttack
+	var reqAttack md.ReqAttack
 	if err := json.Unmarshal(payload, &reqAttack); err != nil {
 		return err
 	}
@@ -93,7 +95,7 @@ func EndGame(s *Server, ws *websocket.Conn, payload []byte) error {
 	return nil
 }
 
-func SendJSONBothPlayers(game *models.Game, v interface{}) error {
+func SendJSONBothPlayers(game *md.Game, v interface{}) error {
 	playerOfGames := game.GetPlayers()
 	for _, player := range playerOfGames {
 		if err := player.WsConn.WriteJSON(v); err != nil {
