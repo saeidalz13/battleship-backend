@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/gorilla/websocket"
+	cerr "github.com/saeidalz13/battleship-backend/internal/customerr"
 	"github.com/saeidalz13/battleship-backend/models"
 )
 
@@ -28,20 +29,19 @@ func ManageReadyPlayer(s *Server, ws *websocket.Conn, payload []byte) (*models.G
 	if err := json.Unmarshal(payload, &readyPlayerReq); err != nil {
 		return nil, err
 	}
+	log.Printf("unmarshaled ready player payload: %+v\n", readyPlayerReq)
 
-	game, prs := s.Games[readyPlayerReq.GameUuid]
-	if !prs {
-		return nil, ErrorGameNotExist(readyPlayerReq.GameUuid)
-	}
-	player, prs := s.Players[readyPlayerReq.PlayerUuid]
-	if !prs {
-		return nil, ErrorPlayerNotExist(readyPlayerReq.PlayerUuid)
+	game := s.FindGame(readyPlayerReq.GameUuid)
+	if game == nil {
+		return nil, cerr.ErrorGameNotExists(readyPlayerReq.GameUuid)
 	}
 
-	// Change player properties
-	player.DefenceGrid = readyPlayerReq.DefenceGrid
-	player.IsReady = true
+	player := s.FindPlayer(readyPlayerReq.PlayerUuid)
+	if player == nil {
+		return nil, cerr.ErrorPlayerNotExist(readyPlayerReq.PlayerUuid)
+	}
 
+	player.SetReady(readyPlayerReq.DefenceGrid)
 	return game, nil
 }
 
@@ -54,7 +54,7 @@ func JoinPlayerToGame(s *Server, ws *websocket.Conn, payload []byte) (*models.Ga
 
 	game, prs := s.Games[joinGameReq.GameUuid]
 	if !prs {
-		return nil, models.RespJoinGame{}, ErrorGameNotExist(joinGameReq.GameUuid)
+		return nil, models.RespJoinGame{}, cerr.ErrorGameNotExists(joinGameReq.GameUuid)
 	}
 	log.Printf("found game in database: %+v\n", game)
 
@@ -71,11 +71,11 @@ func Attack(s *Server, ws *websocket.Conn, payload []byte) error {
 
 	game, prs := s.Games[reqAttack.GameUuid]
 	if !prs {
-		return ErrorGameNotExist(reqAttack.GameUuid)
+		return cerr.ErrorGameNotExists(reqAttack.GameUuid)
 	}
 	player, prs := s.Players[reqAttack.PlayerUuid]
 	if !prs {
-		return ErrorPlayerNotExist(reqAttack.PlayerUuid)
+		return cerr.ErrorPlayerNotExist(reqAttack.PlayerUuid)
 	}
 	player.IsTurn = false
 

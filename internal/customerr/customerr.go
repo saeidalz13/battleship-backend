@@ -1,8 +1,8 @@
-package api
+package customerr
 
 import "fmt"
 
-func ErrorGameNotExist(gameUuid string) error {
+func ErrorGameNotExists(gameUuid string) error {
 	return fmt.Errorf("game with this uuid does not exist, uuid: %s", gameUuid)
 }
 

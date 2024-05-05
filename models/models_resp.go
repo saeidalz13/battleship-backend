@@ -5,6 +5,7 @@ type RespGeneralMessage struct {
 }
 
 type RespReadyPlayer struct {
+	Code    int  `json:"code"`
 	Success bool `json:"success"`
 }
 

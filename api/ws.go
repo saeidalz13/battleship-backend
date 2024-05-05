@@ -17,18 +17,36 @@ const (
 	StageDev  = "dev"
 )
 
-var defaultPort int16 = 8000
+var defaultPort int = 8000
 
 var allowedOrigins = map[string]bool{
 	"https://www.allowed_url.com": true,
 }
 
 type Server struct {
-	Port     *int16
+	Port     *int
 	Upgrader websocket.Upgrader
 	Db       *sql.DB
 	Games    map[string]*models.Game
 	Players  map[string]*models.Player
+}
+
+func (s *Server) FindGame(gameUuid string) *models.Game {
+	game, prs := s.Games[gameUuid]
+	if !prs {
+		return nil 
+	}
+	log.Printf("game found: %s", gameUuid)
+	return game 
+}
+
+func (s *Server) FindPlayer(playerUuid string) *models.Player {
+	player, prs := s.Players[playerUuid]
+	if !prs {
+		return nil 
+	}
+	log.Printf("player found: %s", playerUuid)
+	return player
 }
 
 type Option func(*Server) error
@@ -66,7 +84,7 @@ func NewServer(optFuncs ...Option) *Server {
 	return &server
 }
 
-func WithPort(port int16) Option {
+func WithPort(port int) Option {
 	return func(s *Server) error {
 		if port > 10000 {
 			panic("choose a port less than 10000")
@@ -147,7 +165,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 				continue
 			}
 
-		case models.CodeEndGame:
+		case models.CodeRespEndGame:
 			if err := EndGame(s, ws, payload); err != nil {
 				log.Printf("failed to end game: %v\n", err)
 			}
@@ -174,23 +192,20 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 			if err != nil {
 				log.Printf("failed to make the player ready: %v\n", err)
 				if err := ws.WriteJSON(models.NewRespFail(models.CodeRespFailReady, err.Error(), "failed to make the player ready")); err != nil {
-					// TODO: to be decided what to do if writing to connection failed
-					continue
+					log.Println(err)
 				}
 				continue
 			} else {
-				// send response to the player that sent the request
-				if err := ws.WriteJSON(models.RespReadyPlayer{Success: true}); err != nil {
+				if err := ws.WriteJSON(models.NewSignal(models.CodeRespSuccessReady)); err != nil {
 					log.Println(err)
 					continue
 				}
 
 				if game.HostPlayer.IsReady && game.JoinPlayer.IsReady {
-					jsonResp := models.Signal{Code: models.CodeRespSuccessStartGame}
-					if err := SendJSONBothPlayers(game, jsonResp); err != nil {
+					if err := SendJSONBothPlayers(game, models.NewSignal(models.CodeRespStartGame)); err != nil {
 						log.Println(err)
-						continue
 					}
+					continue
 				}
 			}
 

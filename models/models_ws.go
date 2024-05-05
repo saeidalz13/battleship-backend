@@ -14,8 +14,8 @@ const (
 	CodeFailCreateGame
 
 	// Start game
-	CodeRespSuccessStartGame
-	CodeEndGame
+	CodeRespStartGame
+	CodeRespEndGame
 
 	// Join game
 	CodeReqJoinGame
@@ -43,6 +43,10 @@ const (
 
 type Signal struct {
 	Code int `json:"code"`
+}
+
+func NewSignal(code int) Signal {
+	return Signal{Code: code} 
 }
 
 type GridInt [][]int
@@ -80,9 +84,15 @@ func NewPlayer(ws *websocket.Conn, isHost, isTurn bool) *Player {
 	}
 }
 
-func (p *Player) AdjustAttackGrid(newGrid GridInt) {
+func (p *Player) SetAttackGrid(newGrid GridInt) {
 	p.AttackGrid = newGrid
-	log.Printf("player %s attack grid adjusted: %+v\n", p.Uuid, p.AttackGrid)
+	log.Printf("player %s attack grid set to: %+v\n", p.Uuid, p.AttackGrid)
+}
+
+func (p *Player) SetReady(newGrid GridInt) {
+	p.DefenceGrid = newGrid
+	p.IsReady = true
+	log.Printf("player %s defence grid set to: %+v\n", p.Uuid, p.AttackGrid)
 }
 
 type Game struct {

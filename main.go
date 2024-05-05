@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 	// "github.com/saeidalz13/battleship-backend/db"
@@ -20,13 +21,19 @@ func main() {
 	if stage != "dev" && stage != "prod" {
 		panic("stage must be either dev or prod")
 	}
+	portEnv := os.Getenv("PORT")
 	// psqlUrl := os.Getenv("PSQL_URL")
 	// DB = db.MustConnectToDb(psqlUrl)
+	port, err := strconv.Atoi(portEnv)
+	if err != nil {
+		panic(err)
+	}
 
-	server := api.NewServer(api.WithPort(9191), api.WithStage(stage))
+	server := api.NewServer(api.WithPort(port), api.WithStage(stage))
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /battleship", server.HandleWs)
 
+	log.Println("Listening to port 9191...")
 	log.Fatalln(http.ListenAndServe(":9191", mux))
 }
