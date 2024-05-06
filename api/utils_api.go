@@ -112,7 +112,7 @@ func (w *WsRequest) JoinPlayerToGame() (*md.Message, *md.Game, error) {
 }
 
 func Attack(s *Server, ws *websocket.Conn, payload []byte) error {
-	var reqAttack md.ReqAttack
+	var reqAttack md.Message
 	if err := json.Unmarshal(payload, &reqAttack); err != nil {
 		return err
 	}
