@@ -11,7 +11,8 @@ import (
 	"github.com/saeidalz13/battleship-backend/api"
 )
 
-var ClientConn *websocket.Conn
+var HostConn *websocket.Conn
+var JoinConn *websocket.Conn
 
 func TestMain(m *testing.M) {
 	go func() {
@@ -42,6 +43,15 @@ func TestMain(m *testing.M) {
 		log.Println(err)
 		os.Exit(1)
 	}
-	ClientConn = c
+	HostConn = c
+
+	c2, _, err := dialer.Dial("ws://localhost:7171/battleship", nil)
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
+	JoinConn = c2
+
+	log.Printf("host: %s\tjoin: %s", HostConn.LocalAddr().String(), JoinConn.LocalAddr().String())
 	os.Exit(m.Run())
 }

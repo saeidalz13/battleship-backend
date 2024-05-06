@@ -29,12 +29,12 @@ func TestCreateGame(t *testing.T) {
 		Desc:       "should fail with invalid code",
 		ReqPayload: md.NewMessage(-1),
 	}
-	if err := ClientConn.WriteJSON(test.ReqPayload); err != nil {
+	if err := HostConn.WriteJSON(test.ReqPayload); err != nil {
 		test.logError()
 		t.Fatal(err)
 	}
 
-	if err := ClientConn.ReadJSON(&respMessage); err != nil {
+	if err := HostConn.ReadJSON(&respMessage); err != nil {
 		test.logError()
 		t.Fatal(err)
 	}
@@ -48,12 +48,12 @@ func TestCreateGame(t *testing.T) {
 		Desc:       "should create game with valid code",
 		ReqPayload: md.NewMessage(md.CodeReqCreateGame),
 	}
-	if err := ClientConn.WriteJSON(test.ReqPayload); err != nil {
+	if err := HostConn.WriteJSON(test.ReqPayload); err != nil {
 		test.logError()
 		t.Fatal(err)
 	}
 	var respCreateGame md.Message
-	if err := ClientConn.ReadJSON(&respCreateGame); err != nil {
+	if err := HostConn.ReadJSON(&respCreateGame); err != nil {
 		test.logError()
 		t.Fatal(err)
 	}
@@ -89,12 +89,12 @@ func TestCreateGame(t *testing.T) {
 		ReqPayload: md.NewMessage(md.CodeReqJoinGame, md.WithPayload(md.ReqJoinGame{GameUuid: gameUuid})),
 	}
 
-	if err := ClientConn.WriteJSON(test.ReqPayload); err != nil {
+	if err := JoinConn.WriteJSON(test.ReqPayload); err != nil {
 		test.logError()
 		t.Fatal(err)
 	}
 	var respJoinGame md.Message
-	if err := ClientConn.ReadJSON(&respJoinGame); err != nil {
+	if err := JoinConn.ReadJSON(&respJoinGame); err != nil {
 		test.logError()
 		t.Fatal(err)
 	}
@@ -103,19 +103,36 @@ func TestCreateGame(t *testing.T) {
 	}
 	test.logSuccess(respJoinGame)
 
+	// Read extra message of success to host 
+	// we have to read it so it frees up the queue for the next steps of host read
+	if err := HostConn.ReadJSON(&respJoinGame); err != nil {
+		test.logError()
+		t.Fatal(err)
+	}
+	if respJoinGame.Code != md.CodeRespSuccessJoinGame {
+		t.Fatalf("failed to join the game\tplayer: %s", playerUuid)
+	}
+
+	/*
+		Test 3
+	*/
 	test = Test{
 		Number:     3,
 		Desc:       "should fail with invalid game uuid",
 		ReqPayload: md.NewMessage(md.CodeReqJoinGame, md.WithPayload(md.ReqJoinGame{GameUuid: "invalid"})),
 	}
-	if err := ClientConn.WriteJSON(test.ReqPayload); err != nil {
+	if err := JoinConn.WriteJSON(test.ReqPayload); err != nil {
 		test.logError()
 		t.Fatal(err)
 	}
-	var respFailJoin md.RespFail
-	if err := ClientConn.ReadJSON(&respFailJoin); err != nil {
+	var respFailJoin md.Message
+	if err := JoinConn.ReadJSON(&respFailJoin); err != nil {
 		test.logError()
 		t.Fatal(err)
+	}
+
+	if respFailJoin.Code != md.CodeRespFailJoinGame {
+		t.Fatalf("should have failed to join and received code %d but got %d", md.CodeRespFailJoinGame, respFailJoin.Code)
 	}
 	test.logSuccess(respFailJoin)
 
@@ -131,12 +148,12 @@ func TestCreateGame(t *testing.T) {
 			},
 		},
 	}
-	if err := ClientConn.WriteJSON(test.ReqPayload); err != nil {
+	if err := HostConn.WriteJSON(test.ReqPayload); err != nil {
 		test.logError()
 		t.Fatal(err)
 	}
-	var respSuccessReady md.RespReadyPlayer
-	if err := ClientConn.ReadJSON(&respSuccessReady); err != nil {
+	var respSuccessReady md.Message
+	if err := HostConn.ReadJSON(&respSuccessReady); err != nil {
 		test.logError()
 		t.Fatal(err)
 	}

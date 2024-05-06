@@ -222,15 +222,11 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 				log.Printf("failed to join player: %v\n", err)
 				respFail := md.NewMessage(md.CodeRespFailJoinGame, md.WithError(err.Error(), "failed to join the player"))
 				if err := ws.WriteJSON(respFail); err != nil {
-					continue
-				}
-			} else {
-				if err := ws.WriteJSON(resp); err != nil {
 					log.Println(err)
-					continue
 				}
 
-				if err := SendJSONBothPlayers(game, md.Signal{Code: md.CodeRespSuccessJoinGame}); err != nil {
+			} else {
+				if err := SendJSONBothPlayers(game, resp); err != nil {
 					log.Println(err)
 					continue
 				}
