@@ -47,6 +47,12 @@ const (
 	KeyDefenceGrid string = "defence_grid"
 )
 
+const (
+	PositionStateNeutral = iota
+	PositionStateMiss
+	PositionStateHit
+)
+
 type Signal struct {
 	Code int `json:"code"`
 }
@@ -92,13 +98,13 @@ func WithError(errorDetails, message string) MessageOption {
 
 type GridInt [][]int
 
+// Creates a new default grid
+// All indexes are zero/PositionStatusNeutral
 func NewGrid() GridInt {
-	grid := make(GridInt, 0)
-	col := []int{0, 0, 0, 0, 0}
-
-	rowColSize := 5
-	for i := 0; i <= rowColSize; i++ {
-		grid = append(grid, col)
+	grid := make(GridInt, 0, 5)
+	col := make([]int, 5)
+	for i := 0; i <= len(col); i++ {
+		grid[i] = col
 	}
 	return grid
 }
