@@ -4,7 +4,7 @@ import (
 	"log"
 	"testing"
 
-	"github.com/saeidalz13/battleship-backend/models"
+	md "github.com/saeidalz13/battleship-backend/models"
 )
 
 type Test struct {
@@ -22,70 +22,140 @@ func (te *Test) logSuccess(v interface{}) {
 }
 
 func TestCreateGame(t *testing.T) {
+	var respMessage md.Message
+
 	test := Test{
 		Number:     0,
 		Desc:       "should fail with invalid code",
-		ReqPayload: models.Signal{Code: -1},
+		ReqPayload: md.NewMessage(-1),
 	}
-	if err := ClientConn.WriteJSON(test.ReqPayload); err != nil {
+	if err := HostConn.WriteJSON(test.ReqPayload); err != nil {
 		test.logError()
 		t.Fatal(err)
 	}
-	var respFail models.RespFail
-	if err := ClientConn.ReadJSON(&respFail); err != nil {
-		test.logError()
-		t.Fatal(err)
-	}
-	test.logSuccess(respFail)
 
+	if err := HostConn.ReadJSON(&respMessage); err != nil {
+		test.logError()
+		t.Fatal(err)
+	}
+	test.logSuccess(respMessage)
+
+	/*
+		Test 1
+	*/
 	test = Test{
 		Number:     1,
-		Desc:       "should pass with valid code",
-		ReqPayload: models.Signal{Code: models.CodeReqCreateGame},
+		Desc:       "should create game with valid code",
+		ReqPayload: md.NewMessage(md.CodeReqCreateGame),
 	}
-	if err := ClientConn.WriteJSON(test.ReqPayload); err != nil {
+	if err := HostConn.WriteJSON(test.ReqPayload); err != nil {
 		test.logError()
 		t.Fatal(err)
 	}
-
-	var respCreateGame models.RespCreateGame
-	if err := ClientConn.ReadJSON(&respCreateGame); err != nil {
+	var respCreateGame md.Message
+	if err := HostConn.ReadJSON(&respCreateGame); err != nil {
 		test.logError()
 		t.Fatal(err)
 	}
 	test.logSuccess(respCreateGame)
-	createdGameUuid := respCreateGame.GameUuid
-	// createdPlaerUuid := respCreateGame.HostUuid
 
+	resp, ok := respCreateGame.Payload.(map[string]interface{})
+	if !ok {
+		t.Fatal("payload of create game response is nil")
+	}
+	createdGameUuid, prs := resp["game_uuid"]
+	if !prs {
+		t.Fatal("payload of create does not contain the key 'game_uuid'")
+	}
+	gameUuid, ok := createdGameUuid.(string)
+	if !ok {
+		t.Fatal("game_uuid is not of type string")
+	}
+	createdPlayerUuid, prs := resp["host_uuid"]
+	if !prs {
+		t.Fatal("payload of create does not contain the key 'host_uuid'")
+	}
+	playerUuid, ok := createdPlayerUuid.(string)
+	if !ok {
+		t.Fatal("host_uuid is not of type string")
+	}
+
+	/*
+		Test 2
+	*/
 	test = Test{
 		Number:     2,
 		Desc:       "should join the game with valid game uuid",
-		ReqPayload: models.ReqJoinGame{Code: models.CodeReqJoinGame, GameUuid: createdGameUuid},
+		ReqPayload: md.NewMessage(md.CodeReqJoinGame, md.WithPayload(md.ReqJoinGame{GameUuid: gameUuid})),
 	}
-	if err := ClientConn.WriteJSON(test.ReqPayload); err != nil {
+
+	if err := JoinConn.WriteJSON(test.ReqPayload); err != nil {
 		test.logError()
 		t.Fatal(err)
 	}
-	var respJoinGame models.RespJoinGame
-	if err := ClientConn.ReadJSON(&respJoinGame); err != nil {
+	var respJoinGame md.Message
+	if err := JoinConn.ReadJSON(&respJoinGame); err != nil {
 		test.logError()
 		t.Fatal(err)
+	}
+	if respJoinGame.Code != md.CodeRespSuccessJoinGame {
+		t.Fatalf("failed to join the game\tplayer: %s", playerUuid)
 	}
 	test.logSuccess(respJoinGame)
 
+	// Read extra message of success to host 
+	// we have to read it so it frees up the queue for the next steps of host read
+	if err := HostConn.ReadJSON(&respJoinGame); err != nil {
+		test.logError()
+		t.Fatal(err)
+	}
+	if respJoinGame.Code != md.CodeRespSuccessJoinGame {
+		t.Fatalf("failed to join the game\tplayer: %s", playerUuid)
+	}
+
+	/*
+		Test 3
+	*/
 	test = Test{
 		Number:     3,
 		Desc:       "should fail with invalid game uuid",
-		ReqPayload: models.ReqJoinGame{Code: models.CodeReqJoinGame, GameUuid: "invalid"},
+		ReqPayload: md.NewMessage(md.CodeReqJoinGame, md.WithPayload(md.ReqJoinGame{GameUuid: "invalid"})),
 	}
-	if err := ClientConn.WriteJSON(test.ReqPayload); err != nil {
+	if err := JoinConn.WriteJSON(test.ReqPayload); err != nil {
 		test.logError()
 		t.Fatal(err)
 	}
-	var respFailJoin models.RespFail
-	if err := ClientConn.ReadJSON(&respFailJoin); err != nil {
+	var respFailJoin md.Message
+	if err := JoinConn.ReadJSON(&respFailJoin); err != nil {
 		test.logError()
 		t.Fatal(err)
+	}
+
+	if respFailJoin.Code != md.CodeRespFailJoinGame {
+		t.Fatalf("should have failed to join and received code %d but got %d", md.CodeRespFailJoinGame, respFailJoin.Code)
 	}
 	test.logSuccess(respFailJoin)
+
+	test = Test{
+		Number: 4,
+		Desc:   "should set the defence grid and set ready",
+		ReqPayload: md.Message{
+			Code: md.CodeReqReady,
+			Payload: md.ReqReadyPlayer{
+				DefenceGrid: md.NewGrid(),
+				GameUuid:    gameUuid,
+				PlayerUuid:  playerUuid,
+			},
+		},
+	}
+	if err := HostConn.WriteJSON(test.ReqPayload); err != nil {
+		test.logError()
+		t.Fatal(err)
+	}
+	var respSuccessReady md.Message
+	if err := HostConn.ReadJSON(&respSuccessReady); err != nil {
+		test.logError()
+		t.Fatal(err)
+	}
+	test.logSuccess(respSuccessReady)
 }

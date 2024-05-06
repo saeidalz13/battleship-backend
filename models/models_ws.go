@@ -14,8 +14,8 @@ const (
 	CodeFailCreateGame
 
 	// Start game
-	CodeRespSuccessStartGame
-	CodeEndGame
+	CodeRespStartGame
+	CodeRespEndGame
 
 	// Join game
 	CodeReqJoinGame
@@ -23,9 +23,9 @@ const (
 	CodeRespFailJoinGame
 
 	// Select grid
-	CodeReqSelectGrid
-	CodeRespSuccessSelectGrid
-	CodeRespFailSelectGrid
+	// CodeReqSelectGrid
+	// CodeRespSuccessSelectGrid
+	// CodeRespFailSelectGrid
 
 	// Attack
 	CodeReqAttack
@@ -41,8 +41,53 @@ const (
 	CodeRespInvalidSignal
 )
 
+const (
+	KeyGameUuid    string = "game_uuid"
+	KeyPlayerUuid  string = "player_uuid"
+	KeyDefenceGrid string = "defence_grid"
+)
+
 type Signal struct {
 	Code int `json:"code"`
+}
+
+func NewSignal(code int) Signal {
+	return Signal{Code: code}
+}
+
+type Message struct {
+	Code    int         `json:"code"`
+	Payload interface{} `json:"payload,omitempty"`
+	Error   RespFail    `json:"error,omitempty"`
+}
+
+type MessageOption func(*Message) error
+
+func NewMessage(code int, opts ...MessageOption) Message {
+	message := Message{Code: code}
+
+	for _, opt := range opts {
+		if err := opt(&message); err != nil {
+			log.Println("failed to create new message: ", err)
+			return message
+		}
+	}
+	return message
+}
+
+func WithPayload(p interface{}) MessageOption {
+	return func(m *Message) error {
+		m.Payload = p
+		return nil
+	}
+}
+
+func WithError(errorDetails, message string) MessageOption {
+	respFail := NewRespFail(errorDetails, message)
+	return func(m *Message) error {
+		m.Error = *respFail
+		return nil
+	}
 }
 
 type GridInt [][]int
@@ -80,9 +125,15 @@ func NewPlayer(ws *websocket.Conn, isHost, isTurn bool) *Player {
 	}
 }
 
-func (p *Player) AdjustAttackGrid(newGrid GridInt) {
+func (p *Player) SetAttackGrid(newGrid GridInt) {
 	p.AttackGrid = newGrid
-	log.Printf("player %s attack grid adjusted: %+v\n", p.Uuid, p.AttackGrid)
+	log.Printf("player %s attack grid set to: %+v\n", p.Uuid, p.AttackGrid)
+}
+
+func (p *Player) SetReady(newGrid GridInt) {
+	p.DefenceGrid = newGrid
+	p.IsReady = true
+	log.Printf("player %s defence grid set to: %+v\n", p.Uuid, p.AttackGrid)
 }
 
 type Game struct {
