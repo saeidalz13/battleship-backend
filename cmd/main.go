@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -34,6 +35,6 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /battleship", server.HandleWs)
 
-	log.Println("Listening to port 9191...")
-	log.Fatalln(http.ListenAndServe(":9191", mux))
+	log.Printf("Listening to port %d\n", port)
+	log.Fatalln(http.ListenAndServe(":"+ fmt.Sprintf("%d", port), mux))
 }
