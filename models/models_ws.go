@@ -22,7 +22,7 @@ const (
 	CodeRespSuccessJoinGame
 	CodeRespFailJoinGame
 
-	// // Select grid
+	// Select grid
 	// CodeReqSelectGrid
 	// CodeRespSuccessSelectGrid
 	// CodeRespFailSelectGrid
@@ -41,6 +41,12 @@ const (
 	CodeRespInvalidSignal
 )
 
+const (
+	KeyGameUuid    string = "game_uuid"
+	KeyPlayerUuid  string = "player_uuid"
+	KeyDefenceGrid string = "defence_grid"
+)
+
 type Signal struct {
 	Code int `json:"code"`
 }
@@ -52,12 +58,14 @@ func NewSignal(code int) Signal {
 type Message struct {
 	Code    int         `json:"code"`
 	Payload interface{} `json:"payload,omitempty"`
+	Error   RespFail    `json:"error,omitempty"`
 }
 
 type MessageOption func(*Message) error
 
 func NewMessage(code int, opts ...MessageOption) Message {
-	var message Message
+	message := Message{Code: code}
+
 	for _, opt := range opts {
 		if err := opt(&message); err != nil {
 			log.Println("failed to create new message: ", err)
@@ -70,6 +78,14 @@ func NewMessage(code int, opts ...MessageOption) Message {
 func WithPayload(p interface{}) MessageOption {
 	return func(m *Message) error {
 		m.Payload = p
+		return nil
+	}
+}
+
+func WithError(errorDetails, message string) MessageOption {
+	respFail := NewRespFail(errorDetails, message)
+	return func(m *Message) error {
+		m.Error = *respFail
 		return nil
 	}
 }

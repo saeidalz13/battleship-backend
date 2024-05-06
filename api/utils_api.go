@@ -12,7 +12,7 @@ import (
 type WsRequestHandler interface {
 	CreateGame() (*md.Message, error)
 	ManageReadyPlayer() (*md.Message, *md.Game, error)
-	JoinPlayerToGame() (md.Message, *md.Game, error)
+	JoinPlayerToGame() (*md.Message, *md.Game, error)
 }
 
 type WsRequest struct {
@@ -58,44 +58,57 @@ func (w *WsRequest) CreateGame() (*md.Message, error) {
 }
 
 func (w *WsRequest) ManageReadyPlayer() (*md.Message, *md.Game, error) {
-	var readyPlayerReq md.ReqReadyPlayer
+	var readyPlayerReq md.Message
 	if err := json.Unmarshal(w.Payload, &readyPlayerReq); err != nil {
 		return nil, nil, err
 	}
 	log.Printf("unmarshaled ready player payload: %+v\n", readyPlayerReq)
 
-	game := w.Server.FindGame(readyPlayerReq.GameUuid)
+	correctedPayload, err := TypeAssertStringPayload(readyPlayerReq.Payload, md.KeyGameUuid, md.KeyPlayerUuid)
+	if err != nil {
+		return &md.Message{}, nil, err
+	}
+
+	game := w.Server.FindGame(correctedPayload[md.KeyGameUuid])
 	if game == nil {
-		return nil, nil, cerr.ErrorGameNotExists(readyPlayerReq.GameUuid)
+		return nil, nil, cerr.ErrorGameNotExists(correctedPayload[md.KeyGameUuid])
 	}
 
-	player := w.Server.FindPlayer(readyPlayerReq.PlayerUuid)
+	player := w.Server.FindPlayer(correctedPayload[md.KeyPlayerUuid])
 	if player == nil {
-		return nil, nil, cerr.ErrorPlayerNotExist(readyPlayerReq.PlayerUuid)
+		return nil, nil, cerr.ErrorPlayerNotExist(correctedPayload[md.KeyPlayerUuid])
 	}
 
-	player.SetReady(readyPlayerReq.DefenceGrid)
+	defenceGrid, err := TypeAssertGridIntPayload(readyPlayerReq.Payload, md.KeyDefenceGrid)
+	if err != nil {
+		return &md.Message{}, nil, err
+	}
+	player.SetReady(defenceGrid)
 	resp := md.NewMessage(md.CodeRespSuccessReady)
 	return &resp, game, nil
 }
 
-func (w *WsRequest) JoinPlayerToGame() (md.Message, *md.Game, error) {
-	var joinGameReq md.ReqJoinGame
+func (w *WsRequest) JoinPlayerToGame() (*md.Message, *md.Game, error) {
+	var joinGameReq md.Message
 	if err := json.Unmarshal(w.Payload, &joinGameReq); err != nil {
-		return md.Message{}, nil, err
+		return &md.Message{}, nil, err
 	}
 	log.Printf("unmarshaled join game payload: %+v\n", joinGameReq)
 
-	game := w.Server.FindGame(joinGameReq.GameUuid)
+	correctedPayload, err := TypeAssertStringPayload(joinGameReq.Payload, md.KeyGameUuid)
+	if err != nil {
+		return &md.Message{}, nil, err
+	}
+	game := w.Server.FindGame(correctedPayload[md.KeyGameUuid])
 	if game == nil {
-		return md.Message{}, nil, cerr.ErrorGameNotExists(joinGameReq.GameUuid)
+		return &md.Message{}, nil, cerr.ErrorGameNotExists(correctedPayload[md.KeyGameUuid])
 	}
 	log.Printf("found game in database: %+v\n", game)
 
 	game.AddJoinPlayer(w.Ws)
 	resp := md.NewMessage(md.CodeRespSuccessJoinGame, md.WithPayload(md.RespJoinGame{PlayerUuid: game.JoinPlayer.Uuid}))
 
-	return resp, game, nil
+	return &resp, game, nil
 }
 
 func Attack(s *Server, ws *websocket.Conn, payload []byte) error {

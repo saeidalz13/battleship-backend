@@ -9,3 +9,19 @@ func ErrorGameNotExists(gameUuid string) error {
 func ErrorPlayerNotExist(playerUuid string) error {
 	return fmt.Errorf("player with this uuid does not exist, uuid: %s", playerUuid)
 }
+
+func ErrorNilPayload() error {
+	return fmt.Errorf("the payload is nil and is not of type map")
+}
+
+func ErrKeyNotExists(key string) error {
+	return fmt.Errorf("the key does not exist:\t%s", key)
+}
+
+func ErrValueNotString(value interface{}) error {
+	return fmt.Errorf("the value is not of type string:\t%t", value)
+}
+
+func ErrValueNotGridInt() error {
+	return fmt.Errorf("the value is not of type GridInt")
+}
