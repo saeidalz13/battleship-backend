@@ -217,7 +217,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 		case md.CodeReqJoinGame:
 			// Finalized
 			req := NewWsRequest(s, ws, payload)
-			game, resp, err := req.JoinPlayerToGame()
+			resp, game, err := req.JoinPlayerToGame()
 			if err != nil {
 				log.Printf("failed to join player: %v\n", err)
 				respFail := md.NewMessage(md.CodeRespFailJoinGame, md.WithPayload(md.NewRespFail(err.Error(), "failed to join the player")))

@@ -12,7 +12,7 @@ import (
 type WsRequestHandler interface {
 	CreateGame() (*md.Message, error)
 	ManageReadyPlayer() (*md.Message, *md.Game, error)
-	JoinPlayerToGame() (*md.Game, md.Message, error)
+	JoinPlayerToGame() (md.Message, *md.Game, error)
 }
 
 type WsRequest struct {
@@ -79,23 +79,23 @@ func (w *WsRequest) ManageReadyPlayer() (*md.Message, *md.Game, error) {
 	return &resp, game, nil
 }
 
-func (w *WsRequest) JoinPlayerToGame() (*md.Game, md.Message, error) {
+func (w *WsRequest) JoinPlayerToGame() (md.Message, *md.Game, error) {
 	var joinGameReq md.ReqJoinGame
 	if err := json.Unmarshal(w.Payload, &joinGameReq); err != nil {
-		return nil, md.Message{}, err
+		return md.Message{}, nil, err
 	}
 	log.Printf("unmarshaled join game payload: %+v\n", joinGameReq)
 
 	game := w.Server.FindGame(joinGameReq.GameUuid)
 	if game == nil {
-		return nil, md.Message{}, cerr.ErrorGameNotExists(joinGameReq.GameUuid)
+		return md.Message{}, nil, cerr.ErrorGameNotExists(joinGameReq.GameUuid)
 	}
 	log.Printf("found game in database: %+v\n", game)
 
 	game.AddJoinPlayer(w.Ws)
 	resp := md.NewMessage(md.CodeRespSuccessJoinGame, md.WithPayload(md.RespJoinGame{PlayerUuid: game.JoinPlayer.Uuid}))
 
-	return game, resp, nil
+	return resp, game, nil
 }
 
 func Attack(s *Server, ws *websocket.Conn, payload []byte) error {
