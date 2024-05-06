@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/gorilla/websocket"
-	cerr "github.com/saeidalz13/battleship-backend/internal/customerr"
+	cerr "github.com/saeidalz13/battleship-backend/internal/error"
 	md "github.com/saeidalz13/battleship-backend/models"
 )
 

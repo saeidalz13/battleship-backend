@@ -1,4 +1,4 @@
-package customerr
+package error
 
 import "fmt"
 
