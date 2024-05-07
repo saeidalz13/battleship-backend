@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -29,6 +30,31 @@ type Server struct {
 	Db       *sql.DB
 	Games    map[string]*md.Game
 	Players  map[string]*md.Player
+	mu       sync.Mutex
+}
+
+func (s *Server) AddGame() *md.Game {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	newGame := md.NewGame()
+	s.Games[newGame.Uuid] = newGame
+	return newGame
+}
+
+func (s *Server) AddHostPlayer(game *md.Game, ws *websocket.Conn) *md.Player {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	game.AddHostPlayer(ws)
+	s.Players[game.HostPlayer.Uuid] = game.HostPlayer
+	return game.HostPlayer
+}
+
+func (s *Server) CreateGame(ws *websocket.Conn) (*md.Game, *md.Player) {
+	game := s.AddGame()
+	hostPlayer := s.AddHostPlayer(game, ws)
+	return game, hostPlayer
 }
 
 func (s *Server) FindGame(gameUuid string) *md.Game {
@@ -160,7 +186,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 		case md.CodeReqCreateGame:
 			// Finalized
 			req := NewWsRequest(s, ws)
-			resp, _ := req.CreateGame()
+			resp, _ := req.HandleCreateGame()
 			if err := ws.WriteJSON(resp); err != nil {
 				log.Printf("failed to create new game: %v\n", err)
 				continue
@@ -174,7 +200,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 
 		case md.CodeReqAttack:
 			req := NewWsRequest(s, ws, payload)
-			game, err := req.Attack()
+			game, err := req.HandleAttack()
 
 			if err != nil {
 				log.Printf("failed to attack: %v\n", err)
@@ -203,7 +229,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 
 		case md.CodeReqReady:
 			req := NewWsRequest(s, ws, payload)
-			resp, game, err := req.ManageReadyPlayer()
+			resp, game, err := req.HandleReadyPlayer()
 			if err != nil {
 				log.Printf("failed to make the player ready: %v\n", err)
 				respFail := md.NewMessage(md.CodeRespFailReady, md.WithError(err.Error(), "failed to make the player ready"))
@@ -229,7 +255,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 		case md.CodeReqJoinGame:
 			// Finalized
 			req := NewWsRequest(s, ws, payload)
-			resp, game, err := req.JoinPlayerToGame()
+			resp, game, err := req.HandleJoinPlayer()
 			if err != nil {
 				log.Printf("failed to join player: %v\n", err)
 				respFail := md.NewMessage(md.CodeRespFailJoinGame, md.WithError(err.Error(), "failed to join the player"))

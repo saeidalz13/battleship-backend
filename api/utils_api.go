@@ -10,10 +10,10 @@ import (
 )
 
 type WsRequestHandler interface {
-	CreateGame() (*md.Message, error)
-	ManageReadyPlayer() (*md.Message, *md.Game, error)
-	JoinPlayerToGame() (*md.Message, *md.Game, error)
-	Attack() (*md.Game, error)
+	HandleCreateGame() (*md.Message, error)
+	HandleReadyPlayer() (*md.Message, *md.Game, error)
+	HandleJoinPlayer() (*md.Message, *md.Game, error)
+	HandleAttack() (*md.Game, error)
 }
 
 type WsRequest struct {
@@ -41,24 +41,20 @@ func NewWsRequest(server *Server, ws *websocket.Conn, payload ...[]byte) *WsRequ
 	return &wsReq
 }
 
-func (w *WsRequest) CreateGame() (*md.Message, error) {
-	newGame := md.NewGame()
-	w.Server.Games[newGame.Uuid] = newGame
-
-	newGame.AddHostPlayer(w.Ws)
-	w.Server.Players[newGame.HostPlayer.Uuid] = newGame.HostPlayer
+func (w *WsRequest) HandleCreateGame() (*md.Message, error) {
+	game, hostPlayer := w.Server.CreateGame(w.Ws)
 
 	resp := md.NewMessage(md.CodeSuccessCreateGame,
 		md.WithPayload(
 			md.RespCreateGame{
-				GameUuid: newGame.Uuid,
-				HostUuid: newGame.HostPlayer.Uuid,
+				GameUuid: game.Uuid,
+				HostUuid: hostPlayer.Uuid,
 			},
 		))
 	return &resp, nil
 }
 
-func (w *WsRequest) ManageReadyPlayer() (*md.Message, *md.Game, error) {
+func (w *WsRequest) HandleReadyPlayer() (*md.Message, *md.Game, error) {
 	var readyPlayerReq md.Message
 	if err := json.Unmarshal(w.Payload, &readyPlayerReq); err != nil {
 		return nil, nil, err
@@ -86,7 +82,7 @@ func (w *WsRequest) ManageReadyPlayer() (*md.Message, *md.Game, error) {
 	return &resp, game, nil
 }
 
-func (w *WsRequest) JoinPlayerToGame() (*md.Message, *md.Game, error) {
+func (w *WsRequest) HandleJoinPlayer() (*md.Message, *md.Game, error) {
 	var joinGameReq md.Message
 	if err := json.Unmarshal(w.Payload, &joinGameReq); err != nil {
 		return &md.Message{}, nil, err
@@ -116,7 +112,7 @@ func (w *WsRequest) JoinPlayerToGame() (*md.Message, *md.Game, error) {
 	return &resp, game, nil
 }
 
-func (w *WsRequest) Attack() (*md.Game, error) {
+func (w *WsRequest) HandleAttack() (*md.Game, error) {
 	var reqAttack md.Message
 	if err := json.Unmarshal(w.Payload, &reqAttack); err != nil {
 		return nil, err
