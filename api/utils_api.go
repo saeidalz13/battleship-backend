@@ -70,7 +70,6 @@ func (w *WsRequest) ManageReadyPlayer() (*md.Message, *md.Game, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-
 	game, player, err := ExtractFindGamePlayer(w.Server, initMap)
 	if err != nil {
 		return nil, nil, err
@@ -134,6 +133,10 @@ func (w *WsRequest) Attack() (*md.Game, error) {
 		return nil, err
 	}
 	x, y, positionState := attackInfo[0], attackInfo[1], attackInfo[2]
+
+	if x >= md.GameGridSize || y >= md.GameGridSize {
+		return nil, cerr.ErrXorYOutOfGridBound(x, y)
+	}
 
 	game, player, err := ExtractFindGamePlayer(w.Server, initMap)
 	if err != nil {

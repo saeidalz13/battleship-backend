@@ -29,3 +29,7 @@ func ErrValueNotInt(value interface{}) error {
 func ErrValueNotGridInt() error {
 	return fmt.Errorf("the value is not of type GridInt")
 }
+
+func ErrXorYOutOfGridBound(x, y int) error {
+	return fmt.Errorf("incoming x or y is out of game grid bound\tx: %d\ty: %d", x, y)
+}
