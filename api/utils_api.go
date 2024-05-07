@@ -42,7 +42,8 @@ func NewWsRequest(server *Server, ws *websocket.Conn, payload ...[]byte) *WsRequ
 }
 
 func (w *WsRequest) HandleCreateGame() (*md.Message, error) {
-	game, hostPlayer := w.Server.CreateGame(w.Ws)
+	game := w.Server.AddGame()
+	hostPlayer := w.Server.AddHostPlayer(game, w.Ws)
 
 	resp := md.NewMessage(md.CodeSuccessCreateGame,
 		md.WithPayload(
@@ -99,16 +100,12 @@ func (w *WsRequest) HandleJoinPlayer() (*md.Message, *md.Game, error) {
 	}
 	gameUuid := desiredStrings[0]
 
-	game := w.Server.FindGame(gameUuid)
-	if game == nil {
-		return &md.Message{}, nil, cerr.ErrGameNotExists(gameUuid)
+	game, err := w.Server.AddJoinPlayer(gameUuid, w.Ws)
+	if err != nil {
+		return nil, nil, err
 	}
-	log.Printf("found game in database: %+v\n", game)
 
-	// Join the player to game and prepare the ws response
-	game.AddJoinPlayer(w.Ws)
 	resp := md.NewMessage(md.CodeRespSuccessJoinGame, md.WithPayload(md.RespJoinGame{PlayerUuid: game.JoinPlayer.Uuid}))
-
 	return &resp, game, nil
 }
 

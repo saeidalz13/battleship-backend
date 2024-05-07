@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	cerr "github.com/saeidalz13/battleship-backend/internal/error"
 	md "github.com/saeidalz13/battleship-backend/models"
 )
 
@@ -43,18 +44,27 @@ func (s *Server) AddGame() *md.Game {
 }
 
 func (s *Server) AddHostPlayer(game *md.Game, ws *websocket.Conn) *md.Player {
+	game.CreateHostPlayer(ws)
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	game.AddHostPlayer(ws)
 	s.Players[game.HostPlayer.Uuid] = game.HostPlayer
 	return game.HostPlayer
 }
 
-func (s *Server) CreateGame(ws *websocket.Conn) (*md.Game, *md.Player) {
-	game := s.AddGame()
-	hostPlayer := s.AddHostPlayer(game, ws)
-	return game, hostPlayer
+func (s *Server) AddJoinPlayer(gameUuid string, ws *websocket.Conn) (*md.Game, error) {
+	game := s.FindGame(gameUuid)
+	if game == nil {
+		return nil, cerr.ErrGameNotExists(gameUuid)
+	}
+	game.CreateJoinPlayer(ws)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.Players[game.JoinPlayer.Uuid] = game.JoinPlayer
+	return game, nil
 }
 
 func (s *Server) FindGame(gameUuid string) *md.Game {
@@ -163,10 +173,6 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 			// whatever else is not really an error. would be normal closure
 			break
 		}
-
-		// log the incoming messages
-		// log.Println("message type:", messageType)
-		// log.Printf("payload: %s, len: %d", string(payload), len(payload))
 
 		// the incoming message must be of type json containing the field "code"
 		// which would allow us to determine what action is required

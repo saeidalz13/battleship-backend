@@ -162,13 +162,13 @@ func (g *Game) GetPlayers() []*Player {
 	return []*Player{g.HostPlayer, g.JoinPlayer}
 }
 
-func (g *Game) AddJoinPlayer(ws *websocket.Conn) {
+func (g *Game) CreateJoinPlayer(ws *websocket.Conn) {
 	joinPlayer := NewPlayer(ws, false, false)
 	g.JoinPlayer = joinPlayer
 	log.Printf("join player created and added to game: %+v\n", joinPlayer.Uuid)
 }
 
-func (g *Game) AddHostPlayer(ws *websocket.Conn) {
+func (g *Game) CreateHostPlayer(ws *websocket.Conn) {
 	hostPlayer := NewPlayer(ws, true, true)
 	g.HostPlayer = hostPlayer
 	log.Printf("host player created and added to game: %+v\n", hostPlayer.Uuid)
