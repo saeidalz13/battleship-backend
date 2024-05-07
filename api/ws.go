@@ -34,23 +34,22 @@ type Server struct {
 func (s *Server) FindGame(gameUuid string) *md.Game {
 	game, prs := s.Games[gameUuid]
 	if !prs {
-		return nil 
+		return nil
 	}
 	log.Printf("game found: %s", gameUuid)
-	return game 
+	return game
 }
 
 func (s *Server) FindPlayer(playerUuid string) *md.Player {
 	player, prs := s.Players[playerUuid]
 	if !prs {
-		return nil 
+		return nil
 	}
 	log.Printf("player found: %s", playerUuid)
 	return player
 }
 
 type Option func(*Server) error
-
 
 func NewServer(optFuncs ...Option) *Server {
 	var server Server
@@ -174,20 +173,32 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 			log.Println("end game")
 
 		case md.CodeReqAttack:
-			if err := Attack(s, ws, payload); err != nil {
+			req := NewWsRequest(s, ws, payload)
+			game, err := req.Attack()
+
+			if err != nil {
 				log.Printf("failed to attack: %v\n", err)
 				respFail := md.NewMessage(md.CodeRespFailAttack, md.WithError(err.Error(), "failed to handle attack request"))
 				if err := ws.WriteJSON(respFail); err != nil {
 					log.Println(err)
-					continue
 				}
+				continue
+
 			} else {
-				// TODO: should you give me x and y? or the entire grid? seems redundant...
-				if err := ws.WriteJSON(md.NewMessage(0)); err != nil {
+				hostMsg := md.NewMessage(md.CodeRespSuccessAttack,
+					md.WithPayload(md.RespAttack{
+						IsTurn: game.HostPlayer.IsTurn},
+					),
+				)
+				joinMsg := md.NewMessage(md.CodeRespSuccessAttack,
+					md.WithPayload(md.RespAttack{
+						IsTurn: game.JoinPlayer.IsTurn},
+					),
+				)
+				if err := SendMsgToBothPlayers(game, &hostMsg, &joinMsg); err != nil {
 					log.Println(err)
-					continue
 				}
-				// TODO: Notify the other player about this event and tell them it's their turn
+				continue
 			}
 
 		case md.CodeReqReady:
@@ -206,8 +217,9 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 					continue
 				}
 
+				respStartGame := md.NewMessage(md.CodeRespStartGame)
 				if game.HostPlayer.IsReady && game.JoinPlayer.IsReady {
-					if err := SendJSONBothPlayers(game, md.NewSignal(md.CodeRespStartGame)); err != nil {
+					if err := SendMsgToBothPlayers(game, &respStartGame, &respStartGame); err != nil {
 						log.Println(err)
 					}
 					continue
@@ -226,7 +238,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 				}
 
 			} else {
-				if err := SendJSONBothPlayers(game, resp); err != nil {
+				if err := SendMsgToBothPlayers(game, resp, resp); err != nil {
 					log.Println(err)
 					continue
 				}

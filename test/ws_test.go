@@ -110,7 +110,7 @@ func TestCreateGame(t *testing.T) {
 		t.Fatal(err)
 	}
 	if respJoinGame.Code != md.CodeRespSuccessJoinGame {
-		t.Fatalf("failed to join the game\tplayer: %s", playerUuid)
+		t.Fatalf("failed to join the game\t%+v", respJoinGame)
 	}
 
 	/*

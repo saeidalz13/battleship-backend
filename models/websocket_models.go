@@ -7,6 +7,8 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+const GameGridSize = 5
+
 const (
 	// Create game
 	CodeReqCreateGame = iota
@@ -42,9 +44,12 @@ const (
 )
 
 const (
-	KeyGameUuid    string = "game_uuid"
-	KeyPlayerUuid  string = "player_uuid"
-	KeyDefenceGrid string = "defence_grid"
+	KeyGameUuid      string = "game_uuid"
+	KeyPlayerUuid    string = "player_uuid"
+	KeyDefenceGrid   string = "defence_grid"
+	KeyX             string = "x"
+	KeyY             string = "y"
+	KeyPositionState string = "position_state"
 )
 
 const (
@@ -101,10 +106,9 @@ type GridInt [][]int
 // Creates a new default grid
 // All indexes are zero/PositionStatusNeutral
 func NewGrid() GridInt {
-	grid := make(GridInt, 0, 5)
-	col := make([]int, 5)
-	for i := 0; i <= len(col); i++ {
-		grid[i] = col
+	grid := make(GridInt, GameGridSize)
+	for i := 0; i < GameGridSize; i++ {
+		grid[i] = make([]int, GameGridSize)
 	}
 	return grid
 }

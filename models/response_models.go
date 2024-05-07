@@ -17,7 +17,7 @@ type RespCreateGame struct {
 	HostUuid string `json:"host_uuid"`
 }
 
-type RespSuccessAttack struct {
+type RespAttack struct {
 	IsTurn bool `json:"is_turn"`
 	// Potentially other fields
 }

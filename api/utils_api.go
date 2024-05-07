@@ -13,6 +13,7 @@ type WsRequestHandler interface {
 	CreateGame() (*md.Message, error)
 	ManageReadyPlayer() (*md.Message, *md.Game, error)
 	JoinPlayerToGame() (*md.Message, *md.Game, error)
+	Attack() (*md.Game, error)
 }
 
 type WsRequest struct {
@@ -24,8 +25,8 @@ type WsRequest struct {
 // This tells the compiler that WsRequest struct must be of type of WsRequestHandler
 var _ WsRequestHandler = (*WsRequest)(nil)
 
-func NewWsRequest(server *Server, ws *websocket.Conn, payloads ...[]byte) *WsRequest {
-	if len(payloads) > 1 {
+func NewWsRequest(server *Server, ws *websocket.Conn, payload ...[]byte) *WsRequest {
+	if len(payload) > 1 {
 		log.Println("cannot accept more than one payload")
 		return nil
 	}
@@ -34,8 +35,8 @@ func NewWsRequest(server *Server, ws *websocket.Conn, payloads ...[]byte) *WsReq
 		Server: server,
 		Ws:     ws,
 	}
-	if len(payloads) != 0 {
-		wsReq.Payload = payloads[0]
+	if len(payload) != 0 {
+		wsReq.Payload = payload[0]
 	}
 	return &wsReq
 }
@@ -64,26 +65,24 @@ func (w *WsRequest) ManageReadyPlayer() (*md.Message, *md.Game, error) {
 	}
 	log.Printf("unmarshaled ready player payload: %+v\n", readyPlayerReq)
 
-	correctedPayload, err := TypeAssertStringPayload(readyPlayerReq.Payload, md.KeyGameUuid, md.KeyPlayerUuid)
+	// Check if payload empty
+	initMap, err := TypeAssertPayloadToMap(readyPlayerReq.Payload)
 	if err != nil {
-		return &md.Message{}, nil, err
+		return nil, nil, err
 	}
 
-	game := w.Server.FindGame(correctedPayload[md.KeyGameUuid])
-	if game == nil {
-		return nil, nil, cerr.ErrorGameNotExists(correctedPayload[md.KeyGameUuid])
-	}
-
-	player := w.Server.FindPlayer(correctedPayload[md.KeyPlayerUuid])
-	if player == nil {
-		return nil, nil, cerr.ErrorPlayerNotExist(correctedPayload[md.KeyPlayerUuid])
-	}
-
-	defenceGrid, err := TypeAssertGridIntPayload(readyPlayerReq.Payload, md.KeyDefenceGrid)
+	game, player, err := ExtractFindGamePlayer(w.Server, initMap)
 	if err != nil {
-		return &md.Message{}, nil, err
+		return nil, nil, err
 	}
+	defenceGrid, err := TypeAssertGridIntPayload(initMap, md.KeyDefenceGrid)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	player.SetReady(defenceGrid)
+
+	// prepare the response
 	resp := md.NewMessage(md.CodeRespSuccessReady)
 	return &resp, game, nil
 }
@@ -95,59 +94,102 @@ func (w *WsRequest) JoinPlayerToGame() (*md.Message, *md.Game, error) {
 	}
 	log.Printf("unmarshaled join game payload: %+v\n", joinGameReq)
 
-	correctedPayload, err := TypeAssertStringPayload(joinGameReq.Payload, md.KeyGameUuid)
+	initMap, err := TypeAssertPayloadToMap(joinGameReq.Payload)
 	if err != nil {
-		return &md.Message{}, nil, err
+		return nil, nil, err
 	}
-	game := w.Server.FindGame(correctedPayload[md.KeyGameUuid])
+	desiredStrings, err := TypeAssertStringPayload(initMap, md.KeyGameUuid)
+	if err != nil {
+		return nil, nil, err
+	}
+	gameUuid := desiredStrings[0]
+
+	game := w.Server.FindGame(gameUuid)
 	if game == nil {
-		return &md.Message{}, nil, cerr.ErrorGameNotExists(correctedPayload[md.KeyGameUuid])
+		return &md.Message{}, nil, cerr.ErrGameNotExists(gameUuid)
 	}
 	log.Printf("found game in database: %+v\n", game)
 
+	// Join the player to game and prepare the ws response
 	game.AddJoinPlayer(w.Ws)
 	resp := md.NewMessage(md.CodeRespSuccessJoinGame, md.WithPayload(md.RespJoinGame{PlayerUuid: game.JoinPlayer.Uuid}))
 
 	return &resp, game, nil
 }
 
-func Attack(s *Server, ws *websocket.Conn, payload []byte) error {
+func (w *WsRequest) Attack() (*md.Game, error) {
 	var reqAttack md.Message
-	if err := json.Unmarshal(payload, &reqAttack); err != nil {
-		return err
+	if err := json.Unmarshal(w.Payload, &reqAttack); err != nil {
+		return nil, err
 	}
 
-	game, prs := s.Games[reqAttack.GameUuid]
-	if !prs {
-		return cerr.ErrorGameNotExists(reqAttack.GameUuid)
+	initMap, err := TypeAssertPayloadToMap(reqAttack.Payload)
+	if err != nil {
+		return nil, err
 	}
-	player, prs := s.Players[reqAttack.PlayerUuid]
-	if !prs {
-		return cerr.ErrorPlayerNotExist(reqAttack.PlayerUuid)
-	}
-	player.IsTurn = false
 
+	// extract attack info
+	attackInfo, err := TypeAssertIntPayload(initMap, md.KeyX, md.KeyY, md.KeyPositionState)
+	if err != nil {
+		return nil, err
+	}
+	x, y, positionState := attackInfo[0], attackInfo[1], attackInfo[2]
+
+	game, player, err := ExtractFindGamePlayer(w.Server, initMap)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: Assumption is that the frontend decides if the attack is hit or miss
 	if player.IsHost {
-		game.HostPlayer.AttackGrid = reqAttack.AttackGrid
+		game.HostPlayer.AttackGrid[x][y] = positionState
 		game.HostPlayer.IsTurn = false
+		game.JoinPlayer.IsTurn = true
 	} else {
-		game.JoinPlayer.AttackGrid = reqAttack.AttackGrid
+		game.JoinPlayer.AttackGrid[x][y] = positionState
 		game.JoinPlayer.IsTurn = false
+		game.HostPlayer.IsTurn = true
 	}
-	return nil
+
+	return game, nil
 }
 
 func EndGame(s *Server, ws *websocket.Conn, payload []byte) error {
 	return nil
 }
 
-func SendJSONBothPlayers(game *md.Game, v interface{}) error {
+func SendMsgToBothPlayers(game *md.Game, hostMsg, joinMsg *md.Message) error {
 	playerOfGames := game.GetPlayers()
 	for _, player := range playerOfGames {
-		if err := player.WsConn.WriteJSON(v); err != nil {
-			return err
+		if player.IsHost {
+			if err := player.WsConn.WriteJSON(hostMsg); err != nil {
+				return err
+			}
+		} else {
+			if err := player.WsConn.WriteJSON(joinMsg); err != nil {
+				return err
+			}
 		}
 		log.Printf("message sent to player: %+v\n", player.Uuid)
 	}
 	return nil
+}
+
+func ExtractFindGamePlayer(server *Server, initMap map[string]interface{}) (*md.Game, *md.Player, error) {
+	// Extract info from payload map
+	desiredStrings, err := TypeAssertStringPayload(initMap, md.KeyGameUuid, md.KeyPlayerUuid)
+	if err != nil {
+		return nil, nil, err
+	}
+	gameUuid, playerUuid := desiredStrings[0], desiredStrings[1]
+
+	game := server.FindGame(gameUuid)
+	if game == nil {
+		return nil, nil, cerr.ErrGameNotExists(gameUuid)
+	}
+	player := server.FindPlayer(playerUuid)
+	if player == nil {
+		return nil, nil, cerr.ErrPlayerNotExist(playerUuid)
+	}
+	return game, player, nil
 }

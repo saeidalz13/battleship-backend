@@ -2,15 +2,15 @@ package error
 
 import "fmt"
 
-func ErrorGameNotExists(gameUuid string) error {
+func ErrGameNotExists(gameUuid string) error {
 	return fmt.Errorf("game with this uuid does not exist, uuid: %s", gameUuid)
 }
 
-func ErrorPlayerNotExist(playerUuid string) error {
+func ErrPlayerNotExist(playerUuid string) error {
 	return fmt.Errorf("player with this uuid does not exist, uuid: %s", playerUuid)
 }
 
-func ErrorNilPayload() error {
+func ErrNilPayload() error {
 	return fmt.Errorf("the payload is nil and is not of type map")
 }
 
@@ -20,6 +20,10 @@ func ErrKeyNotExists(key string) error {
 
 func ErrValueNotString(value interface{}) error {
 	return fmt.Errorf("the value is not of type string:\t%t", value)
+}
+
+func ErrValueNotInt(value interface{}) error {
+	return fmt.Errorf("the value is not of type int:\t%t", value)
 }
 
 func ErrValueNotGridInt() error {

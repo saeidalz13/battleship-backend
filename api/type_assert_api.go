@@ -5,15 +5,11 @@ import (
 	md "github.com/saeidalz13/battleship-backend/models"
 )
 
-func TypeAssertStringPayload(payload interface{}, keys ...string) (map[string]string, error) {
-	finalMap := make(map[string]string)
-	desiredMap, ok := payload.(map[string]interface{})
-	if !ok {
-		return nil, cerr.ErrorNilPayload()
-	}
+func TypeAssertStringPayload(initMap map[string]interface{}, keys ...string) ([]string, error) {
+	desiredStrings := make([]string, len(keys))
 
-	for _, key := range keys {
-		value, prs := desiredMap[key]
+	for i, key := range keys {
+		value, prs := initMap[key]
 		if !prs {
 			return nil, cerr.ErrKeyNotExists(key)
 		}
@@ -22,18 +18,14 @@ func TypeAssertStringPayload(payload interface{}, keys ...string) (map[string]st
 		if !ok {
 			return nil, cerr.ErrValueNotString(value)
 		}
-		finalMap[key] = str
+		desiredStrings[i] = str
 	}
-	return finalMap, nil
+
+	return desiredStrings, nil
 }
 
-func TypeAssertGridIntPayload(payload interface{}, key string) (md.GridInt, error) {
-	desiredMap, ok := payload.(map[string]interface{})
-	if !ok {
-		return nil, cerr.ErrorNilPayload()
-	}
-
-	value, prs := desiredMap[key]
+func TypeAssertGridIntPayload(initMap map[string]interface{}, key string) (md.GridInt, error) {
+	value, prs := initMap[key]
 	if !prs {
 		return nil, cerr.ErrKeyNotExists(key)
 	}
@@ -43,4 +35,31 @@ func TypeAssertGridIntPayload(payload interface{}, key string) (md.GridInt, erro
 		return nil, cerr.ErrValueNotString(value)
 	}
 	return gridInt, nil
+}
+
+func TypeAssertPayloadToMap(payload interface{}) (map[string]interface{}, error) {
+	initMap, ok := payload.(map[string]interface{})
+	if !ok {
+		return nil, cerr.ErrNilPayload()
+	}
+	return initMap, nil
+}
+
+func TypeAssertIntPayload(initMap map[string]interface{}, keys ...string) ([]int, error) {
+	desiredInts := make([]int, len(keys))
+
+	for i, key := range keys {
+		value, prs := initMap[key]
+		if !prs {
+			return nil, cerr.ErrKeyNotExists(key)
+		}
+
+		intValue, ok := value.(int)
+		if !ok {
+			return nil, cerr.ErrValueNotInt(value)
+		}
+
+		desiredInts[i] = intValue
+	}
+	return desiredInts, nil
 }
