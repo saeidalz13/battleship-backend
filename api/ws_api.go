@@ -19,11 +19,12 @@ const (
 	StageDev  = "dev"
 )
 
-var defaultPort int = 8000
-
-var allowedOrigins = map[string]bool{
-	"https://www.allowed_url.com": true,
-}
+var (
+	defaultPort    int = 8000
+	allowedOrigins     = map[string]bool{
+		"https://www.allowed_url.com": true,
+	}
+)
 
 type Server struct {
 	Port     *int
@@ -295,7 +296,7 @@ func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Println("a new connection established!", ws.RemoteAddr().String())
+	log.Println("a new connection established!\tRemote Addr: ", ws.RemoteAddr().String())
 
 	// managing connection on another goroutine
 	go s.manageWsConn(ws)
