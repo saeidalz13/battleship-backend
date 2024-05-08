@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -31,9 +32,13 @@ type Server struct {
 	Db       *sql.DB
 	Games    map[string]*md.Game
 	Players  map[string]*md.Player
+	mu       sync.Mutex
 }
 
 func (s *Server) AddGame() *md.Game {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	newGame := md.NewGame()
 	s.Games[newGame.Uuid] = newGame
 	return newGame
@@ -41,6 +46,9 @@ func (s *Server) AddGame() *md.Game {
 
 func (s *Server) AddHostPlayer(game *md.Game, ws *websocket.Conn) *md.Player {
 	game.CreateHostPlayer(ws)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	s.Players[game.HostPlayer.Uuid] = game.HostPlayer
 	return game.HostPlayer
@@ -52,6 +60,9 @@ func (s *Server) AddJoinPlayer(gameUuid string, ws *websocket.Conn) (*md.Game, e
 		return nil, cerr.ErrGameNotExists(gameUuid)
 	}
 	game.CreateJoinPlayer(ws)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	s.Players[game.JoinPlayer.Uuid] = game.JoinPlayer
 	return game, nil
