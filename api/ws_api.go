@@ -32,7 +32,7 @@ type Server struct {
 	Db       *sql.DB
 	Games    map[string]*md.Game
 	Players  map[string]*md.Player
-	mu       sync.Mutex
+	mu       sync.RWMutex
 }
 
 func (s *Server) AddGame() *md.Game {
@@ -45,11 +45,10 @@ func (s *Server) AddGame() *md.Game {
 }
 
 func (s *Server) AddHostPlayer(game *md.Game, ws *websocket.Conn) *md.Player {
-	game.CreateHostPlayer(ws)
-
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	game.CreateHostPlayer(ws)
 	s.Players[game.HostPlayer.Uuid] = game.HostPlayer
 	return game.HostPlayer
 }
@@ -59,16 +58,19 @@ func (s *Server) AddJoinPlayer(gameUuid string, ws *websocket.Conn) (*md.Game, e
 	if game == nil {
 		return nil, cerr.ErrGameNotExists(gameUuid)
 	}
-	game.CreateJoinPlayer(ws)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	game.CreateJoinPlayer(ws)
 	s.Players[game.JoinPlayer.Uuid] = game.JoinPlayer
 	return game, nil
 }
 
 func (s *Server) FindGame(gameUuid string) *md.Game {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	
 	game, prs := s.Games[gameUuid]
 	if !prs {
 		return nil
@@ -78,6 +80,9 @@ func (s *Server) FindGame(gameUuid string) *md.Game {
 }
 
 func (s *Server) FindPlayer(playerUuid string) *md.Player {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	player, prs := s.Players[playerUuid]
 	if !prs {
 		return nil
