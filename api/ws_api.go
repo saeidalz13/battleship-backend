@@ -26,13 +26,27 @@ var (
 	}
 )
 
+var upgrader = websocket.Upgrader{
+	// good average time since this is not a high-latency operation such as video streaming
+	HandshakeTimeout: time.Second * 5,
+
+	// probably more that enough but this is a good average size
+	ReadBufferSize:  2048,
+	WriteBufferSize: 2048,
+	CheckOrigin:     func(r *http.Request) bool { return true },
+}
+
+type ServerOptions struct {
+	Port  *int
+	Db    *sql.DB
+	Stage string
+}
+
 type Server struct {
-	Port     *int
-	Upgrader websocket.Upgrader
-	Db       *sql.DB
-	Games    map[string]*md.Game
-	Players  map[string]*md.Player
-	mu       sync.RWMutex
+	Db      *sql.DB
+	Games   map[string]*md.Game
+	Players map[string]*md.Player
+	mu      sync.RWMutex
 }
 
 func (s *Server) AddGame() *md.Game {
@@ -70,7 +84,7 @@ func (s *Server) AddJoinPlayer(gameUuid string, ws *websocket.Conn) (*md.Game, e
 func (s *Server) FindGame(gameUuid string) *md.Game {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	game, prs := s.Games[gameUuid]
 	if !prs {
 		return nil
@@ -91,43 +105,34 @@ func (s *Server) FindPlayer(playerUuid string) *md.Player {
 	return player
 }
 
-type Option func(*Server) error
+type Option func(*ServerOptions) error
 
 func NewServer(optFuncs ...Option) *Server {
 	var server Server
+	var serverOptions ServerOptions
 	for _, opt := range optFuncs {
-		if err := opt(&server); err != nil {
+		if err := opt(&serverOptions); err != nil {
 			panic(err)
 		}
 	}
-	if server.Port == nil {
-		server.Port = &defaultPort
+	if serverOptions.Port == nil {
+		serverOptions.Port = &defaultPort
 	}
-	if server.Games == nil {
-		server.Games = make(map[string]*md.Game)
-	}
-	if server.Players == nil {
-		server.Players = make(map[string]*md.Player)
-	}
+	server.Games = make(map[string]*md.Game)
+	server.Players = make(map[string]*md.Player)
 
-	upgrader := websocket.Upgrader{
-		// good average time since this is not a high-latency operation such as video streaming
-		HandshakeTimeout: time.Second * 5,
-
-		// probably more that enough but this is a good average size
-		ReadBufferSize:  2048,
-		WriteBufferSize: 2048,
-	}
-
-	server.Upgrader = upgrader
-	if server.Upgrader.CheckOrigin == nil {
-		server.Upgrader.CheckOrigin = func(r *http.Request) bool { return true }
+	if serverOptions.Stage == StageProd {
+		upgrader.CheckOrigin = func(r *http.Request) bool {
+			origin := r.Header.Get("Origin")
+			return allowedOrigins[origin]
+		}
+		return nil
 	}
 	return &server
 }
 
 func WithPort(port int) Option {
-	return func(s *Server) error {
+	return func(s *ServerOptions) error {
 		if port > 10000 {
 			panic("choose a port less than 10000")
 		}
@@ -137,28 +142,20 @@ func WithPort(port int) Option {
 }
 
 func WithDb(db *sql.DB) Option {
-	return func(s *Server) error {
+	return func(s *ServerOptions) error {
+		// TODO: we can add check for pinging here before passing it to server
 		s.Db = db
 		return nil
 	}
 }
 
 func WithStage(stage string) Option {
-	return func(s *Server) error {
-		if stage == StageProd {
-			s.Upgrader.CheckOrigin = func(r *http.Request) bool {
-				origin := r.Header.Get("Origin")
-				return allowedOrigins[origin]
-			}
-			return nil
+	return func(s *ServerOptions) error {
+		if stage != StageProd && stage != StageDev {
+			return fmt.Errorf("invalid type of development stage: %s", stage)
 		}
-
-		if stage == StageDev {
-			s.Upgrader.CheckOrigin = func(r *http.Request) bool { return true }
-			return nil
-		}
-
-		return fmt.Errorf("stage must be prod or dev")
+		s.Stage = stage
+		return nil
 	}
 }
 
@@ -294,7 +291,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 
 func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
 	// use Upgrade method to make a websocket connection
-	ws, err := s.Upgrader.Upgrade(w, r, nil)
+	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, "could not open websocket connection", http.StatusBadRequest)
