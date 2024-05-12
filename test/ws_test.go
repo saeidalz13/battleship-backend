@@ -27,7 +27,7 @@ func TestCreateGame(t *testing.T) {
 	test := Test{
 		Number:     0,
 		Desc:       "should fail with invalid code",
-		ReqPayload: md.NewMessage(-1),
+		ReqPayload: md.NewMessage[any](-1),
 	}
 	if err := HostConn.WriteJSON(test.ReqPayload); err != nil {
 		test.logError()
@@ -46,39 +46,20 @@ func TestCreateGame(t *testing.T) {
 	test = Test{
 		Number:     1,
 		Desc:       "should create game with valid code",
-		ReqPayload: md.NewMessage(md.CodeReqCreateGame),
+		ReqPayload: md.NewMessage[any](md.CodeReqCreateGame),
 	}
 	if err := HostConn.WriteJSON(test.ReqPayload); err != nil {
 		test.logError()
 		t.Fatal(err)
 	}
-	var respCreateGame md.Message
+	var respCreateGame md.Message[md.RespCreateGame]
 	if err := HostConn.ReadJSON(&respCreateGame); err != nil {
 		test.logError()
 		t.Fatal(err)
 	}
 	test.logSuccess(respCreateGame)
-
-	resp, ok := respCreateGame.Payload.(map[string]interface{})
-	if !ok {
-		t.Fatal("payload of create game response is nil")
-	}
-	createdGameUuid, prs := resp["game_uuid"]
-	if !prs {
-		t.Fatal("payload of create does not contain the key 'game_uuid'")
-	}
-	gameUuid, ok := createdGameUuid.(string)
-	if !ok {
-		t.Fatal("game_uuid is not of type string")
-	}
-	createdPlayerUuid, prs := resp["host_uuid"]
-	if !prs {
-		t.Fatal("payload of create does not contain the key 'host_uuid'")
-	}
-	hostUuid, ok := createdPlayerUuid.(string)
-	if !ok {
-		t.Fatal("host_uuid is not of type string")
-	}
+	gameUuid := respCreateGame.Payload.GameUuid	
+	hostUuid := respCreateGame.Payload.HostUuid
 
 	/*
 		Test 2

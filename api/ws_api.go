@@ -68,9 +68,9 @@ func (s *Server) AddHostPlayer(game *md.Game, ws *websocket.Conn) *md.Player {
 }
 
 func (s *Server) AddJoinPlayer(gameUuid string, ws *websocket.Conn) (*md.Game, error) {
-	game := s.FindGame(gameUuid)
-	if game == nil {
-		return nil, cerr.ErrGameNotExists(gameUuid)
+	game, err := s.FindGame(gameUuid)
+	if err != nil {
+		return nil, err 
 	}
 
 	s.mu.Lock()
@@ -81,28 +81,28 @@ func (s *Server) AddJoinPlayer(gameUuid string, ws *websocket.Conn) (*md.Game, e
 	return game, nil
 }
 
-func (s *Server) FindGame(gameUuid string) *md.Game {
+func (s *Server) FindGame(gameUuid string) (*md.Game, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	game, prs := s.Games[gameUuid]
 	if !prs {
-		return nil
+		return nil, cerr.ErrGameNotExists(gameUuid)
 	}
 	log.Printf("game found: %s", gameUuid)
-	return game
+	return game, nil
 }
 
-func (s *Server) FindPlayer(playerUuid string) *md.Player {
+func (s *Server) FindPlayer(playerUuid string) (*md.Player, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	player, prs := s.Players[playerUuid]
 	if !prs {
-		return nil
+		return nil, cerr.ErrPlayerNotExist(playerUuid)
 	}
 	log.Printf("player found: %s", playerUuid)
-	return player
+	return player, nil
 }
 
 type Option func(*ServerOptions) error
@@ -213,23 +213,21 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 
 			if err != nil {
 				log.Printf("failed to attack: %v\n", err)
-				respFail := md.NewMessage(md.CodeRespFailAttack, md.WithError(err.Error(), "failed to handle attack request"))
-				if err := ws.WriteJSON(respFail); err != nil {
+				respErr := md.NewMessage[any](md.CodeRespFailAttack) 
+				respErr.AddError(err.Error(), "failed to handle attack request")
+
+				if err := ws.WriteJSON(respErr); err != nil {
 					log.Println(err)
 				}
 				continue
 
 			} else {
-				hostMsg := md.NewMessage(md.CodeRespSuccessAttack,
-					md.WithPayload(md.RespAttack{
-						IsTurn: game.HostPlayer.IsTurn},
-					),
-				)
-				joinMsg := md.NewMessage(md.CodeRespSuccessAttack,
-					md.WithPayload(md.RespAttack{
-						IsTurn: game.JoinPlayer.IsTurn},
-					),
-				)
+				hostMsg := md.NewMessage[md.RespAttack](md.CodeRespSuccessAttack)
+				hostMsg.AddPayload(md.RespAttack{IsTurn: game.HostPlayer.IsTurn})
+
+				joinMsg := md.NewMessage[md.RespAttack](md.CodeRespSuccessAttack)
+				joinMsg.AddPayload(md.RespAttack{IsTurn: game.JoinPlayer.IsTurn})
+
 				if err := SendMsgToBothPlayers(game, &hostMsg, &joinMsg); err != nil {
 					log.Println(err)
 				}
@@ -241,8 +239,9 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 			resp, game, err := req.HandleReadyPlayer()
 			if err != nil {
 				log.Printf("failed to make the player ready: %v\n", err)
-				respFail := md.NewMessage(md.CodeRespFailReady, md.WithError(err.Error(), "failed to make the player ready"))
-				if err := ws.WriteJSON(respFail); err != nil {
+				respErr := md.NewMessage[any](md.CodeRespFailReady)
+				respErr.AddError(err.Error(), "failed to make the player ready")
+				if err := ws.WriteJSON(respErr); err != nil {
 					log.Println(err)
 				}
 				continue
@@ -252,7 +251,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 					continue
 				}
 
-				respStartGame := md.NewMessage(md.CodeRespStartGame)
+				respStartGame := md.NewMessage[any](md.CodeRespStartGame)
 				if game.HostPlayer.IsReady && game.JoinPlayer.IsReady {
 					if err := SendMsgToBothPlayers(game, &respStartGame, &respStartGame); err != nil {
 						log.Println(err)
@@ -267,8 +266,9 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 			resp, game, err := req.HandleJoinPlayer()
 			if err != nil {
 				log.Printf("failed to join player: %v\n", err)
-				respFail := md.NewMessage(md.CodeRespFailJoinGame, md.WithError(err.Error(), "failed to join the player"))
-				if err := ws.WriteJSON(respFail); err != nil {
+				respErr := md.NewMessage[any](md.CodeRespFailJoinGame)
+				respErr.AddError(err.Error(), "failed to join the player")
+				if err := ws.WriteJSON(respErr); err != nil {
 					log.Println(err)
 				}
 
@@ -280,7 +280,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 			}
 
 		default:
-			respInvalidSignal := md.NewMessage(md.CodeRespInvalidSignal)
+			respInvalidSignal := md.NewMessage[any](md.CodeRespInvalidSignal)
 			if err := ws.WriteJSON(respInvalidSignal); err != nil {
 				log.Println(err)
 				continue

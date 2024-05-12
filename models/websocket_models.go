@@ -66,40 +66,48 @@ func NewSignal(code int) Signal {
 	return Signal{Code: code}
 }
 
-type Message struct {
-	Code    int         `json:"code"`
-	Payload interface{} `json:"payload,omitempty"`
-	Error   RespFail    `json:"error,omitempty"`
+type Message[T any] struct {
+	Code    int     `json:"code"`
+	Payload T       `json:"payload,omitempty"`
+	Error   RespErr `json:"error,omitempty"`
 }
 
-type MessageOption func(*Message) error
+type MessageOption[T any] func(*Message[T]) error
 
-func NewMessage(code int, opts ...MessageOption) Message {
-	message := Message{Code: code}
+func NewMessage[T any](code int) Message[T] {
+	return Message[T]{Code: code}
 
-	for _, opt := range opts {
-		if err := opt(&message); err != nil {
-			log.Println("failed to create new message: ", err)
-			return message
-		}
-	}
-	return message
+	// for _, opt := range opts {
+	// 	if err := opt(&message); err != nil {
+	// 		log.Println("failed to create new message: ", err)
+	// 		return message
+	// 	}
+	// }
+	// return message
 }
 
-func WithPayload(p interface{}) MessageOption {
-	return func(m *Message) error {
-		m.Payload = p
-		return nil
-	}
+func (m *Message[T]) AddPayload(payload T) {
+	m.Payload = payload
 }
 
-func WithError(errorDetails, message string) MessageOption {
-	respFail := NewRespFail(errorDetails, message)
-	return func(m *Message) error {
-		m.Error = *respFail
-		return nil
-	}
+func (m *Message[T]) AddError(errorDetails, message string) {
+	m.Error = *NewRespErr(errorDetails, message)
 }
+
+// func WithPayload[T any](p T) MessageOption[T] {
+// 	return func(m *Message[T]) error {
+// 		m.Payload = p
+// 		return nil
+// 	}
+// }
+
+// func WithError[T any](errorDetails, message string) MessageOption[T] {
+// 	respFail := NewRespErr(errorDetails, message)
+// 	return func(m *Message[T]) error {
+// 		m.Error = *respFail
+// 		return nil
+// 	}
+// }
 
 type GridInt [][]int
 
