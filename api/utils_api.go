@@ -3,11 +3,10 @@ package api
 import (
 	"log"
 
-	cerr "github.com/saeidalz13/battleship-backend/internal/error"
 	md "github.com/saeidalz13/battleship-backend/models"
 )
 
-func SendMsgToBothPlayers(game *md.Game, hostMsg, joinMsg *md.Message) error {
+func SendMsgToBothPlayers(game *md.Game, hostMsg, joinMsg interface{}) error {
 	playerOfGames := game.GetPlayers()
 	for _, player := range playerOfGames {
 		if player.IsHost {
@@ -24,20 +23,20 @@ func SendMsgToBothPlayers(game *md.Game, hostMsg, joinMsg *md.Message) error {
 	return nil
 }
 
-func ExtractFindGamePlayer(server *Server, initMap map[string]interface{}) (*md.Game, *md.Player, error) {
-	desiredStrings, err := TypeAssertStringPayload(initMap, md.KeyGameUuid, md.KeyPlayerUuid)
-	if err != nil {
-		return nil, nil, err
-	}
-	gameUuid, playerUuid := desiredStrings[0], desiredStrings[1]
+// func ExtractFindGamePlayer(server *Server, initMap map[string]interface{}) (*md.Game, *md.Player, error) {
+// 	desiredStrings, err := TypeAssertStringPayload(initMap, md.KeyGameUuid, md.KeyPlayerUuid)
+// 	if err != nil {
+// 		return nil, nil, err
+// 	}
+// 	gameUuid, playerUuid := desiredStrings[0], desiredStrings[1]
 
-	game := server.FindGame(gameUuid)
-	if game == nil {
-		return nil, nil, cerr.ErrGameNotExists(gameUuid)
-	}
-	player := server.FindPlayer(playerUuid)
-	if player == nil {
-		return nil, nil, cerr.ErrPlayerNotExist(playerUuid)
-	}
-	return game, player, nil
-}
+// 	game := server.FindGame(gameUuid)
+// 	if game == nil {
+// 		return nil, nil, cerr.ErrGameNotExists(gameUuid)
+// 	}
+// 	player := server.FindPlayer(playerUuid)
+// 	if player == nil {
+// 		return nil, nil, cerr.ErrPlayerNotExist(playerUuid)
+// 	}
+// 	return game, player, nil
+// }

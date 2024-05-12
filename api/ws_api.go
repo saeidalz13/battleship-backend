@@ -201,38 +201,38 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 				continue
 			}
 
-		case md.CodeRespEndGame:
-			if err := EndGame(s, ws, payload); err != nil {
-				log.Printf("failed to end game: %v\n", err)
-			}
-			log.Println("end game")
+		// case md.CodeRespEndGame:
+		// 	if err := EndGame(s, ws, payload); err != nil {
+		// 		log.Printf("failed to end game: %v\n", err)
+		// 	}
+		// 	log.Println("end game")
 
-		case md.CodeReqAttack:
-			req := NewWsRequest(s, ws, payload)
-			game, err := req.HandleAttack()
+		// case md.CodeReqAttack:
+		// 	req := NewWsRequest(s, ws, payload)
+		// 	game, err := req.HandleAttack()
 
-			if err != nil {
-				log.Printf("failed to attack: %v\n", err)
-				respErr := md.NewMessage[any](md.CodeRespFailAttack) 
-				respErr.AddError(err.Error(), "failed to handle attack request")
+		// 	if err != nil {
+		// 		log.Printf("failed to attack: %v\n", err)
+		// 		respErr := md.NewMessage[any](md.CodeRespFailAttack) 
+		// 		respErr.AddError(err.Error(), "failed to handle attack request")
 
-				if err := ws.WriteJSON(respErr); err != nil {
-					log.Println(err)
-				}
-				continue
+		// 		if err := ws.WriteJSON(respErr); err != nil {
+		// 			log.Println(err)
+		// 		}
+		// 		continue
 
-			} else {
-				hostMsg := md.NewMessage[md.RespAttack](md.CodeRespSuccessAttack)
-				hostMsg.AddPayload(md.RespAttack{IsTurn: game.HostPlayer.IsTurn})
+		// 	} else {
+		// 		hostMsg := md.NewMessage[md.RespAttack](md.CodeRespSuccessAttack)
+		// 		hostMsg.AddPayload(md.RespAttack{IsTurn: game.HostPlayer.IsTurn})
 
-				joinMsg := md.NewMessage[md.RespAttack](md.CodeRespSuccessAttack)
-				joinMsg.AddPayload(md.RespAttack{IsTurn: game.JoinPlayer.IsTurn})
+		// 		joinMsg := md.NewMessage[md.RespAttack](md.CodeRespSuccessAttack)
+		// 		joinMsg.AddPayload(md.RespAttack{IsTurn: game.JoinPlayer.IsTurn})
 
-				if err := SendMsgToBothPlayers(game, &hostMsg, &joinMsg); err != nil {
-					log.Println(err)
-				}
-				continue
-			}
+		// 		if err := SendMsgToBothPlayers(game, &hostMsg, &joinMsg); err != nil {
+		// 			log.Println(err)
+		// 		}
+		// 		continue
+		// 	}
 
 		case md.CodeReqReady:
 			req := NewWsRequest(s, ws, payload)

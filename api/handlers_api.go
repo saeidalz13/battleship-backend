@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/gorilla/websocket"
-	cerr "github.com/saeidalz13/battleship-backend/internal/error"
+	// cerr "github.com/saeidalz13/battleship-backend/internal/error"
 	md "github.com/saeidalz13/battleship-backend/models"
 )
 
@@ -13,7 +13,7 @@ type RequestHandler interface {
 	HandleCreateGame() (*md.Message[md.RespCreateGame], error)
 	HandleReadyPlayer() (*md.Message[md.RespReadyPlayer], *md.Game, error)
 	HandleJoinPlayer() (*md.Message[md.RespJoinGame], *md.Game, error)
-	HandleAttack() (*md.Game, error)
+	// HandleAttack() (*md.Game, error)
 }
 
 // Every incoming valid request will have this structure
@@ -97,46 +97,46 @@ func (w *Request) HandleJoinPlayer() (*md.Message[md.RespJoinGame], *md.Game, er
 	return &resp, game, nil
 }
 
-func (w *Request) HandleAttack() (*md.Game, error) {
-	var reqAttack md.Message[md.ReqAttack]
-	if err := json.Unmarshal(w.Payload, &reqAttack); err != nil {
-		return nil, err
-	}
+// func (w *Request) HandleAttack() (*md.Game, error) {
+// 	var reqAttack md.Message[md.ReqAttack]
+// 	if err := json.Unmarshal(w.Payload, &reqAttack); err != nil {
+// 		return nil, err
+// 	}
 
-	initMap, err := TypeAssertPayloadToMap(reqAttack.Payload)
-	if err != nil {
-		return nil, err
-	}
+// 	initMap, err := TypeAssertPayloadToMap(reqAttack.Payload)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	attackInfo, err := TypeAssertIntPayload(initMap, md.KeyX, md.KeyY, md.KeyPositionState)
-	if err != nil {
-		return nil, err
-	}
-	x, y, positionState := attackInfo[0], attackInfo[1], attackInfo[2]
+// 	attackInfo, err := TypeAssertIntPayload(initMap, md.KeyX, md.KeyY, md.KeyPositionState)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	x, y, positionState := attackInfo[0], attackInfo[1], attackInfo[2]
 
-	if x >= md.GameGridSize || y >= md.GameGridSize {
-		return nil, cerr.ErrXorYOutOfGridBound(x, y)
-	}
+// 	if x >= md.GameGridSize || y >= md.GameGridSize {
+// 		return nil, cerr.ErrXorYOutOfGridBound(x, y)
+// 	}
 
-	game, player, err := ExtractFindGamePlayer(w.Server, initMap)
-	if err != nil {
-		return nil, err
-	}
+// 	game, player, err := ExtractFindGamePlayer(w.Server, initMap)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	// TODO: Assumption is that the frontend decides if the attack is hit or miss
-	if player.IsHost {
-		game.HostPlayer.AttackGrid[x][y] = positionState
-		game.HostPlayer.IsTurn = false
-		game.JoinPlayer.IsTurn = true
-	} else {
-		game.JoinPlayer.AttackGrid[x][y] = positionState
-		game.JoinPlayer.IsTurn = false
-		game.HostPlayer.IsTurn = true
-	}
+// 	// TODO: Assumption is that the frontend decides if the attack is hit or miss
+// 	if player.IsHost {
+// 		game.HostPlayer.AttackGrid[x][y] = positionState
+// 		game.HostPlayer.IsTurn = false
+// 		game.JoinPlayer.IsTurn = true
+// 	} else {
+// 		game.JoinPlayer.AttackGrid[x][y] = positionState
+// 		game.JoinPlayer.IsTurn = false
+// 		game.HostPlayer.IsTurn = true
+// 	}
 
-	return game, nil
-}
+// 	return game, nil
+// }
 
-func EndGame(s *Server, ws *websocket.Conn, payload []byte) error {
-	return nil
-}
+// func EndGame(s *Server, ws *websocket.Conn, payload []byte) error {
+// 	return nil
+// }
