@@ -75,7 +75,7 @@ func TestCreateGame(t *testing.T) {
 	if !prs {
 		t.Fatal("payload of create does not contain the key 'host_uuid'")
 	}
-	playerUuid, ok := createdPlayerUuid.(string)
+	hostUuid, ok := createdPlayerUuid.(string)
 	if !ok {
 		t.Fatal("host_uuid is not of type string")
 	}
@@ -99,18 +99,18 @@ func TestCreateGame(t *testing.T) {
 		t.Fatal(err)
 	}
 	if respJoinGame.Code != md.CodeRespSuccessJoinGame {
-		t.Fatalf("failed to join the game\tplayer: %s", playerUuid)
+		t.Fatalf("failed to join the game, msg:\t %+v", respJoinGame)
 	}
 	test.logSuccess(respJoinGame)
 
-	// Read extra message of success to host 
+	// Read extra message of success to host
 	// we have to read it so it frees up the queue for the next steps of host read
 	if err := HostConn.ReadJSON(&respJoinGame); err != nil {
 		test.logError()
 		t.Fatal(err)
 	}
 	if respJoinGame.Code != md.CodeRespSuccessJoinGame {
-		t.Fatalf("failed to join the game\tplayer: %s", playerUuid)
+		t.Fatalf("failed to join the game for the join player\t%+v", hostUuid)
 	}
 
 	/*
@@ -136,6 +136,9 @@ func TestCreateGame(t *testing.T) {
 	}
 	test.logSuccess(respFailJoin)
 
+	/*
+		test 4
+	*/
 	test = Test{
 		Number: 4,
 		Desc:   "should set the defence grid and set ready",
@@ -144,7 +147,7 @@ func TestCreateGame(t *testing.T) {
 			Payload: md.ReqReadyPlayer{
 				DefenceGrid: md.NewGrid(),
 				GameUuid:    gameUuid,
-				PlayerUuid:  playerUuid,
+				PlayerUuid:  hostUuid,
 			},
 		},
 	}
@@ -158,4 +161,33 @@ func TestCreateGame(t *testing.T) {
 		t.Fatal(err)
 	}
 	test.logSuccess(respSuccessReady)
+
+	/*
+		test 5
+	*/
+	test = Test{
+		Number: 5,
+		Desc:   "should adjust the grid and turn for both host and join player",
+		ReqPayload: md.NewMessage(md.CodeReqAttack,
+			md.WithPayload(md.ReqAttack{
+				GameUuid:      gameUuid,
+				PlayerUuid:    hostUuid,
+				X:             3,
+				Y:             2,
+				PositionState: md.PositionStateHit,
+			}),
+		),
+	}
+
+	if err := HostConn.WriteJSON(test.ReqPayload); err != nil {
+		test.logError()
+		t.Fatal(err)
+	}
+
+	var respAttack md.Message
+	if err := HostConn.ReadJSON(&respAttack); err != nil {
+		test.logError()
+		t.Fatal(err)
+	}
+	test.logSuccess(respAttack)
 }

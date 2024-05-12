@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
+	cerr "github.com/saeidalz13/battleship-backend/internal/error"
 	md "github.com/saeidalz13/battleship-backend/models"
 )
 
@@ -17,11 +19,12 @@ const (
 	StageDev  = "dev"
 )
 
-var defaultPort int = 8000
-
-var allowedOrigins = map[string]bool{
-	"https://www.allowed_url.com": true,
-}
+var (
+	defaultPort    int = 8000
+	allowedOrigins     = map[string]bool{
+		"https://www.allowed_url.com": true,
+	}
+)
 
 type Server struct {
 	Port     *int
@@ -29,28 +32,66 @@ type Server struct {
 	Db       *sql.DB
 	Games    map[string]*md.Game
 	Players  map[string]*md.Player
+	mu       sync.RWMutex
+}
+
+func (s *Server) AddGame() *md.Game {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	newGame := md.NewGame()
+	s.Games[newGame.Uuid] = newGame
+	return newGame
+}
+
+func (s *Server) AddHostPlayer(game *md.Game, ws *websocket.Conn) *md.Player {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	game.CreateHostPlayer(ws)
+	s.Players[game.HostPlayer.Uuid] = game.HostPlayer
+	return game.HostPlayer
+}
+
+func (s *Server) AddJoinPlayer(gameUuid string, ws *websocket.Conn) (*md.Game, error) {
+	game := s.FindGame(gameUuid)
+	if game == nil {
+		return nil, cerr.ErrGameNotExists(gameUuid)
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	game.CreateJoinPlayer(ws)
+	s.Players[game.JoinPlayer.Uuid] = game.JoinPlayer
+	return game, nil
 }
 
 func (s *Server) FindGame(gameUuid string) *md.Game {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	
 	game, prs := s.Games[gameUuid]
 	if !prs {
-		return nil 
+		return nil
 	}
 	log.Printf("game found: %s", gameUuid)
-	return game 
+	return game
 }
 
 func (s *Server) FindPlayer(playerUuid string) *md.Player {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	player, prs := s.Players[playerUuid]
 	if !prs {
-		return nil 
+		return nil
 	}
 	log.Printf("player found: %s", playerUuid)
 	return player
 }
 
 type Option func(*Server) error
-
 
 func NewServer(optFuncs ...Option) *Server {
 	var server Server
@@ -139,10 +180,6 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 			break
 		}
 
-		// log the incoming messages
-		// log.Println("message type:", messageType)
-		// log.Printf("payload: %s, len: %d", string(payload), len(payload))
-
 		// the incoming message must be of type json containing the field "code"
 		// which would allow us to determine what action is required
 		// any other format of incoming message is invalid and will be ignored
@@ -161,7 +198,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 		case md.CodeReqCreateGame:
 			// Finalized
 			req := NewWsRequest(s, ws)
-			resp, _ := req.CreateGame()
+			resp, _ := req.HandleCreateGame()
 			if err := ws.WriteJSON(resp); err != nil {
 				log.Printf("failed to create new game: %v\n", err)
 				continue
@@ -174,25 +211,37 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 			log.Println("end game")
 
 		case md.CodeReqAttack:
-			if err := Attack(s, ws, payload); err != nil {
+			req := NewWsRequest(s, ws, payload)
+			game, err := req.HandleAttack()
+
+			if err != nil {
 				log.Printf("failed to attack: %v\n", err)
 				respFail := md.NewMessage(md.CodeRespFailAttack, md.WithError(err.Error(), "failed to handle attack request"))
 				if err := ws.WriteJSON(respFail); err != nil {
 					log.Println(err)
-					continue
 				}
+				continue
+
 			} else {
-				// TODO: should you give me x and y? or the entire grid? seems redundant...
-				if err := ws.WriteJSON(md.NewMessage(0)); err != nil {
+				hostMsg := md.NewMessage(md.CodeRespSuccessAttack,
+					md.WithPayload(md.RespAttack{
+						IsTurn: game.HostPlayer.IsTurn},
+					),
+				)
+				joinMsg := md.NewMessage(md.CodeRespSuccessAttack,
+					md.WithPayload(md.RespAttack{
+						IsTurn: game.JoinPlayer.IsTurn},
+					),
+				)
+				if err := SendMsgToBothPlayers(game, &hostMsg, &joinMsg); err != nil {
 					log.Println(err)
-					continue
 				}
-				// TODO: Notify the other player about this event and tell them it's their turn
+				continue
 			}
 
 		case md.CodeReqReady:
 			req := NewWsRequest(s, ws, payload)
-			resp, game, err := req.ManageReadyPlayer()
+			resp, game, err := req.HandleReadyPlayer()
 			if err != nil {
 				log.Printf("failed to make the player ready: %v\n", err)
 				respFail := md.NewMessage(md.CodeRespFailReady, md.WithError(err.Error(), "failed to make the player ready"))
@@ -206,8 +255,9 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 					continue
 				}
 
+				respStartGame := md.NewMessage(md.CodeRespStartGame)
 				if game.HostPlayer.IsReady && game.JoinPlayer.IsReady {
-					if err := SendJSONBothPlayers(game, md.NewSignal(md.CodeRespStartGame)); err != nil {
+					if err := SendMsgToBothPlayers(game, &respStartGame, &respStartGame); err != nil {
 						log.Println(err)
 					}
 					continue
@@ -217,7 +267,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 		case md.CodeReqJoinGame:
 			// Finalized
 			req := NewWsRequest(s, ws, payload)
-			resp, game, err := req.JoinPlayerToGame()
+			resp, game, err := req.HandleJoinPlayer()
 			if err != nil {
 				log.Printf("failed to join player: %v\n", err)
 				respFail := md.NewMessage(md.CodeRespFailJoinGame, md.WithError(err.Error(), "failed to join the player"))
@@ -226,7 +276,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 				}
 
 			} else {
-				if err := SendJSONBothPlayers(game, resp); err != nil {
+				if err := SendMsgToBothPlayers(game, resp, resp); err != nil {
 					log.Println(err)
 					continue
 				}
@@ -251,7 +301,7 @@ func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Println("a new connection established!", ws.RemoteAddr().String())
+	log.Println("a new connection established!\tRemote Addr: ", ws.RemoteAddr().String())
 
 	// managing connection on another goroutine
 	go s.manageWsConn(ws)

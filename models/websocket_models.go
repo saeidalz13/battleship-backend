@@ -7,6 +7,8 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+const GameGridSize = 5
+
 const (
 	// Create game
 	CodeReqCreateGame = iota
@@ -42,9 +44,18 @@ const (
 )
 
 const (
-	KeyGameUuid    string = "game_uuid"
-	KeyPlayerUuid  string = "player_uuid"
-	KeyDefenceGrid string = "defence_grid"
+	KeyGameUuid      string = "game_uuid"
+	KeyPlayerUuid    string = "player_uuid"
+	KeyDefenceGrid   string = "defence_grid"
+	KeyX             string = "x"
+	KeyY             string = "y"
+	KeyPositionState string = "position_state"
+)
+
+const (
+	PositionStateNeutral = iota
+	PositionStateMiss
+	PositionStateHit
 )
 
 type Signal struct {
@@ -92,13 +103,12 @@ func WithError(errorDetails, message string) MessageOption {
 
 type GridInt [][]int
 
+// Creates a new default grid
+// All indexes are zero/PositionStatusNeutral
 func NewGrid() GridInt {
-	grid := make(GridInt, 0)
-	col := []int{0, 0, 0, 0, 0}
-
-	rowColSize := 5
-	for i := 0; i <= rowColSize; i++ {
-		grid = append(grid, col)
+	grid := make(GridInt, GameGridSize)
+	for i := 0; i < GameGridSize; i++ {
+		grid[i] = make([]int, GameGridSize)
 	}
 	return grid
 }
@@ -152,13 +162,13 @@ func (g *Game) GetPlayers() []*Player {
 	return []*Player{g.HostPlayer, g.JoinPlayer}
 }
 
-func (g *Game) AddJoinPlayer(ws *websocket.Conn) {
+func (g *Game) CreateJoinPlayer(ws *websocket.Conn) {
 	joinPlayer := NewPlayer(ws, false, false)
 	g.JoinPlayer = joinPlayer
 	log.Printf("join player created and added to game: %+v\n", joinPlayer.Uuid)
 }
 
-func (g *Game) AddHostPlayer(ws *websocket.Conn) {
+func (g *Game) CreateHostPlayer(ws *websocket.Conn) {
 	hostPlayer := NewPlayer(ws, true, true)
 	g.HostPlayer = hostPlayer
 	log.Printf("host player created and added to game: %+v\n", hostPlayer.Uuid)

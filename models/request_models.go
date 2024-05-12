@@ -1,6 +1,5 @@
 package models
 
-
 type ReqReadyPlayer struct {
 	DefenceGrid GridInt `json:"defence_grid"`
 	GameUuid    string  `json:"game_uuid"`
@@ -12,7 +11,9 @@ type ReqJoinGame struct {
 }
 
 type ReqAttack struct {
-	GameUuid   string  `json:"game_uuid"`
-	PlayerUuid string  `json:"player_uuid"`
-	AttackGrid GridInt `json:"attack_grid"`
+	GameUuid      string `json:"game_uuid"`
+	PlayerUuid    string `json:"player_uuid"`
+	X             int    `json:"x"`
+	Y             int    `json:"y"`
+	PositionState int    `json:"position_state"`
 }
