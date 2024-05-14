@@ -70,7 +70,7 @@ func (s *Server) AddJoinPlayer(gameUuid string, ws *websocket.Conn) (*md.Game, e
 func (s *Server) FindGame(gameUuid string) *md.Game {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	game, prs := s.Games[gameUuid]
 	if !prs {
 		return nil
@@ -276,10 +276,10 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 				}
 
 			} else {
-        if err := ws.WriteJSON(resp); err != nil {
-          log.Printf("failed to join player: %v\n", err)
-        }
-        readyResp := md.NewMessage(md.CodeSelectGrid)
+				if err := ws.WriteJSON(resp); err != nil {
+					log.Printf("failed to join player: %v\n", err)
+				}
+				readyResp := md.NewMessage(md.CodeSelectGrid)
 				if err := SendMsgToBothPlayers(game, &readyResp, &readyResp); err != nil {
 					log.Println(err)
 					continue
