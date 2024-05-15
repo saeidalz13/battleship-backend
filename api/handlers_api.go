@@ -47,7 +47,7 @@ func (w *Request) HandleCreateGame() (*md.Message[md.RespCreateGame], error) {
 	game := w.Server.AddGame()
 	hostPlayer := w.Server.AddHostPlayer(game, w.Ws)
 
-	resp := md.NewMessage[md.RespCreateGame](md.CodeSuccessCreateGame)
+	resp := md.NewMessage[md.RespCreateGame](md.CodeCreateGame)
 	resp.AddPayload(md.RespCreateGame{GameUuid: game.Uuid, HostUuid: hostPlayer.Uuid})
 	return &resp, nil
 }
@@ -72,7 +72,7 @@ func (w *Request) HandleReadyPlayer() (*md.Message[md.RespReadyPlayer], *md.Game
 
 	player.SetReady(readyPlayerReq.Payload.DefenceGrid)
 
-	resp := md.NewMessage[md.RespReadyPlayer](md.CodeRespSuccessReady)
+	resp := md.NewMessage[md.RespReadyPlayer](md.CodeReady)
 	return &resp, game, nil
 }
 
@@ -85,14 +85,14 @@ func (w *Request) HandleJoinPlayer() (*md.Message[md.RespJoinGame], *md.Game, er
 	}
 	log.Printf("unmarshaled join game payload: %+v\n", joinGameReq)
 
-	gameUuid := joinGameReq.Payload.GameUuid 
+	gameUuid := joinGameReq.Payload.GameUuid
 
 	game, err := w.Server.AddJoinPlayer(gameUuid, w.Ws)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	resp := md.NewMessage[md.RespJoinGame](md.CodeRespSuccessJoinGame)
+	resp := md.NewMessage[md.RespJoinGame](md.CodeJoinGame)
 	resp.AddPayload(md.RespJoinGame{PlayerUuid: game.JoinPlayer.Uuid})
 	return &resp, game, nil
 }

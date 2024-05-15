@@ -45,7 +45,7 @@ func TestCreateGame(t *testing.T) {
 	test = Test{
 		Number:     1,
 		Desc:       "should create game with valid code",
-		ReqPayload: md.NewMessage[any](md.CodeReqCreateGame),
+		ReqPayload: md.NewMessage[any](md.CodeCreateGame),
 	}
 	if err := HostConn.WriteJSON(test.ReqPayload); err != nil {
 		test.logError()
@@ -63,7 +63,7 @@ func TestCreateGame(t *testing.T) {
 	/*
 		Test 2
 	*/
-	joinGameReqPayload := md.NewMessage[md.ReqJoinGame](md.CodeReqJoinGame)
+	joinGameReqPayload := md.NewMessage[md.ReqJoinGame](md.CodeJoinGame)
 	joinGameReqPayload.AddPayload(md.ReqJoinGame{GameUuid: gameUuid})
 	test = Test{
 		Number:     2,
@@ -80,7 +80,7 @@ func TestCreateGame(t *testing.T) {
 		test.logError()
 		t.Fatal(err)
 	}
-	if respJoinGame.Code != md.CodeRespSuccessJoinGame {
+	if respJoinGame.Code != md.CodeJoinGame {
 		t.Fatalf("failed to join the game, msg:\t %+v", respJoinGame)
 	}
 	test.logSuccess(respJoinGame)
@@ -91,14 +91,14 @@ func TestCreateGame(t *testing.T) {
 		test.logError()
 		t.Fatal(err)
 	}
-	if respJoinGame.Code != md.CodeRespSuccessJoinGame {
-		t.Fatalf("failed to join the game for the join player\t%+v", hostUuid)
+	if respJoinGame.Error.ErrorDetails != "" {
+		t.Fatalf("failed to join the game for the join player\t%+v\t%s", hostUuid, respCreateGame.Error.ErrorDetails)
 	}
 
 	/*
 		Test 3
 	*/
-	invalidReqJoinPayload := md.NewMessage[md.ReqJoinGame](md.CodeReqJoinGame)
+	invalidReqJoinPayload := md.NewMessage[md.ReqJoinGame](md.CodeJoinGame)
 	invalidReqJoinPayload.AddPayload(md.ReqJoinGame{GameUuid: "invalid"})
 	test = Test{
 		Number:     3,
@@ -115,15 +115,17 @@ func TestCreateGame(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if respFailJoin.Code != md.CodeRespFailJoinGame {
-		t.Fatalf("should have failed to join and received code %d but got %d", md.CodeRespFailJoinGame, respFailJoin.Code)
+	if respFailJoin.Error.ErrorDetails == "" {
+		test.logError()
+		t.Fatal("must have failed")
 	}
+
 	test.logSuccess(respFailJoin)
 
 	/*
 		test 4
 	*/
-	readyReqPayload := md.NewMessage[md.ReqReadyPlayer](md.CodeReqReady)
+	readyReqPayload := md.NewMessage[md.ReqReadyPlayer](md.CodeReady)
 	readyReqPayload.AddPayload(md.ReqReadyPlayer{
 		DefenceGrid: md.NewGrid(),
 		GameUuid:    gameUuid,

@@ -24,25 +24,21 @@ var (
 	allowedOrigins     = map[string]bool{
 		"https://www.allowed_url.com": true,
 	}
+	upgrader = websocket.Upgrader{
+
+		// good average time since this is not a high-latency operation such as video streaming
+		HandshakeTimeout: time.Second * 5,
+
+		// probably more that enough but this is a good average size
+		ReadBufferSize:  2048,
+		WriteBufferSize: 2048,
+		CheckOrigin:     func(r *http.Request) bool { return true },
+	}
 )
 
-var upgrader = websocket.Upgrader{
-	// good average time since this is not a high-latency operation such as video streaming
-	HandshakeTimeout: time.Second * 5,
-
-	// probably more that enough but this is a good average size
-	ReadBufferSize:  2048,
-	WriteBufferSize: 2048,
-	CheckOrigin:     func(r *http.Request) bool { return true },
-}
-
-type ServerOptions struct {
-	Port  *int
-	Db    *sql.DB
-	Stage string
-}
-
 type Server struct {
+	port    *int
+	stage   string
 	Db      *sql.DB
 	Games   map[string]*md.Game
 	Players map[string]*md.Player
@@ -70,7 +66,7 @@ func (s *Server) AddHostPlayer(game *md.Game, ws *websocket.Conn) *md.Player {
 func (s *Server) AddJoinPlayer(gameUuid string, ws *websocket.Conn) (*md.Game, error) {
 	game, err := s.FindGame(gameUuid)
 	if err != nil {
-		return nil, err 
+		return nil, err
 	}
 
 	s.mu.Lock()
@@ -105,23 +101,22 @@ func (s *Server) FindPlayer(playerUuid string) (*md.Player, error) {
 	return player, nil
 }
 
-type Option func(*ServerOptions) error
+type Option func(*Server) error
 
 func NewServer(optFuncs ...Option) *Server {
 	var server Server
-	var serverOptions ServerOptions
 	for _, opt := range optFuncs {
-		if err := opt(&serverOptions); err != nil {
+		if err := opt(&server); err != nil {
 			panic(err)
 		}
 	}
-	if serverOptions.Port == nil {
-		serverOptions.Port = &defaultPort
+	if server.port == nil {
+		server.port = &defaultPort
 	}
 	server.Games = make(map[string]*md.Game)
 	server.Players = make(map[string]*md.Player)
 
-	if serverOptions.Stage == StageProd {
+	if server.stage == StageProd {
 		upgrader.CheckOrigin = func(r *http.Request) bool {
 			origin := r.Header.Get("Origin")
 			return allowedOrigins[origin]
@@ -132,17 +127,17 @@ func NewServer(optFuncs ...Option) *Server {
 }
 
 func WithPort(port int) Option {
-	return func(s *ServerOptions) error {
+	return func(s *Server) error {
 		if port > 10000 {
 			panic("choose a port less than 10000")
 		}
-		s.Port = &port
+		s.port = &port
 		return nil
 	}
 }
 
 func WithDb(db *sql.DB) Option {
-	return func(s *ServerOptions) error {
+	return func(s *Server) error {
 		// TODO: we can add check for pinging here before passing it to server
 		s.Db = db
 		return nil
@@ -150,11 +145,11 @@ func WithDb(db *sql.DB) Option {
 }
 
 func WithStage(stage string) Option {
-	return func(s *ServerOptions) error {
+	return func(s *Server) error {
 		if stage != StageProd && stage != StageDev {
 			return fmt.Errorf("invalid type of development stage: %s", stage)
 		}
-		s.Stage = stage
+		s.stage = stage
 		return nil
 	}
 }
@@ -192,7 +187,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 
 		// This is where we choose the action based on the code in incoming json
 		switch signal.Code {
-		case md.CodeReqCreateGame:
+		case md.CodeCreateGame:
 			// Finalized
 			req := NewWsRequest(s, ws)
 			resp, _ := req.HandleCreateGame()
@@ -213,7 +208,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 
 		// 	if err != nil {
 		// 		log.Printf("failed to attack: %v\n", err)
-		// 		respErr := md.NewMessage[any](md.CodeRespFailAttack) 
+		// 		respErr := md.NewMessage[any](md.CodeRespFailAttack)
 		// 		respErr.AddError(err.Error(), "failed to handle attack request")
 
 		// 		if err := ws.WriteJSON(respErr); err != nil {
@@ -234,12 +229,12 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 		// 		continue
 		// 	}
 
-		case md.CodeReqReady:
+		case md.CodeReady:
 			req := NewWsRequest(s, ws, payload)
 			resp, game, err := req.HandleReadyPlayer()
 			if err != nil {
 				log.Printf("failed to make the player ready: %v\n", err)
-				respErr := md.NewMessage[any](md.CodeRespFailReady)
+				respErr := md.NewMessage[any](md.CodeReady)
 				respErr.AddError(err.Error(), "failed to make the player ready")
 				if err := ws.WriteJSON(respErr); err != nil {
 					log.Println(err)
@@ -251,7 +246,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 					continue
 				}
 
-				respStartGame := md.NewMessage[any](md.CodeRespStartGame)
+				respStartGame := md.NewMessage[any](md.CodeStartGame)
 				if game.HostPlayer.IsReady && game.JoinPlayer.IsReady {
 					if err := SendMsgToBothPlayers(game, &respStartGame, &respStartGame); err != nil {
 						log.Println(err)
@@ -260,13 +255,13 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 				}
 			}
 
-		case md.CodeReqJoinGame:
+		case md.CodeJoinGame:
 			// Finalized
 			req := NewWsRequest(s, ws, payload)
 			resp, game, err := req.HandleJoinPlayer()
 			if err != nil {
 				log.Printf("failed to join player: %v\n", err)
-				respErr := md.NewMessage[any](md.CodeRespFailJoinGame)
+				respErr := md.NewMessage[any](md.CodeJoinGame)
 				respErr.AddError(err.Error(), "failed to join the player")
 				if err := ws.WriteJSON(respErr); err != nil {
 					log.Println(err)
@@ -280,7 +275,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 			}
 
 		default:
-			respInvalidSignal := md.NewMessage[any](md.CodeRespInvalidSignal)
+			respInvalidSignal := md.NewMessage[any](md.CodeInvalidSignal)
 			if err := ws.WriteJSON(respInvalidSignal); err != nil {
 				log.Println(err)
 				continue

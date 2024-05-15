@@ -10,46 +10,14 @@ import (
 const GameGridSize = 5
 
 const (
-	// Create game
-	CodeReqCreateGame = iota
-	CodeSuccessCreateGame
-	CodeFailCreateGame
-
-	// Start game
-	CodeRespStartGame
-	CodeRespEndGame
-
-	// Join game
-	CodeReqJoinGame
-	CodeRespSuccessJoinGame
-	CodeRespFailJoinGame
-
-	// Select grid
-	// CodeReqSelectGrid
-	// CodeRespSuccessSelectGrid
-	// CodeRespFailSelectGrid
-
-	// Attack
-	CodeReqAttack
-	CodeRespSuccessAttack
-	CodeRespFailAttack
-
-	// Ready
-	CodeReqReady
-	CodeRespSuccessReady
-	CodeRespFailReady
-
-	// Misc
-	CodeRespInvalidSignal
-)
-
-const (
-	KeyGameUuid      string = "game_uuid"
-	KeyPlayerUuid    string = "player_uuid"
-	KeyDefenceGrid   string = "defence_grid"
-	KeyX             string = "x"
-	KeyY             string = "y"
-	KeyPositionState string = "position_state"
+	CodeCreateGame = iota
+	CodeStartGame
+	CodeEndGame
+	CodeJoinGame
+	CodeSelectGrid
+	CodeAttack
+	CodeReady
+	CodeInvalidSignal
 )
 
 const (
@@ -77,13 +45,6 @@ type MessageOption[T any] func(*Message[T]) error
 func NewMessage[T any](code int) Message[T] {
 	return Message[T]{Code: code}
 
-	// for _, opt := range opts {
-	// 	if err := opt(&message); err != nil {
-	// 		log.Println("failed to create new message: ", err)
-	// 		return message
-	// 	}
-	// }
-	// return message
 }
 
 func (m *Message[T]) AddPayload(payload T) {
@@ -93,21 +54,6 @@ func (m *Message[T]) AddPayload(payload T) {
 func (m *Message[T]) AddError(errorDetails, message string) {
 	m.Error = *NewRespErr(errorDetails, message)
 }
-
-// func WithPayload[T any](p T) MessageOption[T] {
-// 	return func(m *Message[T]) error {
-// 		m.Payload = p
-// 		return nil
-// 	}
-// }
-
-// func WithError[T any](errorDetails, message string) MessageOption[T] {
-// 	respFail := NewRespErr(errorDetails, message)
-// 	return func(m *Message[T]) error {
-// 		m.Error = *respFail
-// 		return nil
-// 	}
-// }
 
 type GridInt [][]int
 

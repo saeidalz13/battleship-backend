@@ -22,21 +22,3 @@ func SendMsgToBothPlayers(game *md.Game, hostMsg, joinMsg interface{}) error {
 	}
 	return nil
 }
-
-// func ExtractFindGamePlayer(server *Server, initMap map[string]interface{}) (*md.Game, *md.Player, error) {
-// 	desiredStrings, err := TypeAssertStringPayload(initMap, md.KeyGameUuid, md.KeyPlayerUuid)
-// 	if err != nil {
-// 		return nil, nil, err
-// 	}
-// 	gameUuid, playerUuid := desiredStrings[0], desiredStrings[1]
-
-// 	game := server.FindGame(gameUuid)
-// 	if game == nil {
-// 		return nil, nil, cerr.ErrGameNotExists(gameUuid)
-// 	}
-// 	player := server.FindPlayer(playerUuid)
-// 	if player == nil {
-// 		return nil, nil, cerr.ErrPlayerNotExist(playerUuid)
-// 	}
-// 	return game, player, nil
-// }
