@@ -44,7 +44,6 @@ type MessageOption[T any] func(*Message[T]) error
 
 func NewMessage[T any](code int) Message[T] {
 	return Message[T]{Code: code}
-
 }
 
 func (m *Message[T]) AddPayload(payload T) {

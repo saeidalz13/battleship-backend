@@ -1,7 +1,6 @@
 package api
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -39,7 +38,6 @@ var (
 type Server struct {
 	port    *int
 	stage   string
-	Db      *sql.DB
 	Games   map[string]*md.Game
 	Players map[string]*md.Player
 	mu      sync.RWMutex
@@ -132,14 +130,6 @@ func WithPort(port int) Option {
 			panic("choose a port less than 10000")
 		}
 		s.port = &port
-		return nil
-	}
-}
-
-func WithDb(db *sql.DB) Option {
-	return func(s *Server) error {
-		// TODO: we can add check for pinging here before passing it to server
-		s.Db = db
 		return nil
 	}
 }
