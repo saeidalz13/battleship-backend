@@ -263,7 +263,11 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 				}
 
 			} else {
-				if err := SendMsgToBothPlayers(game, resp, resp); err != nil {
+				if err := ws.WriteJSON(resp); err != nil {
+					log.Printf("failed to join player: %v\n", err)
+				}
+				readyResp := md.NewMessage(md.CodeSelectGrid)
+				if err := SendMsgToBothPlayers(game, &readyResp, &readyResp); err != nil {
 					log.Println(err)
 					continue
 				}

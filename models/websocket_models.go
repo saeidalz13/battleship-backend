@@ -25,7 +25,7 @@ const (
 	CodeRespFailJoinGame
 
 	// Select grid
-	// CodeReqSelectGrid
+	CodeSelectGrid
 	// CodeRespSuccessSelectGrid
 	// CodeRespFailSelectGrid
 
