@@ -22,13 +22,13 @@ type RespAttack struct {
 	// Potentially other fields
 }
 
-type RespFail struct {
+type RespErr struct {
 	ErrorDetails string `json:"error_details"`
 	Message      string `json:"message"`
 }
 
-func NewRespFail(errorDetails, message string) *RespFail {
-	return &RespFail{
+func NewRespErr(errorDetails, message string) *RespErr {
+	return &RespErr{
 		ErrorDetails: errorDetails,
 		Message:      message,
 	}

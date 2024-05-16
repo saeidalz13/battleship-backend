@@ -10,46 +10,14 @@ import (
 const GameGridSize = 5
 
 const (
-	// Create game
-	CodeReqCreateGame = iota
-	CodeSuccessCreateGame
-	CodeFailCreateGame
-
-	// Start game
-	CodeRespStartGame
-	CodeRespEndGame
-
-	// Join game
-	CodeReqJoinGame
-	CodeRespSuccessJoinGame
-	CodeRespFailJoinGame
-
-	// Select grid
+	CodeCreateGame = iota
+	CodeStartGame
+	CodeEndGame
+	CodeJoinGame
 	CodeSelectGrid
-	// CodeRespSuccessSelectGrid
-	// CodeRespFailSelectGrid
-
-	// Attack
-	CodeReqAttack
-	CodeRespSuccessAttack
-	CodeRespFailAttack
-
-	// Ready
-	CodeReqReady
-	CodeRespSuccessReady
-	CodeRespFailReady
-
-	// Misc
-	CodeRespInvalidSignal
-)
-
-const (
-	KeyGameUuid      string = "game_uuid"
-	KeyPlayerUuid    string = "player_uuid"
-	KeyDefenceGrid   string = "defence_grid"
-	KeyX             string = "x"
-	KeyY             string = "y"
-	KeyPositionState string = "position_state"
+	CodeAttack
+	CodeReady
+	CodeInvalidSignal
 )
 
 const (
@@ -66,39 +34,24 @@ func NewSignal(code int) Signal {
 	return Signal{Code: code}
 }
 
-type Message struct {
-	Code    int         `json:"code"`
-	Payload interface{} `json:"payload,omitempty"`
-	Error   RespFail    `json:"error,omitempty"`
+type Message[T any] struct {
+	Code    int     `json:"code"`
+	Payload T       `json:"payload,omitempty"`
+	Error   RespErr `json:"error,omitempty"`
 }
 
-type MessageOption func(*Message) error
+type MessageOption[T any] func(*Message[T]) error
 
-func NewMessage(code int, opts ...MessageOption) Message {
-	message := Message{Code: code}
-
-	for _, opt := range opts {
-		if err := opt(&message); err != nil {
-			log.Println("failed to create new message: ", err)
-			return message
-		}
-	}
-	return message
+func NewMessage[T any](code int) Message[T] {
+	return Message[T]{Code: code}
 }
 
-func WithPayload(p interface{}) MessageOption {
-	return func(m *Message) error {
-		m.Payload = p
-		return nil
-	}
+func (m *Message[T]) AddPayload(payload T) {
+	m.Payload = payload
 }
 
-func WithError(errorDetails, message string) MessageOption {
-	respFail := NewRespFail(errorDetails, message)
-	return func(m *Message) error {
-		m.Error = *respFail
-		return nil
-	}
+func (m *Message[T]) AddError(errorDetails, message string) {
+	m.Error = *NewRespErr(errorDetails, message)
 }
 
 type GridInt [][]int
