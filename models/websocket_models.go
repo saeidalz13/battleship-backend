@@ -7,7 +7,10 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-const GameGridSize = 5
+const (
+	GameGridSize   = 5
+	GameValidBound = GameGridSize - 1
+)
 
 const (
 	CodeCreateGame = iota
@@ -21,9 +24,14 @@ const (
 )
 
 const (
-	PositionStateNeutral = iota
-	PositionStateMiss
-	PositionStateHit
+	PositionStateAttackNeutral = iota
+	PositionStateAttackMiss
+	PositionStateAttackHit
+)
+
+const (
+	PositionStateDefenceGridNoShip = iota
+	PositionStateDefenceGridShip
 )
 
 type Signal struct {

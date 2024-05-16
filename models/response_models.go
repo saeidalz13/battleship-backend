@@ -18,8 +18,8 @@ type RespCreateGame struct {
 }
 
 type RespAttack struct {
-	IsTurn bool `json:"is_turn"`
-	// Potentially other fields
+	IsTurn        bool `json:"is_turn"`
+	PositionState int  `json:"position_state"`
 }
 
 type RespErr struct {

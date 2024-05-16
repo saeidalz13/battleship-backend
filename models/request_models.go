@@ -15,5 +15,4 @@ type ReqAttack struct {
 	PlayerUuid    string `json:"player_uuid"`
 	X             int    `json:"x"`
 	Y             int    `json:"y"`
-	PositionState int    `json:"position_state"`
 }

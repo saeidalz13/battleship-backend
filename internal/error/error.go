@@ -33,3 +33,7 @@ func ErrValueNotGridInt() error {
 func ErrXorYOutOfGridBound(x, y int) error {
 	return fmt.Errorf("incoming x or y is out of game grid bound\tx: %d\ty: %d", x, y)
 }
+
+func ErrAttackPositionAlreadyFilled(x, y int) error {
+	return fmt.Errorf("current position in grid already taken\tx: %d\ty: %d", x, y)
+}

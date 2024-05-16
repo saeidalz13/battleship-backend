@@ -192,9 +192,23 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 		// 	}
 		// 	log.Println("end game")
 
-		// case md.CodeReqAttack:
-		// 	req := NewWsRequest(s, ws, payload)
-		// 	game, err := req.HandleAttack()
+		case md.CodeAttack:
+			req := NewWsRequest(s, ws, payload)
+			resp, _, err := req.HandleAttack()
+			if err != nil {
+				log.Println(err)
+
+				respErr := md.NewMessage[any](md.CodeAttack)
+				respErr.AddError(err.Error(), "failed to complete attack operation")
+
+			} else {
+				if err := ws.WriteJSON(resp); err != nil {
+					log.Println(err)
+					continue
+				}
+
+				// TODO: decide what to do after the attacker gets its resulting position state
+			}
 
 		// 	if err != nil {
 		// 		log.Printf("failed to attack: %v\n", err)
