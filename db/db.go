@@ -16,10 +16,10 @@ const (
 	maxIdleConns = 100
 	connMaxLife  = time.Minute * 15
 
-	ErrFileNotExists = "first .: file does not exist"
+	ErrFileNotExists     = "first .: file does not exist"
 	ErrMigrationNoChange = "no change"
-	ErrDirtyDatabase = "database is dirty"
-	ErrNoMigration = "no migration"
+	ErrDirtyDatabase     = "database is dirty"
+	ErrNoMigration       = "no migration"
 )
 
 func MustMigrate(db *sql.DB, migrationDir string) {
