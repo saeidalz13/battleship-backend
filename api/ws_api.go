@@ -1,7 +1,6 @@
 package api
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -38,12 +37,10 @@ var upgrader = websocket.Upgrader{
 
 type ServerOptions struct {
 	Port  *int
-	Db    *sql.DB
 	Stage string
 }
 
 type Server struct {
-	Db      *sql.DB
 	Games   map[string]*md.Game
 	Players map[string]*md.Player
 	mu      sync.RWMutex
@@ -141,13 +138,6 @@ func WithPort(port int) Option {
 	}
 }
 
-func WithDb(db *sql.DB) Option {
-	return func(s *ServerOptions) error {
-		// TODO: we can add check for pinging here before passing it to server
-		s.Db = db
-		return nil
-	}
-}
 
 func WithStage(stage string) Option {
 	return func(s *ServerOptions) error {
