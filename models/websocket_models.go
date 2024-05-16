@@ -10,6 +10,8 @@ import (
 const (
 	GameGridSize   = 5
 	GameValidBound = GameGridSize - 1
+
+	SunkenShipsToLose = 3
 )
 
 const (
@@ -78,6 +80,7 @@ type Player struct {
 	IsReady     bool
 	IsTurn      bool
 	IsHost      bool
+	sunkenShips int
 	Uuid        string
 	AttackGrid  GridInt
 	DefenceGrid GridInt
@@ -89,6 +92,7 @@ func NewPlayer(ws *websocket.Conn, isHost, isTurn bool) *Player {
 		IsReady:     false,
 		IsTurn:      isTurn,
 		IsHost:      isHost,
+		sunkenShips: 0,
 		Uuid:        uuid.NewString()[:10],
 		AttackGrid:  NewGrid(),
 		DefenceGrid: NewGrid(),
@@ -105,6 +109,10 @@ func (p *Player) SetReady(newGrid GridInt) {
 	p.DefenceGrid = newGrid
 	p.IsReady = true
 	log.Printf("player %s defence grid set to: %+v\n", p.Uuid, p.AttackGrid)
+}
+
+func (p *Player) SunkShip() {
+	p.sunkenShips++
 }
 
 type Game struct {
@@ -133,4 +141,18 @@ func (g *Game) CreateHostPlayer(ws *websocket.Conn) {
 	hostPlayer := NewPlayer(ws, true, true)
 	g.HostPlayer = hostPlayer
 	log.Printf("host player created and added to game: %+v\n", hostPlayer.Uuid)
+}
+
+type Ship struct {
+	Code   int
+	length int
+	hits   int
+}
+
+func (sh *Ship) Hit() {
+	sh.hits++
+}
+
+func (sh *Ship) IsSunk() bool {
+	return sh.hits == sh.length 
 }

@@ -210,29 +210,6 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 				// TODO: decide what to do after the attacker gets its resulting position state
 			}
 
-		// 	if err != nil {
-		// 		log.Printf("failed to attack: %v\n", err)
-		// 		respErr := md.NewMessage[any](md.CodeRespFailAttack)
-		// 		respErr.AddError(err.Error(), "failed to handle attack request")
-
-		// 		if err := ws.WriteJSON(respErr); err != nil {
-		// 			log.Println(err)
-		// 		}
-		// 		continue
-
-		// 	} else {
-		// 		hostMsg := md.NewMessage[md.RespAttack](md.CodeRespSuccessAttack)
-		// 		hostMsg.AddPayload(md.RespAttack{IsTurn: game.HostPlayer.IsTurn})
-
-		// 		joinMsg := md.NewMessage[md.RespAttack](md.CodeRespSuccessAttack)
-		// 		joinMsg.AddPayload(md.RespAttack{IsTurn: game.JoinPlayer.IsTurn})
-
-		// 		if err := SendMsgToBothPlayers(game, &hostMsg, &joinMsg); err != nil {
-		// 			log.Println(err)
-		// 		}
-		// 		continue
-		// 	}
-
 		case md.CodeReady:
 			req := NewWsRequest(s, ws, payload)
 			resp, game, err := req.HandleReadyPlayer()
