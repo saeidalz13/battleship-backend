@@ -177,6 +177,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 
 		// This is where we choose the action based on the code in incoming json
 		switch signal.Code {
+
 		case md.CodeCreateGame:
 			// Finalized
 			req := NewRequest(s, ws)
@@ -220,6 +221,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 		case md.CodeReady:
 			req := NewRequest(s, nil, payload)
 			resp, _, err := req.HandleReadyPlayer()
+
 			if err != nil {
 				log.Printf("failed to make the player ready: %v\n", err)
 				respErr := md.NewMessage[any](md.CodeReady)

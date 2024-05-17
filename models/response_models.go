@@ -1,13 +1,5 @@
 package models
 
-type RespGeneralMessage struct {
-	Message string `json:"message"`
-}
-
-type RespReadyPlayer struct {
-	Success bool `json:"success"`
-}
-
 type RespJoinGame struct {
 	PlayerUuid string `json:"player_uuid"`
 }

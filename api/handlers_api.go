@@ -11,7 +11,7 @@ import (
 
 type RequestHandler interface {
 	HandleCreateGame() (*md.Message[md.RespCreateGame], error)
-	HandleReadyPlayer() (*md.Message[md.RespReadyPlayer], *md.Game, error)
+	HandleReadyPlayer() (*md.Message[any], *md.Game, error)
 	HandleJoinPlayer() (*md.Message[md.RespJoinGame], *md.Game, error)
 	HandleAttack() (*md.Message[md.RespAttack], *md.Player)
 }
@@ -54,7 +54,7 @@ func (w *Request) HandleCreateGame() (*md.Message[md.RespCreateGame], error) {
 
 // User will choose the configurations of ships on defence grid.
 // Then the grid is sent to backend and adjustment happens accordingly.
-func (w *Request) HandleReadyPlayer() (*md.Message[md.RespReadyPlayer], *md.Game, error) {
+func (w *Request) HandleReadyPlayer() (*md.Message[any], *md.Game, error) {
 	var readyPlayerReq md.Message[md.ReqReadyPlayer]
 	if err := json.Unmarshal(w.Payload, &readyPlayerReq); err != nil {
 		return nil, nil, err
@@ -72,7 +72,7 @@ func (w *Request) HandleReadyPlayer() (*md.Message[md.RespReadyPlayer], *md.Game
 
 	player.SetDefenceGrid(readyPlayerReq.Payload.DefenceGrid)
 
-	resp := md.NewMessage[md.RespReadyPlayer](md.CodeReady)
+	resp := md.NewMessage[any](md.CodeReady)
 	return &resp, game, nil
 }
 
@@ -97,6 +97,7 @@ func (w *Request) HandleJoinPlayer() (*md.Message[md.RespJoinGame], *md.Game, er
 	return &resp, game, nil
 }
 
+// Handle the attack logic for the incoming request
 func (w *Request) HandleAttack() (*md.Message[md.RespAttack], *md.Player) {
 	var reqAttack md.Message[md.ReqAttack]
 	resp := md.NewMessage[md.RespAttack](md.CodeAttack)
