@@ -2,6 +2,10 @@ package error
 
 import "fmt"
 
+const (
+	ConstErrAttackFailed = "attack operation failed"
+)
+
 func ErrGameNotExists(gameUuid string) error {
 	return fmt.Errorf("game with this uuid does not exist, uuid: %s", gameUuid)
 }
@@ -36,4 +40,12 @@ func ErrXorYOutOfGridBound(x, y int) error {
 
 func ErrAttackPositionAlreadyFilled(x, y int) error {
 	return fmt.Errorf("current position in grid already taken\tx: %d\ty: %d", x, y)
+}
+
+func ErrDefenceGridPositionAlreadyHit(x, y int) error {
+	return fmt.Errorf("this position is already hit by the attacker in previous rounds\tx: %d\ty: %d", x, y)
+}
+
+func ErrDefenceGridPositionEmpty(x, y int) error {
+	return fmt.Errorf("this position in defence grid is empty\tx: %d\ty: %d", x, y)
 }

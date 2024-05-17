@@ -22,6 +22,10 @@ type RespAttack struct {
 	PositionState int  `json:"position_state"`
 }
 
+type RespEndGame struct {
+	PlayerMatchStatus int `json:"player_match_status"`
+}
+
 type RespErr struct {
 	ErrorDetails string `json:"error_details"`
 	Message      string `json:"message"`

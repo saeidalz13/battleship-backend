@@ -13,7 +13,7 @@ type RequestHandler interface {
 	HandleCreateGame() (*md.Message[md.RespCreateGame], error)
 	HandleReadyPlayer() (*md.Message[md.RespReadyPlayer], *md.Game, error)
 	HandleJoinPlayer() (*md.Message[md.RespJoinGame], *md.Game, error)
-	HandleAttack() (*md.Message[md.RespAttack], *md.Game, error)
+	HandleAttack() (*md.Message[md.RespAttack], *md.Player)
 }
 
 // Every incoming valid request will have this structure
@@ -27,7 +27,7 @@ type Request struct {
 // This tells the compiler that WsRequest struct must be of type of WsRequestHandler
 var _ RequestHandler = (*Request)(nil)
 
-func NewWsRequest(server *Server, ws *websocket.Conn, payload ...[]byte) *Request {
+func NewRequest(server *Server, ws *websocket.Conn, payload ...[]byte) *Request {
 	if len(payload) > 1 {
 		log.Println("cannot accept more than one payload")
 		return nil
@@ -70,7 +70,7 @@ func (w *Request) HandleReadyPlayer() (*md.Message[md.RespReadyPlayer], *md.Game
 		return nil, nil, err
 	}
 
-	player.SetReady(readyPlayerReq.Payload.DefenceGrid)
+	player.SetDefenceGrid(readyPlayerReq.Payload.DefenceGrid)
 
 	resp := md.NewMessage[md.RespReadyPlayer](md.CodeReady)
 	return &resp, game, nil
@@ -97,29 +97,36 @@ func (w *Request) HandleJoinPlayer() (*md.Message[md.RespJoinGame], *md.Game, er
 	return &resp, game, nil
 }
 
-func (w *Request) HandleAttack() (*md.Message[md.RespAttack], *md.Game, error) {
+func (w *Request) HandleAttack() (*md.Message[md.RespAttack], *md.Player) {
 	var reqAttack md.Message[md.ReqAttack]
+	resp := md.NewMessage[md.RespAttack](md.CodeAttack)
+
 	if err := json.Unmarshal(w.Payload, &reqAttack); err != nil {
-		return nil, nil, err
+		resp.AddError(err.Error(), cerr.ConstErrAttackFailed)
+		return &resp, nil
 	}
 
 	x := reqAttack.Payload.X
 	y := reqAttack.Payload.Y
 	if x > md.GameValidBound || y > md.GameValidBound {
-		return nil, nil, cerr.ErrXorYOutOfGridBound(x, y)
+		resp.AddError(cerr.ErrXorYOutOfGridBound(x, y).Error(), cerr.ConstErrAttackFailed)
+		return &resp, nil
 	}
 
 	game, err := w.Server.FindGame(reqAttack.Payload.GameUuid)
 	if err != nil {
-		return nil, nil, err
+		resp.AddError(err.Error(), cerr.ConstErrAttackFailed)
+		return &resp, nil
 	}
 	player, err := w.Server.FindPlayer(reqAttack.Payload.PlayerUuid)
 	if err != nil {
-		return nil, nil, err
+		resp.AddError(err.Error(), cerr.ConstErrAttackFailed)
+		return &resp, nil
 	}
 
-	if player.AttackGrid[x][y] != md.PositionStateAttackNeutral {
-		return nil, nil, cerr.ErrAttackPositionAlreadyFilled(x, y)
+	if player.AttackGrid[x][y] != md.PositionStateAttackGridEmpty {
+		resp.AddError(cerr.ErrAttackPositionAlreadyFilled(x, y).Error(), cerr.ConstErrAttackFailed)
+		return &resp, nil
 	}
 
 	defender := game.HostPlayer
@@ -133,20 +140,46 @@ func (w *Request) HandleAttack() (*md.Message[md.RespAttack], *md.Game, error) {
 	attacker.IsTurn = false
 	defender.IsTurn = true
 
-	var resultPositionState int
-	if defender.DefenceGrid[x][y] == md.PositionStateDefenceGridShip {
-		resultPositionState = md.PositionStateAttackHit
-		attacker.AttackGrid[x][y] = resultPositionState
-	} else {
-		resultPositionState = md.PositionStateAttackMiss
-		attacker.AttackGrid[x][y] = resultPositionState
+	// Check what is in the position of attack in defence grid matrix of defender
+	positionCode, err := defender.FetchDefenceGridPositionCode(x, y)
+	if err != nil {
+		resp.AddError(err.Error(), cerr.ConstErrAttackFailed)
+		return &resp, defender
 	}
 
-	resp := md.NewMessage[md.RespAttack](md.CodeAttack)
+	// If the attacker missed
+	if positionCode == md.PositionStateDefenceGridEmpty {
+		resp.AddPayload(md.RespAttack{
+			PositionState: md.PositionStateAttackGridMiss,
+			IsTurn:        attacker.IsTurn,
+		})
+		return &resp, defender
+	}
+
+	// Apply the attack to the position
+	defender.HitShip(positionCode, x, y)
+
+	// Check if the attack cause the ship to sink
+	if defender.IsShipSunken(positionCode) {
+
+		// Check if this sunken ship was the last one and the player is lost
+		if defender.IsLoser() {
+			defender.MatchStatus = md.PlayerMatchStatusLost
+			attacker.MatchStatus = md.PlayerMatchStatusWon
+
+			resp.AddPayload(md.RespAttack{
+				PositionState: md.PositionStateAttackGridHit,
+				IsTurn:        attacker.IsTurn,
+			})
+			game.FinishGame()
+			return &resp, defender
+		}
+	}
+
 	resp.AddPayload(md.RespAttack{
-		IsTurn:        false,
-		PositionState: resultPositionState,
+		IsTurn:        attacker.IsTurn,
+		PositionState: md.PositionStateAttackGridHit,
 	})
 
-	return &resp, game, nil
+	return &resp, defender
 }

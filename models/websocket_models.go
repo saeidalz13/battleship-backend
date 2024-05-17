@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	cerr "github.com/saeidalz13/battleship-backend/internal/error"
 )
 
 const (
@@ -12,6 +13,12 @@ const (
 	GameValidBound = GameGridSize - 1
 
 	SunkenShipsToLose = 3
+)
+
+const (
+	PlayerMatchStatusLost      = -1
+	PlayerMatchStatusUndefined = 0
+	PlayerMatchStatusWon       = 1
 )
 
 const (
@@ -26,14 +33,18 @@ const (
 )
 
 const (
-	PositionStateAttackNeutral = iota
-	PositionStateAttackMiss
-	PositionStateAttackHit
+	PositionStateAttackGridMiss  = -1
+	PositionStateAttackGridEmpty = 0
+	PositionStateAttackGridHit   = 1
 )
 
 const (
-	PositionStateDefenceGridNoShip = iota
-	PositionStateDefenceGridShip
+	PositionStateDefenceGridHit   = -1
+	PositionStateDefenceGridEmpty = 0
+	PositionStateDefenceGridShip1 = 1
+	PositionStateDefenceGridShip2 = 2
+	PositionStateDefenceGridShip3 = 3
+	PositionStateDefenceGridShip4 = 4
 )
 
 type Signal struct {
@@ -77,27 +88,58 @@ func NewGrid() GridInt {
 }
 
 type Player struct {
-	IsReady     bool
+	Uuid        string
 	IsTurn      bool
 	IsHost      bool
-	sunkenShips int
-	Uuid        string
-	AttackGrid  GridInt
-	DefenceGrid GridInt
+	MatchStatus int
+	SunkenShips int
+	AttackGrid  [][]int
+	DefenceGrid [][]int
+	Ships       map[int]*Ship
 	WsConn      *websocket.Conn
 }
 
 func NewPlayer(ws *websocket.Conn, isHost, isTurn bool) *Player {
 	return &Player{
-		IsReady:     false,
 		IsTurn:      isTurn,
 		IsHost:      isHost,
-		sunkenShips: 0,
+		MatchStatus: PlayerMatchStatusUndefined,
+		SunkenShips: 0,
 		Uuid:        uuid.NewString()[:10],
 		AttackGrid:  NewGrid(),
 		DefenceGrid: NewGrid(),
+		Ships:       NewShipsMap(),
 		WsConn:      ws,
 	}
+}
+
+func (p *Player) IsLoser() bool {
+	return p.SunkenShips == SunkenShipsToLose
+}
+
+func (p *Player) IsShipSunken(code int) bool {
+	if p.Ships[code].IsSunk() {
+		p.SunkenShips++
+		return true
+	}
+	return false
+}
+
+func (p *Player) HitShip(code, x, y int) {
+	p.DefenceGrid[x][y] = PositionStateDefenceGridHit
+	p.Ships[code].GotHit()
+}
+
+
+func (p *Player) FetchDefenceGridPositionCode(x, y int) (int, error) {
+	positionCode := p.DefenceGrid[x][y]
+	if positionCode == PositionStateDefenceGridHit {
+		return PositionStateAttackGridHit, cerr.ErrDefenceGridPositionAlreadyHit(x, y)
+	}
+	if positionCode == PositionStateDefenceGridEmpty {
+		return PositionStateAttackGridMiss, nil
+	}
+	return positionCode, nil
 }
 
 func (p *Player) SetAttackGrid(newGrid GridInt) {
@@ -105,28 +147,36 @@ func (p *Player) SetAttackGrid(newGrid GridInt) {
 	log.Printf("player %s attack grid set to: %+v\n", p.Uuid, p.AttackGrid)
 }
 
-func (p *Player) SetReady(newGrid GridInt) {
+func (p *Player) SetDefenceGrid(newGrid GridInt) {
 	p.DefenceGrid = newGrid
-	p.IsReady = true
 	log.Printf("player %s defence grid set to: %+v\n", p.Uuid, p.AttackGrid)
 }
 
 func (p *Player) SunkShip() {
-	p.sunkenShips++
+	p.SunkenShips++
 }
 
 type Game struct {
 	Uuid       string
 	HostPlayer *Player
 	JoinPlayer *Player
+	IsReady    bool
+	IsFinished bool
 }
 
 func NewGame() *Game {
 	return &Game{
-		Uuid: uuid.NewString()[:6],
+		Uuid:       uuid.NewString()[:6],
+		IsReady:    false,
+		IsFinished: false,
 	}
 }
 
+func (g *Game) FinishGame() {
+	g.IsFinished = true
+}
+
+// returns a slice of players in the order of host then join.
 func (g *Game) GetPlayers() []*Player {
 	return []*Player{g.HostPlayer, g.JoinPlayer}
 }
@@ -149,10 +199,31 @@ type Ship struct {
 	hits   int
 }
 
-func (sh *Ship) Hit() {
+func NewShip(code, length int) *Ship {
+	return &Ship{
+		Code:   code,
+		length: length,
+		hits:   0,
+	}
+}
+
+func NewShipsMap() map[int]*Ship {
+	ships := make(map[int]*Ship, SunkenShipsToLose)
+	ship1 := NewShip(PositionStateDefenceGridShip1, 2)
+	ship2 := NewShip(PositionStateDefenceGridShip2, 3)
+	ship3 := NewShip(PositionStateDefenceGridShip3, 4)
+
+	ships[PositionStateDefenceGridShip1] = ship1
+	ships[PositionStateDefenceGridShip2] = ship2
+	ships[PositionStateDefenceGridShip3] = ship3
+
+	return ships
+}
+
+func (sh *Ship) GotHit() {
 	sh.hits++
 }
 
 func (sh *Ship) IsSunk() bool {
-	return sh.hits == sh.length 
+	return sh.hits == sh.length
 }
