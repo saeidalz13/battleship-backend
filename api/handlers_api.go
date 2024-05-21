@@ -119,27 +119,27 @@ func (w *Request) HandleAttack() (*md.Message[md.RespAttack], *md.Player) {
 		resp.AddError(err.Error(), cerr.ConstErrAttackFailed)
 		return &resp, nil
 	}
-	player, err := w.Server.FindPlayer(reqAttack.Payload.PlayerUuid)
+	attacker, err := w.Server.FindPlayer(reqAttack.Payload.PlayerUuid)
 	if err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrAttackFailed)
 		return &resp, nil
 	}
 
-	if player.AttackGrid[x][y] != md.PositionStateAttackGridEmpty {
+	// If attacker has the correct IsTurn Field
+	if !attacker.IsTurn {
+		resp.AddError(cerr.ErrNotTurnForAttacker(attacker.Uuid).Error(), cerr.ConstErrAttackFailed)
+		return &resp, nil
+	}
+
+	if attacker.AttackGrid[x][y] != md.PositionStateAttackGridEmpty {
 		resp.AddError(cerr.ErrAttackPositionAlreadyFilled(x, y).Error(), cerr.ConstErrAttackFailed)
 		return &resp, nil
 	}
 
 	defender := game.HostPlayer
-	attacker := game.JoinPlayer
-	if player.IsHost {
+	if attacker.IsHost {
 		defender = game.JoinPlayer
-		attacker = game.HostPlayer
 	}
-
-	// Change the status of players turn
-	attacker.IsTurn = false
-	defender.IsTurn = true
 
 	// Check what is in the position of attack in defence grid matrix of defender
 	positionCode, err := defender.FetchDefenceGridPositionCode(x, y)
@@ -147,6 +147,12 @@ func (w *Request) HandleAttack() (*md.Message[md.RespAttack], *md.Player) {
 		resp.AddError(err.Error(), cerr.ConstErrAttackFailed)
 		return &resp, defender
 	}
+
+	defer func() {
+		// Change the status of players turn
+		attacker.IsTurn = false
+		defender.IsTurn = true
+	}()
 
 	// If the attacker missed
 	if positionCode == md.PositionStateDefenceGridEmpty {
@@ -163,7 +169,7 @@ func (w *Request) HandleAttack() (*md.Message[md.RespAttack], *md.Player) {
 	// Check if the attack cause the ship to sink
 	if defender.IsShipSunken(positionCode) {
 
-		// Check if this sunken ship was the last one and the player is lost
+		// Check if this sunken ship was the last one and the attacker is lost
 		if defender.IsLoser() {
 			defender.MatchStatus = md.PlayerMatchStatusLost
 			attacker.MatchStatus = md.PlayerMatchStatusWon

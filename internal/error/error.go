@@ -49,3 +49,7 @@ func ErrDefenceGridPositionAlreadyHit(x, y int) error {
 func ErrDefenceGridPositionEmpty(x, y int) error {
 	return fmt.Errorf("this position in defence grid is empty\tx: %d\ty: %d", x, y)
 }
+
+func ErrNotTurnForAttacker(attackerId string) error {
+	return fmt.Errorf("this is not the turn to attack for player %s", attackerId)
+}
