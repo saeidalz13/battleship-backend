@@ -140,7 +140,7 @@ func TestCreateGame(t *testing.T) {
 		test.logError()
 		t.Fatal(err)
 	}
-	var respSuccessReady md.Message[md.RespReadyPlayer]
+	var respSuccessReady md.Message[any]
 	if err := HostConn.ReadJSON(&respSuccessReady); err != nil {
 		test.logError()
 		t.Fatal(err)

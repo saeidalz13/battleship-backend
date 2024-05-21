@@ -5,9 +5,21 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	cerr "github.com/saeidalz13/battleship-backend/internal/error"
 )
 
-const GameGridSize = 5
+const (
+	GameGridSize   = 5
+	GameValidBound = GameGridSize - 1
+
+	SunkenShipsToLose = 3
+)
+
+const (
+	PlayerMatchStatusLost      = -1
+	PlayerMatchStatusUndefined = 0
+	PlayerMatchStatusWon       = 1
+)
 
 const (
 	CodeCreateGame = iota
@@ -21,9 +33,17 @@ const (
 )
 
 const (
-	PositionStateNeutral = iota
-	PositionStateMiss
-	PositionStateHit
+	PositionStateAttackGridMiss  = -1
+	PositionStateAttackGridEmpty = 0
+	PositionStateAttackGridHit   = 1
+)
+
+const (
+	PositionStateDefenceGridHit   = -1
+	PositionStateDefenceGridEmpty = 0
+	PositionStateDefenceGridShip1 = 1
+	PositionStateDefenceGridShip2 = 2
+	PositionStateDefenceGridShip3 = 3
 )
 
 type Signal struct {
@@ -39,6 +59,8 @@ type Message[T any] struct {
 	Payload T       `json:"payload,omitempty"`
 	Error   RespErr `json:"error,omitempty"`
 }
+
+type NoPayload bool
 
 type MessageOption[T any] func(*Message[T]) error
 
@@ -67,25 +89,59 @@ func NewGrid() GridInt {
 }
 
 type Player struct {
-	IsReady     bool
+	Uuid        string
 	IsTurn      bool
 	IsHost      bool
-	Uuid        string
-	AttackGrid  GridInt
-	DefenceGrid GridInt
+	IsReady     bool
+	MatchStatus int
+	SunkenShips int
+	AttackGrid  [][]int
+	DefenceGrid [][]int
+	Ships       map[int]*Ship
 	WsConn      *websocket.Conn
 }
 
 func NewPlayer(ws *websocket.Conn, isHost, isTurn bool) *Player {
 	return &Player{
-		IsReady:     false,
 		IsTurn:      isTurn,
 		IsHost:      isHost,
+		IsReady:     false,
+		MatchStatus: PlayerMatchStatusUndefined,
+		SunkenShips: 0,
 		Uuid:        uuid.NewString()[:10],
 		AttackGrid:  NewGrid(),
 		DefenceGrid: NewGrid(),
+		Ships:       NewShipsMap(),
 		WsConn:      ws,
 	}
+}
+
+func (p *Player) IsLoser() bool {
+	return p.SunkenShips == SunkenShipsToLose
+}
+
+func (p *Player) IsShipSunken(code int) bool {
+	if p.Ships[code].IsSunk() {
+		p.SunkenShips++
+		return true
+	}
+	return false
+}
+
+func (p *Player) HitShip(code, x, y int) {
+	p.DefenceGrid[x][y] = PositionStateDefenceGridHit
+	p.Ships[code].GotHit()
+}
+
+func (p *Player) FetchDefenceGridPositionCode(x, y int) (int, error) {
+	positionCode := p.DefenceGrid[x][y]
+	if positionCode == PositionStateDefenceGridHit {
+		return PositionStateAttackGridHit, cerr.ErrDefenceGridPositionAlreadyHit(x, y)
+	}
+	if positionCode == PositionStateDefenceGridEmpty {
+		return PositionStateAttackGridMiss, nil
+	}
+	return positionCode, nil
 }
 
 func (p *Player) SetAttackGrid(newGrid GridInt) {
@@ -93,24 +149,34 @@ func (p *Player) SetAttackGrid(newGrid GridInt) {
 	log.Printf("player %s attack grid set to: %+v\n", p.Uuid, p.AttackGrid)
 }
 
-func (p *Player) SetReady(newGrid GridInt) {
+func (p *Player) SetDefenceGrid(newGrid GridInt) {
 	p.DefenceGrid = newGrid
-	p.IsReady = true
 	log.Printf("player %s defence grid set to: %+v\n", p.Uuid, p.AttackGrid)
+}
+
+func (p *Player) SunkShip() {
+	p.SunkenShips++
 }
 
 type Game struct {
 	Uuid       string
 	HostPlayer *Player
 	JoinPlayer *Player
+	IsFinished bool
 }
 
 func NewGame() *Game {
 	return &Game{
-		Uuid: uuid.NewString()[:6],
+		Uuid:       uuid.NewString()[:6],
+		IsFinished: false,
 	}
 }
 
+func (g *Game) FinishGame() {
+	g.IsFinished = true
+}
+
+// returns a slice of players in the order of host then join.
 func (g *Game) GetPlayers() []*Player {
 	return []*Player{g.HostPlayer, g.JoinPlayer}
 }
@@ -125,4 +191,39 @@ func (g *Game) CreateHostPlayer(ws *websocket.Conn) {
 	hostPlayer := NewPlayer(ws, true, true)
 	g.HostPlayer = hostPlayer
 	log.Printf("host player created and added to game: %+v\n", hostPlayer.Uuid)
+}
+
+type Ship struct {
+	Code   int
+	length int
+	hits   int
+}
+
+func NewShip(code, length int) *Ship {
+	return &Ship{
+		Code:   code,
+		length: length,
+		hits:   0,
+	}
+}
+
+func NewShipsMap() map[int]*Ship {
+	ships := make(map[int]*Ship, SunkenShipsToLose)
+	ship1 := NewShip(PositionStateDefenceGridShip1, 2)
+	ship2 := NewShip(PositionStateDefenceGridShip2, 3)
+	ship3 := NewShip(PositionStateDefenceGridShip3, 4)
+
+	ships[PositionStateDefenceGridShip1] = ship1
+	ships[PositionStateDefenceGridShip2] = ship2
+	ships[PositionStateDefenceGridShip3] = ship3
+
+	return ships
+}
+
+func (sh *Ship) GotHit() {
+	sh.hits++
+}
+
+func (sh *Ship) IsSunk() bool {
+	return sh.hits == sh.length
 }

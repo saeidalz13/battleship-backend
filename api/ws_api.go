@@ -179,51 +179,51 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 
 		// This is where we choose the action based on the code in incoming json
 		switch signal.Code {
+
 		case md.CodeCreateGame:
 			// Finalized
-			req := NewWsRequest(s, ws)
+			req := NewRequest(s, ws)
 			resp, _ := req.HandleCreateGame()
 			if err := ws.WriteJSON(resp); err != nil {
 				log.Printf("failed to create new game: %v\n", err)
 				continue
 			}
 
-		// case md.CodeRespEndGame:
-		// 	if err := EndGame(s, ws, payload); err != nil {
-		// 		log.Printf("failed to end game: %v\n", err)
-		// 	}
-		// 	log.Println("end game")
+		case md.CodeAttack:
+			req := NewRequest(s, nil, payload)
+			resp, defender := req.HandleAttack()
 
-		// case md.CodeReqAttack:
-		// 	req := NewWsRequest(s, ws, payload)
-		// 	game, err := req.HandleAttack()
+			if err := ws.WriteJSON(resp); err != nil {
+				log.Println(err)
+				continue
+			}
 
-		// 	if err != nil {
-		// 		log.Printf("failed to attack: %v\n", err)
-		// 		respErr := md.NewMessage[any](md.CodeRespFailAttack)
-		// 		respErr.AddError(err.Error(), "failed to handle attack request")
+			// If this attack caused the game to end
+			// Both attacker and defender (host or join) will get a end game message
+			// indicating if they lost or won
+			if defender.MatchStatus == md.PlayerMatchStatusLost {
 
-		// 		if err := ws.WriteJSON(respErr); err != nil {
-		// 			log.Println(err)
-		// 		}
-		// 		continue
+				// Sending victory code to the attacker
+				respAttacker := md.NewMessage[md.RespEndGame](md.CodeEndGame)
+				respAttacker.AddPayload(md.RespEndGame{PlayerMatchStatus: md.PlayerMatchStatusWon})
+				if err := ws.WriteJSON(respAttacker); err != nil {
+					log.Println(err)
+					continue
+				}
 
-		// 	} else {
-		// 		hostMsg := md.NewMessage[md.RespAttack](md.CodeRespSuccessAttack)
-		// 		hostMsg.AddPayload(md.RespAttack{IsTurn: game.HostPlayer.IsTurn})
-
-		// 		joinMsg := md.NewMessage[md.RespAttack](md.CodeRespSuccessAttack)
-		// 		joinMsg.AddPayload(md.RespAttack{IsTurn: game.JoinPlayer.IsTurn})
-
-		// 		if err := SendMsgToBothPlayers(game, &hostMsg, &joinMsg); err != nil {
-		// 			log.Println(err)
-		// 		}
-		// 		continue
-		// 	}
+				// Sending failure code to the defender
+				respDefender := md.NewMessage[md.RespEndGame](md.CodeEndGame)
+				respDefender.AddPayload(md.RespEndGame{PlayerMatchStatus: md.PlayerMatchStatusLost})
+				if err := defender.WsConn.WriteJSON(respDefender); err != nil {
+					log.Println(err)
+					continue
+				}
+			}
 
 		case md.CodeReady:
-			req := NewWsRequest(s, ws, payload)
-			resp, game, err := req.HandleReadyPlayer()
+			req := NewRequest(s, nil, payload)
+			resp, _, err := req.HandleReadyPlayer()
+
 			if err != nil {
 				log.Printf("failed to make the player ready: %v\n", err)
 				respErr := md.NewMessage[any](md.CodeReady)
@@ -238,18 +238,18 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 					continue
 				}
 
-				respStartGame := md.NewMessage[any](md.CodeStartGame)
-				if game.HostPlayer.IsReady && game.JoinPlayer.IsReady {
-					if err := SendMsgToBothPlayers(game, &respStartGame, &respStartGame); err != nil {
-						log.Println(err)
-					}
-					continue
-				}
+				// respStartGame := md.NewMessage[any](md.CodeStartGame)
+				// if game.HostPlayer.IsReady && game.JoinPlayer.IsReady {
+				// 	if err := SendMsgToBothPlayers(game, &respStartGame, &respStartGame); err != nil {
+				// 		log.Println(err)
+				// 	}
+				// 	continue
+				// }
 			}
 
 		case md.CodeJoinGame:
 			// Finalized
-			req := NewWsRequest(s, ws, payload)
+			req := NewRequest(s, ws, payload)
 			resp, game, err := req.HandleJoinPlayer()
 			if err != nil {
 				log.Printf("failed to join player: %v\n", err)
@@ -271,7 +271,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 			}
 
 		default:
-			respInvalidSignal := md.NewMessage[any](md.CodeInvalidSignal)
+			respInvalidSignal := md.NewMessage[md.NoPayload](md.CodeInvalidSignal)
 			if err := ws.WriteJSON(respInvalidSignal); err != nil {
 				log.Println(err)
 				continue

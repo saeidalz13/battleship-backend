@@ -1,13 +1,5 @@
 package models
 
-type RespGeneralMessage struct {
-	Message string `json:"message"`
-}
-
-type RespReadyPlayer struct {
-	Success bool `json:"success"`
-}
-
 type RespJoinGame struct {
 	PlayerUuid string `json:"player_uuid"`
 }
@@ -18,8 +10,12 @@ type RespCreateGame struct {
 }
 
 type RespAttack struct {
-	IsTurn bool `json:"is_turn"`
-	// Potentially other fields
+	IsTurn        bool `json:"is_turn"`
+	PositionState int  `json:"position_state"`
+}
+
+type RespEndGame struct {
+	PlayerMatchStatus int `json:"player_match_status"`
 }
 
 type RespErr struct {

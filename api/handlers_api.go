@@ -5,15 +5,15 @@ import (
 	"log"
 
 	"github.com/gorilla/websocket"
-	// cerr "github.com/saeidalz13/battleship-backend/internal/error"
+	cerr "github.com/saeidalz13/battleship-backend/internal/error"
 	md "github.com/saeidalz13/battleship-backend/models"
 )
 
 type RequestHandler interface {
 	HandleCreateGame() (*md.Message[md.RespCreateGame], error)
-	HandleReadyPlayer() (*md.Message[md.RespReadyPlayer], *md.Game, error)
+	HandleReadyPlayer() (*md.Message[any], *md.Game, error)
 	HandleJoinPlayer() (*md.Message[md.RespJoinGame], *md.Game, error)
-	// HandleAttack() (*md.Game, error)
+	HandleAttack() (*md.Message[md.RespAttack], *md.Player)
 }
 
 // Every incoming valid request will have this structure
@@ -27,7 +27,7 @@ type Request struct {
 // This tells the compiler that WsRequest struct must be of type of WsRequestHandler
 var _ RequestHandler = (*Request)(nil)
 
-func NewWsRequest(server *Server, ws *websocket.Conn, payload ...[]byte) *Request {
+func NewRequest(server *Server, ws *websocket.Conn, payload ...[]byte) *Request {
 	if len(payload) > 1 {
 		log.Println("cannot accept more than one payload")
 		return nil
@@ -54,7 +54,7 @@ func (w *Request) HandleCreateGame() (*md.Message[md.RespCreateGame], error) {
 
 // User will choose the configurations of ships on defence grid.
 // Then the grid is sent to backend and adjustment happens accordingly.
-func (w *Request) HandleReadyPlayer() (*md.Message[md.RespReadyPlayer], *md.Game, error) {
+func (w *Request) HandleReadyPlayer() (*md.Message[any], *md.Game, error) {
 	var readyPlayerReq md.Message[md.ReqReadyPlayer]
 	if err := json.Unmarshal(w.Payload, &readyPlayerReq); err != nil {
 		return nil, nil, err
@@ -70,9 +70,9 @@ func (w *Request) HandleReadyPlayer() (*md.Message[md.RespReadyPlayer], *md.Game
 		return nil, nil, err
 	}
 
-	player.SetReady(readyPlayerReq.Payload.DefenceGrid)
+	player.SetDefenceGrid(readyPlayerReq.Payload.DefenceGrid)
 
-	resp := md.NewMessage[md.RespReadyPlayer](md.CodeReady)
+	resp := md.NewMessage[any](md.CodeReady)
 	return &resp, game, nil
 }
 
@@ -97,46 +97,96 @@ func (w *Request) HandleJoinPlayer() (*md.Message[md.RespJoinGame], *md.Game, er
 	return &resp, game, nil
 }
 
-// func (w *Request) HandleAttack() (*md.Game, error) {
-// 	var reqAttack md.Message[md.ReqAttack]
-// 	if err := json.Unmarshal(w.Payload, &reqAttack); err != nil {
-// 		return nil, err
-// 	}
+// Handle the attack logic for the incoming request
+func (w *Request) HandleAttack() (*md.Message[md.RespAttack], *md.Player) {
+	var reqAttack md.Message[md.ReqAttack]
+	resp := md.NewMessage[md.RespAttack](md.CodeAttack)
 
-// 	initMap, err := TypeAssertPayloadToMap(reqAttack.Payload)
-// 	if err != nil {
-// 		return nil, err
-// 	}
+	if err := json.Unmarshal(w.Payload, &reqAttack); err != nil {
+		resp.AddError(err.Error(), cerr.ConstErrAttackFailed)
+		return &resp, nil
+	}
 
-// 	attackInfo, err := TypeAssertIntPayload(initMap, md.KeyX, md.KeyY, md.KeyPositionState)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	x, y, positionState := attackInfo[0], attackInfo[1], attackInfo[2]
+	x := reqAttack.Payload.X
+	y := reqAttack.Payload.Y
+	if x > md.GameValidBound || y > md.GameValidBound {
+		resp.AddError(cerr.ErrXorYOutOfGridBound(x, y).Error(), cerr.ConstErrAttackFailed)
+		return &resp, nil
+	}
 
-// 	if x >= md.GameGridSize || y >= md.GameGridSize {
-// 		return nil, cerr.ErrXorYOutOfGridBound(x, y)
-// 	}
+	game, err := w.Server.FindGame(reqAttack.Payload.GameUuid)
+	if err != nil {
+		resp.AddError(err.Error(), cerr.ConstErrAttackFailed)
+		return &resp, nil
+	}
+	attacker, err := w.Server.FindPlayer(reqAttack.Payload.PlayerUuid)
+	if err != nil {
+		resp.AddError(err.Error(), cerr.ConstErrAttackFailed)
+		return &resp, nil
+	}
 
-// 	game, player, err := ExtractFindGamePlayer(w.Server, initMap)
-// 	if err != nil {
-// 		return nil, err
-// 	}
+	// If attacker has the correct IsTurn Field
+	if !attacker.IsTurn {
+		resp.AddError(cerr.ErrNotTurnForAttacker(attacker.Uuid).Error(), cerr.ConstErrAttackFailed)
+		return &resp, nil
+	}
 
-// 	// TODO: Assumption is that the frontend decides if the attack is hit or miss
-// 	if player.IsHost {
-// 		game.HostPlayer.AttackGrid[x][y] = positionState
-// 		game.HostPlayer.IsTurn = false
-// 		game.JoinPlayer.IsTurn = true
-// 	} else {
-// 		game.JoinPlayer.AttackGrid[x][y] = positionState
-// 		game.JoinPlayer.IsTurn = false
-// 		game.HostPlayer.IsTurn = true
-// 	}
+	if attacker.AttackGrid[x][y] != md.PositionStateAttackGridEmpty {
+		resp.AddError(cerr.ErrAttackPositionAlreadyFilled(x, y).Error(), cerr.ConstErrAttackFailed)
+		return &resp, nil
+	}
 
-// 	return game, nil
-// }
+	defender := game.HostPlayer
+	if attacker.IsHost {
+		defender = game.JoinPlayer
+	}
 
-// func EndGame(s *Server, ws *websocket.Conn, payload []byte) error {
-// 	return nil
-// }
+	// Check what is in the position of attack in defence grid matrix of defender
+	positionCode, err := defender.FetchDefenceGridPositionCode(x, y)
+	if err != nil {
+		resp.AddError(err.Error(), cerr.ConstErrAttackFailed)
+		return &resp, defender
+	}
+
+	defer func() {
+		// Change the status of players turn
+		attacker.IsTurn = false
+		defender.IsTurn = true
+	}()
+
+	// If the attacker missed
+	if positionCode == md.PositionStateDefenceGridEmpty {
+		resp.AddPayload(md.RespAttack{
+			PositionState: md.PositionStateAttackGridMiss,
+			IsTurn:        attacker.IsTurn,
+		})
+		return &resp, defender
+	}
+
+	// Apply the attack to the position
+	defender.HitShip(positionCode, x, y)
+
+	// Check if the attack cause the ship to sink
+	if defender.IsShipSunken(positionCode) {
+
+		// Check if this sunken ship was the last one and the attacker is lost
+		if defender.IsLoser() {
+			defender.MatchStatus = md.PlayerMatchStatusLost
+			attacker.MatchStatus = md.PlayerMatchStatusWon
+
+			resp.AddPayload(md.RespAttack{
+				PositionState: md.PositionStateAttackGridHit,
+				IsTurn:        attacker.IsTurn,
+			})
+			game.FinishGame()
+			return &resp, defender
+		}
+	}
+
+	resp.AddPayload(md.RespAttack{
+		IsTurn:        attacker.IsTurn,
+		PositionState: md.PositionStateAttackGridHit,
+	})
+
+	return &resp, defender
+}
