@@ -44,7 +44,6 @@ const (
 	PositionStateDefenceGridShip1 = 1
 	PositionStateDefenceGridShip2 = 2
 	PositionStateDefenceGridShip3 = 3
-	PositionStateDefenceGridShip4 = 4
 )
 
 type Signal struct {
@@ -60,6 +59,8 @@ type Message[T any] struct {
 	Payload T       `json:"payload,omitempty"`
 	Error   RespErr `json:"error,omitempty"`
 }
+
+type NoPayload bool
 
 type MessageOption[T any] func(*Message[T]) error
 

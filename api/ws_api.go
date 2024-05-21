@@ -265,7 +265,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 			}
 
 		default:
-			respInvalidSignal := md.NewMessage[any](md.CodeInvalidSignal)
+			respInvalidSignal := md.NewMessage[md.NoPayload](md.CodeInvalidSignal)
 			if err := ws.WriteJSON(respInvalidSignal); err != nil {
 				log.Println(err)
 				continue
