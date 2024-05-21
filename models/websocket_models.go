@@ -91,6 +91,7 @@ type Player struct {
 	Uuid        string
 	IsTurn      bool
 	IsHost      bool
+	IsReady     bool
 	MatchStatus int
 	SunkenShips int
 	AttackGrid  [][]int
@@ -103,6 +104,7 @@ func NewPlayer(ws *websocket.Conn, isHost, isTurn bool) *Player {
 	return &Player{
 		IsTurn:      isTurn,
 		IsHost:      isHost,
+		IsReady:     false,
 		MatchStatus: PlayerMatchStatusUndefined,
 		SunkenShips: 0,
 		Uuid:        uuid.NewString()[:10],
@@ -129,7 +131,6 @@ func (p *Player) HitShip(code, x, y int) {
 	p.DefenceGrid[x][y] = PositionStateDefenceGridHit
 	p.Ships[code].GotHit()
 }
-
 
 func (p *Player) FetchDefenceGridPositionCode(x, y int) (int, error) {
 	positionCode := p.DefenceGrid[x][y]
@@ -160,14 +161,12 @@ type Game struct {
 	Uuid       string
 	HostPlayer *Player
 	JoinPlayer *Player
-	IsReady    bool
 	IsFinished bool
 }
 
 func NewGame() *Game {
 	return &Game{
 		Uuid:       uuid.NewString()[:6],
-		IsReady:    false,
 		IsFinished: false,
 	}
 }
