@@ -10,9 +10,9 @@ import (
 )
 
 type RequestHandler interface {
-	HandleCreateGame() (*md.Message[md.RespCreateGame], error)
+	HandleCreateGame() *md.Message[md.RespCreateGame]
 	HandleReadyPlayer() (*md.Message[md.NoPayload], *md.Game)
-	HandleJoinPlayer() (*md.Message[md.RespJoinGame], *md.Game, error)
+	HandleJoinPlayer() (*md.Message[md.RespJoinGame], *md.Game)
 	HandleAttack() (*md.Message[md.RespAttack], *md.Player)
 }
 
@@ -43,13 +43,13 @@ func NewRequest(server *Server, ws *websocket.Conn, payload ...[]byte) *Request 
 	return &wsReq
 }
 
-func (w *Request) HandleCreateGame() (*md.Message[md.RespCreateGame], error) {
+func (w *Request) HandleCreateGame() *md.Message[md.RespCreateGame] {
 	game := w.Server.AddGame()
 	hostPlayer := w.Server.AddHostPlayer(game, w.Ws)
 
 	resp := md.NewMessage[md.RespCreateGame](md.CodeCreateGame)
 	resp.AddPayload(md.RespCreateGame{GameUuid: game.Uuid, HostUuid: hostPlayer.Uuid})
-	return &resp, nil
+	return &resp
 }
 
 // User will choose the configurations of ships on defence grid.
@@ -59,31 +59,31 @@ func (w *Request) HandleReadyPlayer() (*md.Message[md.NoPayload], *md.Game) {
 	resp := md.NewMessage[md.NoPayload](md.CodeReady)
 
 	if err := json.Unmarshal(w.Payload, &readyPlayerReq); err != nil {
-		resp.AddError(err.Error(), cerr.ConstErrJoin)
+		resp.AddError(err.Error(), cerr.ConstErrReady)
 		return &resp, nil
 	}
 	log.Printf("unmarshaled ready player payload: %+v\n", readyPlayerReq)
 
 	player, err := w.Server.FindPlayer(readyPlayerReq.Payload.PlayerUuid)
 	if err != nil {
-		resp.AddError(err.Error(), cerr.ConstErrJoin)
+		resp.AddError(err.Error(), cerr.ConstErrReady)
 		return &resp, nil
 	}
 	game, err := w.Server.FindGame(readyPlayerReq.Payload.GameUuid)
 	if err != nil {
-		resp.AddError(err.Error(), cerr.ConstErrJoin)
+		resp.AddError(err.Error(), cerr.ConstErrReady)
 		return &resp, nil
 	}
 
 	// Check to see if rows and cols are equal to game's grid size
 	rows := len(readyPlayerReq.Payload.DefenceGrid)
 	if rows != md.GameGridSize {
-		resp.AddError(cerr.ErrDefenceGridRowsOutOfBounds(rows, md.GameGridSize).Error(), cerr.ConstErrJoin)
+		resp.AddError(cerr.ErrDefenceGridRowsOutOfBounds(rows, md.GameGridSize).Error(), cerr.ConstErrReady)
 		return &resp, nil
 	}
 	cols := len(readyPlayerReq.Payload.DefenceGrid[0])
 	if cols != md.GameGridSize {
-		resp.AddError(cerr.ErrDefenceGridColsOutOfBounds(cols, md.GameGridSize).Error(), cerr.ConstErrJoin)
+		resp.AddError(cerr.ErrDefenceGridColsOutOfBounds(cols, md.GameGridSize).Error(), cerr.ConstErrReady)
 		return &resp, nil
 	}
 
@@ -94,10 +94,13 @@ func (w *Request) HandleReadyPlayer() (*md.Message[md.NoPayload], *md.Game) {
 
 // Join user sends the game uuid and if this game exists,
 // a new join player is created and added to the database
-func (w *Request) HandleJoinPlayer() (*md.Message[md.RespJoinGame], *md.Game, error) {
+func (w *Request) HandleJoinPlayer() (*md.Message[md.RespJoinGame], *md.Game) {
 	var joinGameReq md.Message[md.ReqJoinGame]
+	resp := md.NewMessage[md.RespJoinGame](md.CodeJoinGame)
+
 	if err := json.Unmarshal(w.Payload, &joinGameReq); err != nil {
-		return nil, nil, err
+		resp.AddError(err.Error(), cerr.ConstErrJoin)
+		return &resp, nil
 	}
 	log.Printf("unmarshaled join game payload: %+v\n", joinGameReq)
 
@@ -105,12 +108,12 @@ func (w *Request) HandleJoinPlayer() (*md.Message[md.RespJoinGame], *md.Game, er
 
 	game, err := w.Server.AddJoinPlayer(gameUuid, w.Ws)
 	if err != nil {
-		return nil, nil, err
+		resp.AddError(err.Error(), cerr.ConstErrJoin)
+		return &resp, nil
 	}
 
-	resp := md.NewMessage[md.RespJoinGame](md.CodeJoinGame)
 	resp.AddPayload(md.RespJoinGame{PlayerUuid: game.JoinPlayer.Uuid})
-	return &resp, game, nil
+	return &resp, game
 }
 
 // Handle the attack logic for the incoming request
