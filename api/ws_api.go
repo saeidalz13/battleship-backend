@@ -196,7 +196,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 				continue
 			}
 
-			// If this attack caused the game to end
+			// If this attack caused the game to end.
 			// Both attacker and defender (host or join) will get a end game message
 			// indicating if they lost or won
 			if defender.MatchStatus == md.PlayerMatchStatusLost {
@@ -246,7 +246,6 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 				readyResp := md.NewMessage[md.NoPayload](md.CodeSelectGrid)
 				if err := SendMsgToBothPlayers(game, &readyResp, &readyResp); err != nil {
 					log.Println(err)
-					continue
 				}
 			}
 
@@ -255,7 +254,6 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 			respInvalidSignal.AddError("", "invalid code in the incoming payload")
 			if err := ws.WriteJSON(respInvalidSignal); err != nil {
 				log.Println(err)
-				continue
 			}
 		}
 	}
