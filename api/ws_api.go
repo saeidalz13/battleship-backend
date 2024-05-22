@@ -244,12 +244,13 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 				if err := ws.WriteJSON(respErr); err != nil {
 					log.Println(err)
 				}
+				continue
 
 			} else {
 				if err := ws.WriteJSON(resp); err != nil {
 					log.Printf("failed to join player: %v\n", err)
 				}
-				readyResp := md.NewMessage[any](md.CodeSelectGrid)
+				readyResp := md.NewMessage[md.NoPayload](md.CodeSelectGrid)
 				if err := SendMsgToBothPlayers(game, &readyResp, &readyResp); err != nil {
 					log.Println(err)
 					continue
@@ -258,6 +259,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 
 		default:
 			respInvalidSignal := md.NewMessage[md.NoPayload](md.CodeInvalidSignal)
+			respInvalidSignal.AddError("", "invalid code in the incoming payload")
 			if err := ws.WriteJSON(respInvalidSignal); err != nil {
 				log.Println(err)
 				continue

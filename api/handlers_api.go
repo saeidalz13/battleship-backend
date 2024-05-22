@@ -88,6 +88,7 @@ func (w *Request) HandleReadyPlayer() (*md.Message[md.NoPayload], *md.Game) {
 	}
 
 	player.SetDefenceGrid(readyPlayerReq.Payload.DefenceGrid)
+	player.IsReady = true
 	return &resp, game 
 }
 
