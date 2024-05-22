@@ -60,7 +60,7 @@ func (w *Request) HandleReadyPlayer() (*md.Message[md.NoPayload], *md.Game) {
 
 	if err := json.Unmarshal(w.Payload, &readyPlayerReq); err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrJoin)
-		return &resp, nil 
+		return &resp, nil
 	}
 	log.Printf("unmarshaled ready player payload: %+v\n", readyPlayerReq)
 
@@ -79,17 +79,17 @@ func (w *Request) HandleReadyPlayer() (*md.Message[md.NoPayload], *md.Game) {
 	rows := len(readyPlayerReq.Payload.DefenceGrid)
 	if rows != md.GameGridSize {
 		resp.AddError(cerr.ErrDefenceGridRowsOutOfBounds(rows, md.GameGridSize).Error(), cerr.ConstErrJoin)
-		return &resp, nil 
+		return &resp, nil
 	}
 	cols := len(readyPlayerReq.Payload.DefenceGrid[0])
 	if cols != md.GameGridSize {
 		resp.AddError(cerr.ErrDefenceGridColsOutOfBounds(cols, md.GameGridSize).Error(), cerr.ConstErrJoin)
-		return &resp, nil 
+		return &resp, nil
 	}
 
 	player.SetDefenceGrid(readyPlayerReq.Payload.DefenceGrid)
 	player.IsReady = true
-	return &resp, game 
+	return &resp, game
 }
 
 // Join user sends the game uuid and if this game exists,
@@ -119,36 +119,36 @@ func (w *Request) HandleAttack() (*md.Message[md.RespAttack], *md.Player) {
 	resp := md.NewMessage[md.RespAttack](md.CodeAttack)
 
 	if err := json.Unmarshal(w.Payload, &reqAttack); err != nil {
-		resp.AddError(err.Error(), cerr.ConstErrAttackFailed)
+		resp.AddError(err.Error(), cerr.ConstErrAttack)
 		return &resp, nil
 	}
 
 	x := reqAttack.Payload.X
 	y := reqAttack.Payload.Y
 	if x > md.GameValidBound || y > md.GameValidBound {
-		resp.AddError(cerr.ErrXorYOutOfGridBound(x, y).Error(), cerr.ConstErrAttackFailed)
+		resp.AddError(cerr.ErrXorYOutOfGridBound(x, y).Error(), cerr.ConstErrAttack)
 		return &resp, nil
 	}
 
 	game, err := w.Server.FindGame(reqAttack.Payload.GameUuid)
 	if err != nil {
-		resp.AddError(err.Error(), cerr.ConstErrAttackFailed)
+		resp.AddError(err.Error(), cerr.ConstErrAttack)
 		return &resp, nil
 	}
 	attacker, err := w.Server.FindPlayer(reqAttack.Payload.PlayerUuid)
 	if err != nil {
-		resp.AddError(err.Error(), cerr.ConstErrAttackFailed)
+		resp.AddError(err.Error(), cerr.ConstErrAttack)
 		return &resp, nil
 	}
 
 	// If attacker has the correct IsTurn Field
 	if !attacker.IsTurn {
-		resp.AddError(cerr.ErrNotTurnForAttacker(attacker.Uuid).Error(), cerr.ConstErrAttackFailed)
+		resp.AddError(cerr.ErrNotTurnForAttacker(attacker.Uuid).Error(), cerr.ConstErrAttack)
 		return &resp, nil
 	}
 
 	if attacker.AttackGrid[x][y] != md.PositionStateAttackGridEmpty {
-		resp.AddError(cerr.ErrAttackPositionAlreadyFilled(x, y).Error(), cerr.ConstErrAttackFailed)
+		resp.AddError(cerr.ErrAttackPositionAlreadyFilled(x, y).Error(), cerr.ConstErrAttack)
 		return &resp, nil
 	}
 
@@ -160,7 +160,7 @@ func (w *Request) HandleAttack() (*md.Message[md.RespAttack], *md.Player) {
 	// Check what is in the position of attack in defence grid matrix of defender
 	positionCode, err := defender.FetchDefenceGridPositionCode(x, y)
 	if err != nil {
-		resp.AddError(err.Error(), cerr.ConstErrAttackFailed)
+		resp.AddError(err.Error(), cerr.ConstErrAttack)
 		return &resp, defender
 	}
 

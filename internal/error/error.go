@@ -3,8 +3,8 @@ package error
 import "fmt"
 
 const (
-	ConstErrAttackFailed = "attack operation failed"
-	ConstErrJoin = "join player operation failed"
+	ConstErrAttack = "attack operation failed"
+	ConstErrJoin   = "join player operation failed"
 )
 
 func ErrGameNotExists(gameUuid string) error {
