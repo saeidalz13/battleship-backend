@@ -41,9 +41,9 @@ const (
 const (
 	PositionStateDefenceGridHit   = -1
 	PositionStateDefenceGridEmpty = 0
-	PositionStateDefenceGridShip1 = 1
-	PositionStateDefenceGridShip2 = 2
-	PositionStateDefenceGridShip3 = 3
+	PositionStateDefenceDestroyer = 2
+	PositionStateDefenceCruiser = 3
+	PositionStateDefenceBattleship = 4
 )
 
 type Signal struct {
@@ -151,7 +151,7 @@ func (p *Player) SetAttackGrid(newGrid GridInt) {
 
 func (p *Player) SetDefenceGrid(newGrid GridInt) {
 	p.DefenceGrid = newGrid
-	log.Printf("player %s defence grid set to: %+v\n", p.Uuid, p.AttackGrid)
+	log.Printf("player %s defence grid set to: %+v\n", p.Uuid, p.DefenceGrid)
 }
 
 func (p *Player) SunkShip() {
@@ -209,13 +209,13 @@ func NewShip(code, length int) *Ship {
 
 func NewShipsMap() map[int]*Ship {
 	ships := make(map[int]*Ship, SunkenShipsToLose)
-	ship1 := NewShip(PositionStateDefenceGridShip1, 2)
-	ship2 := NewShip(PositionStateDefenceGridShip2, 3)
-	ship3 := NewShip(PositionStateDefenceGridShip3, 4)
+	ship1 := NewShip(PositionStateDefenceDestroyer, 2)
+	ship2 := NewShip(PositionStateDefenceCruiser, 3)
+	ship3 := NewShip(PositionStateDefenceBattleship, 4)
 
-	ships[PositionStateDefenceGridShip1] = ship1
-	ships[PositionStateDefenceGridShip2] = ship2
-	ships[PositionStateDefenceGridShip3] = ship3
+	ships[PositionStateDefenceDestroyer] = ship1
+	ships[PositionStateDefenceCruiser] = ship2
+	ships[PositionStateDefenceBattleship] = ship3
 
 	return ships
 }

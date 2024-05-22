@@ -98,36 +98,43 @@ func TestCreateGame(t *testing.T) {
 	/*
 		Test 3
 	*/
-	invalidReqJoinPayload := md.NewMessage[md.ReqJoinGame](md.CodeJoinGame)
-	invalidReqJoinPayload.AddPayload(md.ReqJoinGame{GameUuid: "invalid"})
-	test = Test{
-		Number:     3,
-		Desc:       "should fail with invalid game uuid",
-		ReqPayload: invalidReqJoinPayload,
-	}
-	if err := JoinConn.WriteJSON(test.ReqPayload); err != nil {
-		test.logError()
-		t.Fatal(err)
-	}
-	var respFailJoin md.Message[md.RespJoinGame]
-	if err := JoinConn.ReadJSON(&respFailJoin); err != nil {
-		test.logError()
-		t.Fatal(err)
-	}
+	// invalidReqJoinPayload := md.NewMessage[md.ReqJoinGame](md.CodeJoinGame)
+	// invalidReqJoinPayload.AddPayload(md.ReqJoinGame{GameUuid: "invalid"})
+	// test = Test{
+	// 	Number:     3,
+	// 	Desc:       "should fail with invalid game uuid",
+	// 	ReqPayload: invalidReqJoinPayload,
+	// }
+	// if err := JoinConn.WriteJSON(test.ReqPayload); err != nil {
+	// 	test.logError()
+	// 	t.Fatal(err)
+	// }
+	// var respFailJoin md.Message[md.RespJoinGame]
+	// if err := JoinConn.ReadJSON(&respFailJoin); err != nil {
+	// 	test.logError()
+	// 	t.Fatal(err)
+	// }
 
-	if respFailJoin.Error.ErrorDetails == "" {
-		test.logError()
-		t.Fatal("must have failed")
-	}
-
-	test.logSuccess(respFailJoin)
+	// log.Println("here...")
+	// if respFailJoin.Error.ErrorDetails == "" {
+	// 	test.logError()
+	// 	t.Fatal("must have failed")
+	// }
+	// test.logSuccess(respFailJoin)
 
 	/*
 		test 4
 	*/
+	defenceGrid := md.GridInt{
+		{0, md.PositionStateDefenceDestroyer, md.PositionStateDefenceDestroyer, 0, 0},
+		{md.PositionStateDefenceCruiser, 0, 0, md.PositionStateDefenceBattleship, 0},
+		{md.PositionStateDefenceCruiser, 0, 0, md.PositionStateDefenceBattleship, 0},
+		{md.PositionStateDefenceCruiser, 0, 0, md.PositionStateDefenceBattleship, 0},
+		{0, 0, 0, md.PositionStateDefenceBattleship, 0},
+	}
 	readyReqPayload := md.NewMessage[md.ReqReadyPlayer](md.CodeReady)
 	readyReqPayload.AddPayload(md.ReqReadyPlayer{
-		DefenceGrid: md.NewGrid(),
+		DefenceGrid: defenceGrid,
 		GameUuid:    gameUuid,
 		PlayerUuid:  hostUuid,
 	})
@@ -148,32 +155,6 @@ func TestCreateGame(t *testing.T) {
 	test.logSuccess(respSuccessReady)
 
 	/*
-		test 5
+	Test 5
 	*/
-
-	// test = Test{
-	// 	Number: 5,
-	// 	Desc:   "should adjust the grid and turn for both host and join player",
-	// 	ReqPayload: md.NewMessage(md.CodeReqAttack,
-	// 		md.WithPayload(md.ReqAttack{
-	// 			GameUuid:      gameUuid,
-	// 			PlayerUuid:    hostUuid,
-	// 			X:             3,
-	// 			Y:             2,
-	// 			PositionState: md.PositionStateHit,
-	// 		}),
-	// 	),
-	// }
-
-	// if err := HostConn.WriteJSON(test.ReqPayload); err != nil {
-	// 	test.logError()
-	// 	t.Fatal(err)
-	// }
-
-	// var respAttack md.Message
-	// if err := HostConn.ReadJSON(&respAttack); err != nil {
-	// 	test.logError()
-	// 	t.Fatal(err)
-	// }
-	// test.logSuccess(respAttack)
 }

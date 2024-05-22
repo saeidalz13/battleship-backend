@@ -4,6 +4,7 @@ import "fmt"
 
 const (
 	ConstErrAttackFailed = "attack operation failed"
+	ConstErrJoin = "join player operation failed"
 )
 
 func ErrGameNotExists(gameUuid string) error {
@@ -34,6 +35,8 @@ func ErrValueNotGridInt() error {
 	return fmt.Errorf("the value is not of type GridInt")
 }
 
+// Attack Errors
+
 func ErrXorYOutOfGridBound(x, y int) error {
 	return fmt.Errorf("incoming x or y is out of game grid bound\tx: %d\ty: %d", x, y)
 }
@@ -41,6 +44,12 @@ func ErrXorYOutOfGridBound(x, y int) error {
 func ErrAttackPositionAlreadyFilled(x, y int) error {
 	return fmt.Errorf("current position in grid already taken\tx: %d\ty: %d", x, y)
 }
+
+func ErrNotTurnForAttacker(attackerId string) error {
+	return fmt.Errorf("this is not the turn to attack for player %s", attackerId)
+}
+
+// DefenceGrid
 
 func ErrDefenceGridPositionAlreadyHit(x, y int) error {
 	return fmt.Errorf("this position is already hit by the attacker in previous rounds\tx: %d\ty: %d", x, y)
@@ -50,6 +59,10 @@ func ErrDefenceGridPositionEmpty(x, y int) error {
 	return fmt.Errorf("this position in defence grid is empty\tx: %d\ty: %d", x, y)
 }
 
-func ErrNotTurnForAttacker(attackerId string) error {
-	return fmt.Errorf("this is not the turn to attack for player %s", attackerId)
+func ErrDefenceGridRowsOutOfBounds(rows, gameGridSize int) error {
+	return fmt.Errorf("rows of defence grid must be %d \trows: %d", gameGridSize, rows)
+}
+
+func ErrDefenceGridColsOutOfBounds(cols, gameGridSize int) error {
+	return fmt.Errorf("cols of defence grid must be %d \tcols: %d", gameGridSize, cols)
 }

@@ -129,12 +129,11 @@ func WithPort(port int) Option {
 		if port > 10000 {
 			panic("choose a port less than 10000")
 		}
-    
+
 		s.port = &port
 		return nil
 	}
 }
-
 
 func WithStage(stage string) Option {
 	return func(s *Server) error {
@@ -222,33 +221,20 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 
 		case md.CodeReady:
 			req := NewRequest(s, nil, payload)
-			resp, _, err := req.HandleReadyPlayer()
-
-			if err != nil {
-				log.Printf("failed to make the player ready: %v\n", err)
-				respErr := md.NewMessage[any](md.CodeReady)
-				respErr.AddError(err.Error(), "failed to make the player ready")
-				if err := ws.WriteJSON(respErr); err != nil {
-					log.Println(err)
-				}
+			resp, game := req.HandleReadyPlayer()
+			if err := ws.WriteJSON(resp); err != nil {
+				log.Println(err)
 				continue
-			} else {
-				if err := ws.WriteJSON(resp); err != nil {
-					log.Println(err)
-					continue
-				}
+			}
 
-				// respStartGame := md.NewMessage[any](md.CodeStartGame)
-				// if game.HostPlayer.IsReady && game.JoinPlayer.IsReady {
-				// 	if err := SendMsgToBothPlayers(game, &respStartGame, &respStartGame); err != nil {
-				// 		log.Println(err)
-				// 	}
-				// 	continue
-				// }
+			if game.HostPlayer.IsReady && game.JoinPlayer.IsReady {
+				respStartGame := md.NewMessage[md.NoPayload](md.CodeStartGame)
+				if err := SendMsgToBothPlayers(game, &respStartGame, &respStartGame); err != nil {
+					log.Println(err)
+				}
 			}
 
 		case md.CodeJoinGame:
-			// Finalized
 			req := NewRequest(s, ws, payload)
 			resp, game, err := req.HandleJoinPlayer()
 			if err != nil {
