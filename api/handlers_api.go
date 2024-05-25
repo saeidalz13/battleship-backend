@@ -104,9 +104,7 @@ func (w *Request) HandleJoinPlayer() (*md.Message[md.RespJoinGame], *md.Game) {
 	}
 	log.Printf("unmarshaled join game payload: %+v\n", joinGameReq)
 
-	gameUuid := joinGameReq.Payload.GameUuid
-
-	game, err := w.Server.AddJoinPlayer(gameUuid, w.Ws)
+	game, err := w.Server.AddJoinPlayer(joinGameReq.Payload.GameUuid, w.Ws)
 	if err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrJoin)
 		return &resp, nil
