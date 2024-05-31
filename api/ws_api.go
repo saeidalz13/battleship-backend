@@ -180,9 +180,8 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 		switch signal.Code {
 
 		case md.CodeCreateGame:
-			// Finalized
 			req := NewRequest(s, ws)
-			resp, _ := req.HandleCreateGame()
+			resp := req.HandleCreateGame()
 			if err := ws.WriteJSON(resp); err != nil {
 				log.Printf("failed to create new game: %v\n", err)
 				continue
@@ -197,7 +196,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 				continue
 			}
 
-			// If this attack caused the game to end
+			// If this attack caused the game to end.
 			// Both attacker and defender (host or join) will get a end game message
 			// indicating if they lost or won
 			if defender.MatchStatus == md.PlayerMatchStatusLost {
@@ -236,24 +235,17 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 
 		case md.CodeJoinGame:
 			req := NewRequest(s, ws, payload)
-			resp, game, err := req.HandleJoinPlayer()
-			if err != nil {
+			resp, game := req.HandleJoinPlayer()
+			if err := ws.WriteJSON(resp); err != nil {
 				log.Printf("failed to join player: %v\n", err)
-				respErr := md.NewMessage[any](md.CodeJoinGame)
-				respErr.AddError(err.Error(), "failed to join the player")
-				if err := ws.WriteJSON(respErr); err != nil {
-					log.Println(err)
-				}
-				continue
+			}
 
-			} else {
-				if err := ws.WriteJSON(resp); err != nil {
-					log.Printf("failed to join player: %v\n", err)
-				}
+			// If the second playerd joined successfully, then `CodeSelectGrid`
+			// is sent to both players as an indication of grid selection
+			if resp.Error.ErrorDetails != "" {
 				readyResp := md.NewMessage[md.NoPayload](md.CodeSelectGrid)
 				if err := SendMsgToBothPlayers(game, &readyResp, &readyResp); err != nil {
 					log.Println(err)
-					continue
 				}
 			}
 
@@ -262,7 +254,6 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 			respInvalidSignal.AddError("", "invalid code in the incoming payload")
 			if err := ws.WriteJSON(respInvalidSignal); err != nil {
 				log.Println(err)
-				continue
 			}
 		}
 	}

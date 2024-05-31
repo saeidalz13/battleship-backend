@@ -10,9 +10,9 @@ import (
 )
 
 type RequestHandler interface {
-	HandleCreateGame() (*md.Message[md.RespCreateGame], error)
+	HandleCreateGame() *md.Message[md.RespCreateGame]
 	HandleReadyPlayer() (*md.Message[md.NoPayload], *md.Game)
-	HandleJoinPlayer() (*md.Message[md.RespJoinGame], *md.Game, error)
+	HandleJoinPlayer() (*md.Message[md.RespJoinGame], *md.Game)
 	HandleAttack() (*md.Message[md.RespAttack], *md.Player)
 }
 
@@ -43,13 +43,13 @@ func NewRequest(server *Server, ws *websocket.Conn, payload ...[]byte) *Request 
 	return &wsReq
 }
 
-func (w *Request) HandleCreateGame() (*md.Message[md.RespCreateGame], error) {
+func (w *Request) HandleCreateGame() *md.Message[md.RespCreateGame] {
 	game := w.Server.AddGame()
 	hostPlayer := w.Server.AddHostPlayer(game, w.Ws)
 
 	resp := md.NewMessage[md.RespCreateGame](md.CodeCreateGame)
 	resp.AddPayload(md.RespCreateGame{GameUuid: game.Uuid, HostUuid: hostPlayer.Uuid})
-	return &resp, nil
+	return &resp
 }
 
 // User will choose the configurations of ships on defence grid.
@@ -94,10 +94,13 @@ func (w *Request) HandleReadyPlayer() (*md.Message[md.NoPayload], *md.Game) {
 
 // Join user sends the game uuid and if this game exists,
 // a new join player is created and added to the database
-func (w *Request) HandleJoinPlayer() (*md.Message[md.RespJoinGame], *md.Game, error) {
+func (w *Request) HandleJoinPlayer() (*md.Message[md.RespJoinGame], *md.Game) {
 	var joinGameReq md.Message[md.ReqJoinGame]
+	resp := md.NewMessage[md.RespJoinGame](md.CodeJoinGame)
+
 	if err := json.Unmarshal(w.Payload, &joinGameReq); err != nil {
-		return nil, nil, err
+		resp.AddError(err.Error(), cerr.ConstErrJoin)
+		return &resp, nil
 	}
 	log.Printf("unmarshaled join game payload: %+v\n", joinGameReq)
 
@@ -105,12 +108,12 @@ func (w *Request) HandleJoinPlayer() (*md.Message[md.RespJoinGame], *md.Game, er
 
 	game, err := w.Server.AddJoinPlayer(gameUuid, w.Ws)
 	if err != nil {
-		return nil, nil, err
+		resp.AddError(err.Error(), cerr.ConstErrJoin)
+		return &resp, nil
 	}
 
-	resp := md.NewMessage[md.RespJoinGame](md.CodeJoinGame)
 	resp.AddPayload(md.RespJoinGame{PlayerUuid: game.JoinPlayer.Uuid})
-	return &resp, game, nil
+	return &resp, game
 }
 
 // Handle the attack logic for the incoming request

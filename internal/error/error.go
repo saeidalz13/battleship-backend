@@ -5,6 +5,7 @@ import "fmt"
 const (
 	ConstErrAttack = "attack operation failed"
 	ConstErrReady  = "ready player operation failed"
+	ConstErrJoin   = "join player operation failed"
 )
 
 func ErrGameNotExists(gameUuid string) error {
