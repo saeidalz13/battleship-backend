@@ -23,9 +23,9 @@ const (
 
 const (
 	CodeCreateGame = iota
+	CodeJoinGame
 	CodeStartGame
 	CodeEndGame
-	CodeJoinGame
 	CodeSelectGrid
 	CodeAttack
 	CodeReady
