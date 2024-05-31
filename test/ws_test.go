@@ -95,14 +95,16 @@ func TestCreateGame(t *testing.T) {
 
 	// Read extra message of success to host
 	// we have to read it so it frees up the queue for the next steps of host read
-	if err := HostConn.ReadJSON(&respJoinGame); err != nil {
+	// when join player is added, a select grid code is sent to both players
+	var respSelectGrid md.Message[md.NoPayload]
+	if err := HostConn.ReadJSON(&respSelectGrid); err != nil {
 		test.logError()
 		t.Fatal(err)
 	}
 	if respJoinGame.Error.ErrorDetails != "" {
 		t.Fatalf("failed to join the game for the host player\t%+v\t%s", hostUuid, respCreateGame.Error.ErrorDetails)
 	}
-	if err := JoinConn.ReadJSON(&respJoinGame); err != nil {
+	if err := JoinConn.ReadJSON(&respSelectGrid); err != nil {
 		test.logError()
 		t.Fatal(err)
 	}
@@ -113,29 +115,27 @@ func TestCreateGame(t *testing.T) {
 	/*
 		Test 3
 	*/
-	// invalidReqJoinPayload := md.NewMessage[md.ReqJoinGame](md.CodeJoinGame)
-	// invalidReqJoinPayload.AddPayload(md.ReqJoinGame{GameUuid: "invalid"})
-	// test = Test{
-	// 	Number:     3,
-	// 	Desc:       "should fail with invalid game uuid",
-	// 	ReqPayload: invalidReqJoinPayload,
-	// }
-	// if err := JoinConn.WriteJSON(test.ReqPayload); err != nil {
-	// 	test.logError()
-	// 	t.Fatal(err)
-	// }
-	// var respFailJoin md.Message[md.RespJoinGame]
-	// if err := JoinConn.ReadJSON(&respFailJoin); err != nil {
-	// 	test.logError()
-	// 	t.Fatal(err)
-	// }
-
-	// log.Println("here...")
-	// if respFailJoin.Error.ErrorDetails == "" {
-	// 	test.logError()
-	// 	t.Fatal("must have failed")
-	// }
-	// test.logSuccess(respFailJoin)
+	invalidReqJoinPayload := md.NewMessage[md.ReqJoinGame](md.CodeJoinGame)
+	invalidReqJoinPayload.AddPayload(md.ReqJoinGame{GameUuid: "invalid"})
+	test = Test{
+		Number:     3,
+		Desc:       "should fail with invalid game uuid",
+		ReqPayload: invalidReqJoinPayload,
+	}
+	if err := JoinConn.WriteJSON(test.ReqPayload); err != nil {
+		test.logError()
+		t.Fatal(err)
+	}
+	var respFailJoin md.Message[md.RespJoinGame]
+	if err := JoinConn.ReadJSON(&respFailJoin); err != nil {
+		test.logError()
+		t.Fatal(err)
+	}
+	if respFailJoin.Error.ErrorDetails == "" {
+		test.logError()
+		t.Fatal("must have failed")
+	}
+	test.logSuccess(respFailJoin)
 
 	/*
 		test 4

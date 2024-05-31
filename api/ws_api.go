@@ -242,7 +242,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 
 			// If the second playerd joined successfully, then `CodeSelectGrid`
 			// is sent to both players as an indication of grid selection
-			if resp.Error.ErrorDetails != "" {
+			if resp.Error.ErrorDetails == "" {
 				readyResp := md.NewMessage[md.NoPayload](md.CodeSelectGrid)
 				if err := SendMsgToBothPlayers(game, &readyResp, &readyResp); err != nil {
 					log.Println(err)
