@@ -24,11 +24,11 @@ const (
 const (
 	CodeCreateGame = iota
 	CodeJoinGame
-	CodeStartGame
-	CodeEndGame
 	CodeSelectGrid
-	CodeAttack
 	CodeReady
+	CodeStartGame
+	CodeAttack
+	CodeEndGame
 	CodeInvalidSignal
 )
 
