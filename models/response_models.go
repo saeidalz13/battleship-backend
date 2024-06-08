@@ -1,6 +1,7 @@
 package models
 
 type RespJoinGame struct {
+	GameUuid   string `json:"game_uuid"`
 	PlayerUuid string `json:"player_uuid"`
 }
 
