@@ -59,7 +59,7 @@ func (w *Request) HandleReadyPlayer() (*md.Message[md.NoPayload], *md.Game) {
 	resp := md.NewMessage[md.NoPayload](md.CodeReady)
 
 	if err := json.Unmarshal(w.Payload, &readyPlayerReq); err != nil {
-		resp.AddError(err.Error(), cerr.ConstErrReady)
+		resp.AddError(err.Error(), cerr.ConstErrInvalidPayload)
 		return &resp, nil
 	}
 	log.Printf("unmarshaled ready player payload: %+v\n", readyPlayerReq)
@@ -99,7 +99,7 @@ func (w *Request) HandleJoinPlayer() (*md.Message[md.RespJoinGame], *md.Game) {
 	resp := md.NewMessage[md.RespJoinGame](md.CodeJoinGame)
 
 	if err := json.Unmarshal(w.Payload, &joinGameReq); err != nil {
-		resp.AddError(err.Error(), cerr.ConstErrJoin)
+		resp.AddError(err.Error(), cerr.ConstErrInvalidPayload)
 		return &resp, nil
 	}
 	log.Printf("unmarshaled join game payload: %+v\n", joinGameReq)
@@ -120,7 +120,7 @@ func (w *Request) HandleAttack() (*md.Message[md.RespAttack], *md.Player) {
 	resp := md.NewMessage[md.RespAttack](md.CodeAttack)
 
 	if err := json.Unmarshal(w.Payload, &reqAttack); err != nil {
-		resp.AddError(err.Error(), cerr.ConstErrAttack)
+		resp.AddError(err.Error(), cerr.ConstErrInvalidPayload)
 		return &resp, nil
 	}
 

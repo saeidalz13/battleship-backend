@@ -3,9 +3,10 @@ package error
 import "fmt"
 
 const (
-	ConstErrAttack = "attack operation failed"
-	ConstErrReady  = "ready player operation failed"
-	ConstErrJoin   = "join player operation failed"
+	ConstErrAttack         = "attack operation failed"
+	ConstErrReady          = "ready player operation failed"
+	ConstErrJoin           = "join player operation failed"
+	ConstErrInvalidPayload = "invalid request payload"
 )
 
 func ErrGameNotExists(gameUuid string) error {
