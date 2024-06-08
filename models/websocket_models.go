@@ -39,10 +39,10 @@ const (
 )
 
 const (
-	PositionStateDefenceGridHit   = -1
-	PositionStateDefenceGridEmpty = 0
-	PositionStateDefenceDestroyer = 2
-	PositionStateDefenceCruiser = 3
+	PositionStateDefenceGridHit    = -1
+	PositionStateDefenceGridEmpty  = 0
+	PositionStateDefenceDestroyer  = 2
+	PositionStateDefenceCruiser    = 3
 	PositionStateDefenceBattleship = 4
 )
 

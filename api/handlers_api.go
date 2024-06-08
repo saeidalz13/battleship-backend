@@ -110,7 +110,7 @@ func (w *Request) HandleJoinPlayer() (*md.Message[md.RespJoinGame], *md.Game) {
 		return &resp, nil
 	}
 
-	resp.AddPayload(md.RespJoinGame{PlayerUuid: game.JoinPlayer.Uuid})
+	resp.AddPayload(md.RespJoinGame{GameUuid: game.Uuid, PlayerUuid: game.JoinPlayer.Uuid})
 	return &resp, game
 }
 
