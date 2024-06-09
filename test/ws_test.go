@@ -1,145 +1,164 @@
 package test
 
 import (
-	"log"
 	"testing"
 
+	"github.com/gorilla/websocket"
+	cerr "github.com/saeidalz13/battleship-backend/internal/error"
 	md "github.com/saeidalz13/battleship-backend/models"
 )
 
-type Test struct {
-	Number     int8
-	Desc       string
-	ReqPayload interface{}
+type Test[T, K any] struct {
+	name         string
+	expectedCode int
+	expectedErr  string
+	reqPayload   T
+	respPayload  K
+	conn         *websocket.Conn
 }
 
-func (te *Test) logError() {
-	log.Printf("failed: test number %d; desc: %s\n", te.Number, te.Desc)
-}
+func TestInvalidCode(t *testing.T) {
+	tests := []Test[md.Message[md.NoPayload], md.Message[md.NoPayload]]{
+		{
+			name:         "random invalid code 1",
+			expectedCode: md.CodeInvalidSignal,
+			reqPayload:   md.NewMessage[md.NoPayload](-1),
+			respPayload:  md.NewMessage[md.NoPayload](md.CodeInvalidSignal),
+			conn:         HostConn,
+		},
+		{
+			name:         "random invalid code 2",
+			expectedCode: md.CodeInvalidSignal,
+			reqPayload:   md.NewMessage[md.NoPayload](999),
+			respPayload:  md.NewMessage[md.NoPayload](md.CodeInvalidSignal),
+			conn:         JoinConn,
+		},
+	}
 
-func (te *Test) logSuccess(v interface{}) {
-	log.Printf("success: test number %d; desc: %s; resp: %+v\n", te.Number, te.Desc, v)
-}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if err := test.conn.WriteJSON(test.reqPayload); err != nil {
+				t.Fatal(err)
+			}
 
-func (te *Test) logStart() {
-	log.Printf("\n\nstarting test %d", te.Number)
+			if err := test.conn.ReadJSON(&test.respPayload); err != nil {
+				t.Fatal(err)
+			}
+
+			if test.respPayload.Code != test.expectedCode {
+				t.Fatalf("expected status: %d\t got: %d", test.expectedCode, test.respPayload.Code)
+			}
+		})
+	}
 }
 
 func TestCreateGame(t *testing.T) {
-	test := Test{
-		Number:     0,
-		Desc:       "should fail with invalid code",
-		ReqPayload: md.NewMessage[md.NoPayload](-1),
-	}
-	test.logStart()
-	if err := HostConn.WriteJSON(test.ReqPayload); err != nil {
-		test.logError()
-		t.Fatal(err)
-	}
-
-	var respErr md.Message[md.NoPayload]
-	if err := HostConn.ReadJSON(&respErr); err != nil {
-		test.logError()
-		t.Fatal(err)
-	}
-	test.logSuccess(respErr)
-
-	/*
-		Test 1
-	*/
-	test = Test{
-		Number:     1,
-		Desc:       "should create game with valid code",
-		ReqPayload: md.NewMessage[md.NoPayload](md.CodeCreateGame),
-	}
-	test.logStart()
-	if err := HostConn.WriteJSON(test.ReqPayload); err != nil {
-		test.logError()
-		t.Fatal(err)
-	}
-	var respCreateGame md.Message[md.RespCreateGame]
-	if err := HostConn.ReadJSON(&respCreateGame); err != nil {
-		test.logError()
-		t.Fatal(err)
-	}
-	test.logSuccess(respCreateGame)
-	gameUuid := respCreateGame.Payload.GameUuid
-	hostUuid := respCreateGame.Payload.HostUuid
-
-	/*
-		Test 2
-	*/
-	joinGameReqPayload := md.NewMessage[md.ReqJoinGame](md.CodeJoinGame)
-	joinGameReqPayload.AddPayload(md.ReqJoinGame{GameUuid: gameUuid})
-	test = Test{
-		Number:     2,
-		Desc:       "should join the game with valid game uuid",
-		ReqPayload: joinGameReqPayload,
+	tests := []Test[md.Message[md.NoPayload], md.Message[md.RespCreateGame]]{
+		{
+			name:         "create game valid code",
+			expectedCode: md.CodeCreateGame,
+			expectedErr:  "",
+			reqPayload:   md.NewMessage[md.NoPayload](md.CodeCreateGame),
+			respPayload:  md.NewMessage[md.RespCreateGame](md.CodeCreateGame),
+			conn:         HostConn,
+		},
 	}
 
-	test.logStart()
-	if err := JoinConn.WriteJSON(test.ReqPayload); err != nil {
-		test.logError()
-		t.Fatal(err)
-	}
-	var respJoinGame md.Message[md.RespJoinGame]
-	if err := JoinConn.ReadJSON(&respJoinGame); err != nil {
-		test.logError()
-		t.Fatal(err)
-	}
-	if respJoinGame.Error.ErrorDetails != "" {
-		t.Fatalf("failed to join the game, msg:\t %+v", respJoinGame)
-	}
-	joinUuid := respJoinGame.Payload.PlayerUuid
-	test.logSuccess(respJoinGame)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if err := test.conn.WriteJSON(test.reqPayload); err != nil {
+				t.Fatal(err)
+			}
 
-	// Read extra message of success to host
-	// we have to read it so it frees up the queue for the next steps of host read
-	// when join player is added, a select grid code is sent to both players
-	var respSelectGrid md.Message[md.NoPayload]
-	if err := HostConn.ReadJSON(&respSelectGrid); err != nil {
-		test.logError()
-		t.Fatal(err)
+			if err := test.conn.ReadJSON(&test.respPayload); err != nil {
+				t.Fatal(err)
+			}
+
+			if test.respPayload.Code != test.expectedCode {
+				t.Fatalf("expected status: %d\t got: %d", test.expectedCode, test.respPayload.Code)
+			}
+
+			if test.respPayload.Error.ErrorDetails != test.expectedErr {
+				t.Fatalf("expected error: %s\t got: %s", test.reqPayload.Error.ErrorDetails, test.expectedErr)
+			}
+
+			if test.respPayload.Error.ErrorDetails == "" {
+				GameUuid = test.respPayload.Payload.GameUuid
+				HostPlayerId = test.respPayload.Payload.HostUuid
+			}
+		})
 	}
-	if respJoinGame.Error.ErrorDetails != "" {
-		t.Fatalf("failed to join the game for the host player\t%+v\t%s", hostUuid, respCreateGame.Error.ErrorDetails)
-	}
-	if err := JoinConn.ReadJSON(&respSelectGrid); err != nil {
-		test.logError()
-		t.Fatal(err)
-	}
-	if respJoinGame.Error.ErrorDetails != "" {
-		t.Fatalf("failed to join the game for the join player\t%+v\t%s", joinUuid, respCreateGame.Error.ErrorDetails)
+}
+
+func TestJoinPlayer(t *testing.T) {
+	tests := []Test[md.Message[md.ReqJoinGame], md.Message[md.RespJoinGame]]{
+		{
+			name:         "valid game uuid",
+			expectedCode: md.CodeJoinGame,
+			expectedErr:  "",
+			reqPayload:   md.Message[md.ReqJoinGame]{Code: md.CodeJoinGame, Payload: md.ReqJoinGame{GameUuid: GameUuid}},
+			respPayload:  md.NewMessage[md.RespJoinGame](md.CodeJoinGame),
+			conn:         JoinConn,
+		},
+		{
+			name:         "invalid game uuid",
+			expectedCode: md.CodeJoinGame,
+			expectedErr:  cerr.ErrGameNotExists("-1invalid").Error(),
+			reqPayload:   md.Message[md.ReqJoinGame]{Code: md.CodeJoinGame, Payload: md.ReqJoinGame{GameUuid: "-1invalid"}},
+			respPayload:  md.NewMessage[md.RespJoinGame](md.CodeJoinGame),
+			conn:         JoinConn,
+		},
 	}
 
-	/*
-		Test 3
-	*/
-	invalidReqJoinPayload := md.NewMessage[md.ReqJoinGame](md.CodeJoinGame)
-	invalidReqJoinPayload.AddPayload(md.ReqJoinGame{GameUuid: "invalid"})
-	test = Test{
-		Number:     3,
-		Desc:       "should fail with invalid game uuid",
-		ReqPayload: invalidReqJoinPayload,
-	}
-	if err := JoinConn.WriteJSON(test.ReqPayload); err != nil {
-		test.logError()
-		t.Fatal(err)
-	}
-	var respFailJoin md.Message[md.RespJoinGame]
-	if err := JoinConn.ReadJSON(&respFailJoin); err != nil {
-		test.logError()
-		t.Fatal(err)
-	}
-	if respFailJoin.Error.ErrorDetails == "" {
-		test.logError()
-		t.Fatal("must have failed")
-	}
-	test.logSuccess(respFailJoin)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if err := test.conn.WriteJSON(test.reqPayload); err != nil {
+				t.Fatal(err)
+			}
 
-	/*
-		test 4
-	*/
+			if err := test.conn.ReadJSON(&test.respPayload); err != nil {
+				t.Fatal(err)
+			}
+
+			if test.respPayload.Code != test.expectedCode {
+				t.Fatalf("expected status: %d\t got: %d", test.expectedCode, test.respPayload.Code)
+			}
+
+			if test.respPayload.Error.ErrorDetails != test.expectedErr {
+				t.Fatalf("expected error: %s\t got: %s", test.reqPayload.Error.ErrorDetails, test.expectedErr)
+			}
+
+			if test.respPayload.Error.ErrorDetails == "" {
+				if GameUuid != test.respPayload.Payload.GameUuid {
+					t.Fatal("incoming game uuid did not match the req uuid after join")
+				}
+				// if it was successful, join player id is set to the response
+				JoinPlayerId = test.respPayload.Payload.PlayerUuid
+
+				// Read extra message of success to host
+				// we have to read it so it frees up the queue for the next steps of host read
+				// when join player is added, a select grid code is sent to both players
+				var respSelectGridHost md.Message[md.NoPayload]
+				if err := HostConn.ReadJSON(&respSelectGridHost); err != nil {
+					t.Fatal(err)
+				}
+				if respSelectGridHost.Error.ErrorDetails != "" {
+					t.Fatalf("failed to receive select ready message for host: %s", respSelectGridHost.Error.ErrorDetails)
+				}
+
+				var respSelectGridJoin md.Message[md.NoPayload]
+				if err := JoinConn.ReadJSON(&respSelectGridJoin); err != nil {
+					t.Fatal(err)
+				}
+				if respSelectGridJoin.Error.ErrorDetails != "" {
+					t.Fatalf("failed to receive select ready message for join: %s", respSelectGridJoin.Error.ErrorDetails)
+				}
+			}
+		})
+	}
+}
+
+func TestReadyGame(t *testing.T) {
 	defenceGridHost := md.GridInt{
 		{0, md.PositionStateDefenceDestroyer, md.PositionStateDefenceDestroyer, 0, 0},
 		{md.PositionStateDefenceCruiser, 0, 0, md.PositionStateDefenceBattleship, 0},
@@ -147,76 +166,83 @@ func TestCreateGame(t *testing.T) {
 		{md.PositionStateDefenceCruiser, 0, 0, md.PositionStateDefenceBattleship, 0},
 		{0, 0, 0, md.PositionStateDefenceBattleship, 0},
 	}
-	readyReqPayload := md.NewMessage[md.ReqReadyPlayer](md.CodeReady)
-	readyReqPayload.AddPayload(md.ReqReadyPlayer{
-		DefenceGrid: defenceGridHost,
-		GameUuid:    gameUuid,
-		PlayerUuid:  hostUuid,
-	})
-	test = Test{
-		Number:     4,
-		Desc:       "should set the defence grid and set ready for host",
-		ReqPayload: readyReqPayload,
-	}
-	test.logStart()
-	if err := HostConn.WriteJSON(test.ReqPayload); err != nil {
-		test.logError()
-		t.Fatal(err)
-	}
-	var respSuccessReady md.Message[md.NoPayload]
-	if err := HostConn.ReadJSON(&respSuccessReady); err != nil {
-		test.logError()
-		t.Fatal(err)
-	}
-	test.logSuccess(respSuccessReady)
 
-	/*
-		Test 5
-	*/
 	defenceGridJoin := md.GridInt{
 		{0, md.PositionStateDefenceDestroyer, md.PositionStateDefenceDestroyer, 0, 0},
-		{md.PositionStateDefenceCruiser, 0, 0, md.PositionStateDefenceBattleship, 0},
-		{md.PositionStateDefenceCruiser, 0, 0, md.PositionStateDefenceBattleship, 0},
-		{md.PositionStateDefenceCruiser, 0, 0, md.PositionStateDefenceBattleship, 0},
-		{0, 0, 0, md.PositionStateDefenceBattleship, 0},
+		{md.PositionStateDefenceCruiser, 0, 0, 0, md.PositionStateDefenceBattleship},
+		{md.PositionStateDefenceCruiser, 0, 0, 0, md.PositionStateDefenceBattleship},
+		{md.PositionStateDefenceCruiser, 0, 0, 0, md.PositionStateDefenceBattleship},
+		{0, 0, 0, 0, md.PositionStateDefenceBattleship},
 	}
-	readyJoin := md.NewMessage[md.ReqReadyPlayer](md.CodeReady)
-	readyJoin.AddPayload(md.ReqReadyPlayer{
-		DefenceGrid: defenceGridJoin,
-		GameUuid:    gameUuid,
-		PlayerUuid:  joinUuid,
-	})
-	test = Test{
-		Number:     5,
-		Desc:       "should set the defence grid for join and send back start game code",
-		ReqPayload: readyJoin,
-	}
-	test.logStart()
-	if err := JoinConn.WriteJSON(test.ReqPayload); err != nil {
-		test.logError()
-		t.Fatal(err)
-	}
-	var respSuccessReadyJoin md.Message[md.NoPayload]
-	if err := JoinConn.ReadJSON(&respSuccessReadyJoin); err != nil {
-		test.logError()
-		t.Fatal(err)
-	}
-	test.logSuccess(respSuccessReadyJoin)
 
-	// Reading game ready codes
-	// Host
-	var respStartGameHost md.Message[md.NoPayload]
-	if err := HostConn.ReadJSON(&respStartGameHost); err != nil {
-		test.logError()
-		t.Fatal(err)
+	tests := []Test[md.Message[md.ReqReadyPlayer], md.Message[md.NoPayload]]{
+		{
+			name:         "set defence grid ready host",
+			expectedCode: md.CodeReady,
+			expectedErr:  "",
+			reqPayload: md.Message[md.ReqReadyPlayer]{
+				Code: md.CodeReady,
+				Payload: md.ReqReadyPlayer{
+					DefenceGrid: defenceGridHost,
+					GameUuid:    GameUuid,
+					PlayerUuid:  HostPlayerId,
+				},
+			},
+			respPayload: md.Message[md.NoPayload]{},
+			conn:        HostConn,
+		},
+		{
+			name:         "set defence grid ready join",
+			expectedCode: md.CodeReady,
+			expectedErr:  "",
+			reqPayload: md.Message[md.ReqReadyPlayer]{
+				Code: md.CodeReady,
+				Payload: md.ReqReadyPlayer{
+					DefenceGrid: defenceGridJoin,
+					GameUuid:    GameUuid,
+					PlayerUuid:  JoinPlayerId,
+				},
+			},
+			respPayload: md.Message[md.NoPayload]{},
+			conn:        JoinConn,
+		},
 	}
-	test.logSuccess(respStartGameHost)
 
-	// Join
-	var respStartGameJoin md.Message[md.NoPayload]
-	if err := JoinConn.ReadJSON(&respStartGameJoin); err != nil {
-		test.logError()
-		t.Fatal(err)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if err := test.conn.WriteJSON(test.reqPayload); err != nil {
+				t.Fatal(err)
+			}
+
+			if err := test.conn.ReadJSON(&test.respPayload); err != nil {
+				t.Fatal(err)
+			}
+
+			if test.respPayload.Code != test.expectedCode {
+				t.Fatalf("expected status: %d\t got: %d", test.expectedCode, test.respPayload.Code)
+			}
+
+			if test.respPayload.Error.ErrorDetails != test.expectedErr {
+				t.Fatalf("expected error: %s\t got: %s", test.reqPayload.Error.ErrorDetails, test.expectedErr)
+			}
+
+			// After the success of second test
+			// start game code will be sent to both parties
+			if test.name == "set defence grid ready join" {
+				// Reading game ready codes
+
+				// Host
+				var respStartGameHost md.Message[md.NoPayload]
+				if err := HostConn.ReadJSON(&respStartGameHost); err != nil {
+					t.Fatal(err)
+				}
+
+				// Join
+				var respStartGameJoin md.Message[md.NoPayload]
+				if err := JoinConn.ReadJSON(&respStartGameJoin); err != nil {
+					t.Fatal(err)
+				}
+			}
+		})
 	}
-	test.logSuccess(respStartGameJoin)
 }

@@ -11,8 +11,13 @@ import (
 	"github.com/saeidalz13/battleship-backend/api"
 )
 
-var HostConn *websocket.Conn
-var JoinConn *websocket.Conn
+var (
+	HostConn     *websocket.Conn
+	JoinConn     *websocket.Conn
+	GameUuid     string
+	HostPlayerId string
+	JoinPlayerId string
+)
 
 func TestMain(m *testing.M) {
 	go func() {
