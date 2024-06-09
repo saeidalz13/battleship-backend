@@ -64,12 +64,7 @@ func (w *Request) HandleReadyPlayer() (*md.Message[md.NoPayload], *md.Game) {
 	}
 	log.Printf("unmarshaled ready player payload: %+v\n", readyPlayerReq)
 
-	player, err := w.Server.FindPlayer(readyPlayerReq.Payload.PlayerUuid)
-	if err != nil {
-		resp.AddError(err.Error(), cerr.ConstErrReady)
-		return &resp, nil
-	}
-	game, err := w.Server.FindGame(readyPlayerReq.Payload.GameUuid)
+	game, player, err := FindGameAndPlayer(w, readyPlayerReq.Payload.GameUuid, readyPlayerReq.Payload.PlayerUuid)
 	if err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrReady)
 		return &resp, nil
@@ -133,13 +128,7 @@ func (w *Request) HandleAttack() (*md.Message[md.RespAttack], *md.Player) {
 		return &resp, nil
 	}
 
-	// Identify the attacker
-	game, err := w.Server.FindGame(reqAttack.Payload.GameUuid)
-	if err != nil {
-		resp.AddError(err.Error(), cerr.ConstErrAttack)
-		return &resp, nil
-	}
-	attacker, err := w.Server.FindPlayer(reqAttack.Payload.PlayerUuid)
+	game, attacker, err := FindGameAndPlayer(w, reqAttack.Payload.GameUuid, reqAttack.Payload.PlayerUuid)
 	if err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrAttack)
 		return &resp, nil

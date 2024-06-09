@@ -22,3 +22,16 @@ func SendMsgToBothPlayers(game *md.Game, hostMsg, joinMsg interface{}) error {
 	}
 	return nil
 }
+
+func FindGameAndPlayer(w *Request, gameUuid, playerUuid string) (*md.Game, *md.Player, error) {
+	game, err := w.Server.FindGame(gameUuid)
+	if err != nil {
+		return nil, nil, err
+	}
+	player, err := w.Server.FindPlayer(playerUuid)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return game, player, nil
+}
