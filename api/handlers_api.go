@@ -119,18 +119,21 @@ func (w *Request) HandleAttack() (*md.Message[md.RespAttack], *md.Player) {
 	var reqAttack md.Message[md.ReqAttack]
 	resp := md.NewMessage[md.RespAttack](md.CodeAttack)
 
+	// Deserialize the data
 	if err := json.Unmarshal(w.Payload, &reqAttack); err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrInvalidPayload)
 		return &resp, nil
 	}
 
+	// Check x and y validity
 	x := reqAttack.Payload.X
 	y := reqAttack.Payload.Y
-	if x > md.GameValidBound || y > md.GameValidBound {
+	if x > md.GameValidUpperBound || y > md.GameValidUpperBound || x < md.GameValidLowerBound || y < md.GameValidLowerBound {
 		resp.AddError(cerr.ErrXorYOutOfGridBound(x, y).Error(), cerr.ConstErrAttack)
 		return &resp, nil
 	}
 
+	// Identify the attacker
 	game, err := w.Server.FindGame(reqAttack.Payload.GameUuid)
 	if err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrAttack)
@@ -148,11 +151,13 @@ func (w *Request) HandleAttack() (*md.Message[md.RespAttack], *md.Player) {
 		return &resp, nil
 	}
 
+	// Check if the attack position was already hit before (invalid position to attack)
 	if attacker.AttackGrid[x][y] != md.PositionStateAttackGridEmpty {
 		resp.AddError(cerr.ErrAttackPositionAlreadyFilled(x, y).Error(), cerr.ConstErrAttack)
 		return &resp, nil
 	}
 
+	// Idenitify the defender
 	defender := game.HostPlayer
 	if attacker.IsHost {
 		defender = game.JoinPlayer
@@ -161,21 +166,25 @@ func (w *Request) HandleAttack() (*md.Message[md.RespAttack], *md.Player) {
 	// Check what is in the position of attack in defence grid matrix of defender
 	positionCode, err := defender.FetchDefenceGridPositionCode(x, y)
 	if err != nil {
+		// Invalid position in defender defence grid (already hit)
 		resp.AddError(err.Error(), cerr.ConstErrAttack)
 		return &resp, defender
 	}
 
+	// Change the status of players turn
 	defer func() {
-		// Change the status of players turn
 		attacker.IsTurn = false
 		defender.IsTurn = true
 	}()
 
 	// If the attacker missed
-	if positionCode == md.PositionStateDefenceGridEmpty {
+	if positionCode == md.PositionStateAttackGridMiss {
 		resp.AddPayload(md.RespAttack{
-			PositionState: md.PositionStateAttackGridMiss,
-			IsTurn:        attacker.IsTurn,
+			X:               x,
+			Y:               y,
+			PositionState:   md.PositionStateAttackGridMiss,
+			SunkenShipsHost: game.HostPlayer.SunkenShips,
+			SunkenShipsJoin: game.JoinPlayer.SunkenShips,
 		})
 		return &resp, defender
 	}
@@ -183,27 +192,24 @@ func (w *Request) HandleAttack() (*md.Message[md.RespAttack], *md.Player) {
 	// Apply the attack to the position
 	defender.HitShip(positionCode, x, y)
 
+	// Initialize the payload
+	resp.AddPayload(md.RespAttack{
+		X:             x,
+		Y:             y,
+		PositionState: md.PositionStateAttackGridHit,
+	})
+
 	// Check if the attack cause the ship to sink
 	if defender.IsShipSunken(positionCode) {
-
 		// Check if this sunken ship was the last one and the attacker is lost
 		if defender.IsLoser() {
 			defender.MatchStatus = md.PlayerMatchStatusLost
 			attacker.MatchStatus = md.PlayerMatchStatusWon
-
-			resp.AddPayload(md.RespAttack{
-				PositionState: md.PositionStateAttackGridHit,
-				IsTurn:        attacker.IsTurn,
-			})
 			game.FinishGame()
-			return &resp, defender
 		}
 	}
 
-	resp.AddPayload(md.RespAttack{
-		IsTurn:        attacker.IsTurn,
-		PositionState: md.PositionStateAttackGridHit,
-	})
-
+	resp.Payload.SunkenShipsHost = game.HostPlayer.SunkenShips
+	resp.Payload.SunkenShipsJoin = game.JoinPlayer.SunkenShips
 	return &resp, defender
 }
