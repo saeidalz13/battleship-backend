@@ -210,13 +210,9 @@ func NewShip(code, length int) *Ship {
 
 func NewShipsMap() map[int]*Ship {
 	ships := make(map[int]*Ship, SunkenShipsToLose)
-	ship1 := NewShip(PositionStateDefenceDestroyer, 2)
-	ship2 := NewShip(PositionStateDefenceCruiser, 3)
-	ship3 := NewShip(PositionStateDefenceBattleship, 4)
-
-	ships[PositionStateDefenceDestroyer] = ship1
-	ships[PositionStateDefenceCruiser] = ship2
-	ships[PositionStateDefenceBattleship] = ship3
+	ships[PositionStateDefenceDestroyer] = NewShip(PositionStateDefenceDestroyer, 2)
+	ships[PositionStateDefenceCruiser] = NewShip(PositionStateDefenceCruiser, 3)
+	ships[PositionStateDefenceBattleship] = NewShip(PositionStateDefenceBattleship, 4)
 
 	return ships
 }
