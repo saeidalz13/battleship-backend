@@ -9,8 +9,9 @@ import (
 )
 
 const (
-	GameGridSize   = 5
-	GameValidBound = GameGridSize - 1
+	GameGridSize        = 5
+	GameValidLowerBound = 0
+	GameValidUpperBound = GameGridSize - 1
 
 	SunkenShipsToLose = 3
 )

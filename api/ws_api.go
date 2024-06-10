@@ -189,18 +189,27 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 
 		case md.CodeAttack:
 			req := NewRequest(s, nil, payload)
+			// response will have the IsTurn field of attacker
 			resp, defender := req.HandleAttack()
 
+			// attacker turn is set to false
+			resp.Payload.IsTurn = false
 			if err := ws.WriteJSON(resp); err != nil {
 				log.Println(err)
 				continue
 			}
 
-			// If this attack caused the game to end.
-			// Both attacker and defender (host or join) will get a end game message
-			// indicating if they lost or won
-			if defender.MatchStatus == md.PlayerMatchStatusLost {
+			// defender turn is set to true
+			resp.Payload.IsTurn = true 
+			if err := defender.WsConn.WriteJSON(resp); err != nil {
+				log.Println(err)
+				continue
+			}
 
+			// If this attack caused the game to end.
+			// Both attacker and defender will get a end game
+			// message indicating if they lost or won
+			if defender.MatchStatus == md.PlayerMatchStatusLost {
 				// Sending victory code to the attacker
 				respAttacker := md.NewMessage[md.RespEndGame](md.CodeEndGame)
 				respAttacker.AddPayload(md.RespEndGame{PlayerMatchStatus: md.PlayerMatchStatusWon})

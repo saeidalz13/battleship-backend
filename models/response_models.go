@@ -11,8 +11,12 @@ type RespCreateGame struct {
 }
 
 type RespAttack struct {
-	IsTurn        bool `json:"is_turn"`
-	PositionState int  `json:"position_state"`
+	X               int  `json:"x"`
+	Y               int  `json:"y"`
+	PositionState   int  `json:"position_state"`
+	IsTurn          bool `json:"is_turn"`
+	SunkenShipsHost int  `json:"sunken_ships_host"`
+	SunkenShipsJoin int  `json:"sunken_ships_join"`
 }
 
 type RespEndGame struct {
