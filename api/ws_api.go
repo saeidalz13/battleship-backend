@@ -192,6 +192,13 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 			// response will have the IsTurn field of attacker
 			resp, defender := req.HandleAttack()
 
+			if resp.Error.ErrorDetails != "" {
+				if err := ws.WriteJSON(resp); err != nil {
+					log.Println(err)
+				}
+				continue
+			}
+
 			// attacker turn is set to false
 			resp.Payload.IsTurn = false
 			if err := ws.WriteJSON(resp); err != nil {
@@ -200,7 +207,7 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 			}
 
 			// defender turn is set to true
-			resp.Payload.IsTurn = true 
+			resp.Payload.IsTurn = true
 			if err := defender.WsConn.WriteJSON(resp); err != nil {
 				log.Println(err)
 				continue
