@@ -15,21 +15,29 @@ const (
 	RetryWriteConn
 )
 
-func SendMsgToBothPlayers(game *md.Game, hostMsg, joinMsg interface{}) error {
+func SendMsgToBothPlayers(game *md.Game, hostMsg, joinMsg interface{}) int {
 	playerOfGames := game.GetPlayers()
+
 	for _, player := range playerOfGames {
 		if player.IsHost {
-			if err := player.WsConn.WriteJSON(hostMsg); err != nil {
-				return err
+			switch WriteJsonWithRetry(player.WsConn, hostMsg) {
+			case BreakWsLoop:
+				return BreakWsLoop
+			case ContinueWsLoop:
+				continue
 			}
+
 		} else {
-			if err := player.WsConn.WriteJSON(joinMsg); err != nil {
-				return err
+			switch WriteJsonWithRetry(player.WsConn, joinMsg) {
+			case BreakWsLoop:
+				return BreakWsLoop
+			case ContinueWsLoop:
+				continue
 			}
 		}
-		log.Printf("message sent to player: %+v\n", player.Uuid)
 	}
-	return nil
+
+	return ContinueWsLoop
 }
 
 func FindGameAndPlayer(w *Request, gameUuid, playerUuid string) (*md.Game, *md.Player, error) {
@@ -94,9 +102,13 @@ writeJsonLoop:
 					return BreakWsLoop
 				}
 
-			default:
+			case BreakWsLoop:
 				log.Println("breaking writeJsonLoop due to:", err)
 				return BreakWsLoop
+
+			case ContinueWsLoop:
+				log.Println("continue but this error happened:", err)
+				return ContinueWsLoop
 			}
 
 			// Successful write and continue the main ws loop

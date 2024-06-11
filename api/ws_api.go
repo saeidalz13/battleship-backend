@@ -276,6 +276,7 @@ wsLoop:
 		case md.CodeReady:
 			req := NewRequest(s, nil, payload)
 			resp, game := req.HandleReadyPlayer()
+
 			if resp.Error.ErrorDetails != "" {
 				switch WriteJsonWithRetry(ws, resp) {
 				case BreakWsLoop:
@@ -294,8 +295,11 @@ wsLoop:
 
 			if game.HostPlayer.IsReady && game.JoinPlayer.IsReady {
 				respStartGame := md.NewMessage[md.NoPayload](md.CodeStartGame)
-				if err := SendMsgToBothPlayers(game, &respStartGame, &respStartGame); err != nil {
-					log.Println(err)
+				switch SendMsgToBothPlayers(game, &respStartGame, &respStartGame) {
+				case BreakWsLoop:
+					break wsLoop
+				case ContinueWsLoop:
+					continue
 				}
 			}
 
@@ -310,16 +314,22 @@ wsLoop:
 			// is sent to both players as an indication of grid selection
 			if resp.Error.ErrorDetails == "" {
 				readyResp := md.NewMessage[md.NoPayload](md.CodeSelectGrid)
-				if err := SendMsgToBothPlayers(game, &readyResp, &readyResp); err != nil {
-					log.Println(err)
+				switch SendMsgToBothPlayers(game, &readyResp, &readyResp) {
+				case BreakWsLoop:
+					break wsLoop
+				case ContinueWsLoop:
+					continue
 				}
 			}
 
 		default:
 			respInvalidSignal := md.NewMessage[md.NoPayload](md.CodeInvalidSignal)
 			respInvalidSignal.AddError("", "invalid code in the incoming payload")
-			if err := ws.WriteJSON(respInvalidSignal); err != nil {
-				log.Println(err)
+			switch WriteJsonWithRetry(ws, respInvalidSignal) {
+			case BreakWsLoop:
+				break wsLoop
+			case ContinueWsLoop:
+				// resume the rest of operation
 			}
 		}
 	}
