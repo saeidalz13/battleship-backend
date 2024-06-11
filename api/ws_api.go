@@ -18,6 +18,11 @@ const (
 	StageDev  = "dev"
 )
 
+const (
+	maxWriteWsRetries int = 3
+	backOffFactor         = 2
+)
+
 var (
 	defaultPort    int = 8000
 	allowedOrigins     = map[string]bool{
@@ -151,16 +156,33 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 		log.Println("connection closed:", ws.RemoteAddr().String())
 	}()
 
+wsLoop:
 	for {
 		// A WebSocket frame can be one of 6 types: text=1, binary=2, ping=9, pong=10, close=8 and continuation=0
 		// https://www.rfc-editor.org/rfc/rfc6455.html#section-11.8
+		retries := 0
 		_, payload, err := ws.ReadMessage()
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Println(err)
+			switch IdentifyWsErrorAction(err) {
+			case RetryWriteConn:
+				if retries < maxWriteWsRetries {
+					retries++
+					log.Printf("failed to read from ws conn [%s]; retrying... (retry no. %d)\n", ws.RemoteAddr().String(), retries)
+					time.Sleep(time.Duration(retries*backOffFactor) * time.Second)
+					continue wsLoop
+				} else {
+					break wsLoop
+				}
+
+			case BreakWsLoop:
+				log.Printf("break ws conn loop [%s] due to: %s\n", ws.RemoteAddr().String(), err)
+				break wsLoop
+
+			default:
+				// For now all the other errors will continue the loop
+				continue wsLoop
 			}
-			// whatever else is not really an error. would be normal closure
-			break
+
 		}
 
 		// the incoming message must be of type json containing the field "code"
@@ -180,11 +202,33 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 		switch signal.Code {
 
 		case md.CodeCreateGame:
+			retries := 0
 			req := NewRequest(s, ws)
 			resp := req.HandleCreateGame()
-			if err := ws.WriteJSON(resp); err != nil {
-				log.Printf("failed to create new game: %v\n", err)
-				continue
+
+		createGameLoop:
+			for {
+				if err := ws.WriteJSON(resp); err != nil {
+					switch IdentifyWsErrorAction(err) {
+					case RetryWriteConn:
+						if retries < maxWriteWsRetries {
+							retries++
+							log.Printf("writing create game resp failed; retrying... (retry no. %d)\n", retries)
+							time.Sleep(time.Duration(retries*backOffFactor) * time.Second)
+							continue createGameLoop
+						} else {
+							break createGameLoop
+						}
+
+					default:
+						log.Println("breaking createGameLoop due to:", err)
+						break createGameLoop
+					}
+
+					// successful write for create game action
+				} else {
+					break createGameLoop
+				}
 			}
 
 		case md.CodeAttack:
