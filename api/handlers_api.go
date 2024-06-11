@@ -161,13 +161,14 @@ func (w *Request) HandleAttack() (*md.Message[md.RespAttack], *md.Player) {
 	}
 
 	// Change the status of players turn
-	defer func() {
-		attacker.IsTurn = false
-		defender.IsTurn = true
-	}()
+	attacker.IsTurn = false
+	defender.IsTurn = true
 
 	// If the attacker missed
 	if positionCode == md.PositionStateAttackGridMiss {
+		// adjust attack grid for attacker
+		attacker.AttackGrid[x][y] = md.PositionStateAttackGridMiss
+
 		resp.AddPayload(md.RespAttack{
 			X:               x,
 			Y:               y,
@@ -178,8 +179,9 @@ func (w *Request) HandleAttack() (*md.Message[md.RespAttack], *md.Player) {
 		return &resp, defender
 	}
 
-	// Apply the attack to the position
+	// Apply the attack to the position for both defender and attacker
 	defender.HitShip(positionCode, x, y)
+	attacker.AttackGrid[x][y] = md.PositionStateAttackGridHit
 
 	// Initialize the payload
 	resp.AddPayload(md.RespAttack{
