@@ -20,7 +20,7 @@ const (
 
 const (
 	maxWriteWsRetries int = 3
-	backOffFactor         = 2
+	backOffFactor     int = 2
 )
 
 var (
@@ -170,6 +170,7 @@ wsLoop:
 					log.Printf("failed to read from ws conn [%s]; retrying... (retry no. %d)\n", ws.RemoteAddr().String(), retries)
 					time.Sleep(time.Duration(retries*backOffFactor) * time.Second)
 					continue wsLoop
+
 				} else {
 					break wsLoop
 				}
@@ -182,53 +183,37 @@ wsLoop:
 				// For now all the other errors will continue the loop
 				continue wsLoop
 			}
-
 		}
 
 		// the incoming message must be of type json containing the field "code"
 		// which would allow us to determine what action is required
-		// any other format of incoming message is invalid and will be ignored
+		// In case of absence of "code" field, the message is invalid
 		var signal md.Signal
 		if err := json.Unmarshal(payload, &signal); err != nil {
-			log.Println(err)
-			if err := ws.WriteMessage(websocket.TextMessage, []byte("incoming message is invalid; must be of type json")); err != nil {
-				log.Println(err)
-				break
+			log.Println("incoming msg does not contain 'code':", err)
+			resp := md.NewMessage[md.NoPayload](md.CodeSignalAbsent)
+			resp.AddError("incoming req payload must contain 'code' field", "")
+
+			switch WriteJsonWithRetry(ws, resp) {
+			case BreakWsLoop:
+				break wsLoop
+			case ContinueWsLoop:
+				continue wsLoop
 			}
-			continue
 		}
 
 		// This is where we choose the action based on the code in incoming json
 		switch signal.Code {
 
 		case md.CodeCreateGame:
-			retries := 0
 			req := NewRequest(s, ws)
 			resp := req.HandleCreateGame()
 
-		createGameLoop:
-			for {
-				if err := ws.WriteJSON(resp); err != nil {
-					switch IdentifyWsErrorAction(err) {
-					case RetryWriteConn:
-						if retries < maxWriteWsRetries {
-							retries++
-							log.Printf("writing create game resp failed; retrying... (retry no. %d)\n", retries)
-							time.Sleep(time.Duration(retries*backOffFactor) * time.Second)
-							continue createGameLoop
-						} else {
-							break createGameLoop
-						}
-
-					default:
-						log.Println("breaking createGameLoop due to:", err)
-						break createGameLoop
-					}
-
-					// successful write for create game action
-				} else {
-					break createGameLoop
-				}
+			switch WriteJsonWithRetry(ws, resp) {
+			case BreakWsLoop:
+				break wsLoop
+			case ContinueWsLoop:
+				continue wsLoop
 			}
 
 		case md.CodeAttack:
@@ -237,24 +222,30 @@ wsLoop:
 			resp, defender := req.HandleAttack()
 
 			if resp.Error.ErrorDetails != "" {
-				if err := ws.WriteJSON(resp); err != nil {
-					log.Println(err)
+				switch WriteJsonWithRetry(ws, resp) {
+				case BreakWsLoop:
+					break wsLoop
+				case ContinueWsLoop:
+					continue wsLoop
 				}
-				continue
 			}
 
 			// attacker turn is set to false
 			resp.Payload.IsTurn = false
-			if err := ws.WriteJSON(resp); err != nil {
-				log.Println(err)
-				continue
+			switch WriteJsonWithRetry(ws, resp) {
+			case BreakWsLoop:
+				break wsLoop
+			case ContinueWsLoop:
+				// resume the rest of operation
 			}
 
 			// defender turn is set to true
 			resp.Payload.IsTurn = true
-			if err := defender.WsConn.WriteJSON(resp); err != nil {
-				log.Println(err)
-				continue
+			switch WriteJsonWithRetry(defender.WsConn, resp) {
+			case BreakWsLoop:
+				break wsLoop
+			case ContinueWsLoop:
+				// resume the rest of operation
 			}
 
 			// If this attack caused the game to end.
@@ -264,26 +255,41 @@ wsLoop:
 				// Sending victory code to the attacker
 				respAttacker := md.NewMessage[md.RespEndGame](md.CodeEndGame)
 				respAttacker.AddPayload(md.RespEndGame{PlayerMatchStatus: md.PlayerMatchStatusWon})
-				if err := ws.WriteJSON(respAttacker); err != nil {
-					log.Println(err)
-					continue
+				switch WriteJsonWithRetry(ws, respAttacker) {
+				case BreakWsLoop:
+					break wsLoop
+				case ContinueWsLoop:
+					// resume the rest of operation
 				}
 
 				// Sending failure code to the defender
 				respDefender := md.NewMessage[md.RespEndGame](md.CodeEndGame)
 				respDefender.AddPayload(md.RespEndGame{PlayerMatchStatus: md.PlayerMatchStatusLost})
-				if err := defender.WsConn.WriteJSON(respDefender); err != nil {
-					log.Println(err)
-					continue
+				switch WriteJsonWithRetry(defender.WsConn, respDefender) {
+				case BreakWsLoop:
+					break wsLoop
+				case ContinueWsLoop:
+					// resume the rest of operation
 				}
 			}
 
 		case md.CodeReady:
 			req := NewRequest(s, nil, payload)
 			resp, game := req.HandleReadyPlayer()
-			if err := ws.WriteJSON(resp); err != nil {
-				log.Println(err)
-				continue
+			if resp.Error.ErrorDetails != "" {
+				switch WriteJsonWithRetry(ws, resp) {
+				case BreakWsLoop:
+					break wsLoop
+				case ContinueWsLoop:
+					continue wsLoop
+				}
+			}
+
+			switch WriteJsonWithRetry(ws, resp) {
+			case BreakWsLoop:
+				break wsLoop
+			case ContinueWsLoop:
+				// resume the rest of operation
 			}
 
 			if game.HostPlayer.IsReady && game.JoinPlayer.IsReady {

@@ -3,6 +3,7 @@ package api
 import (
 	"log"
 	"net"
+	"time"
 
 	"github.com/gorilla/websocket"
 	md "github.com/saeidalz13/battleship-backend/models"
@@ -46,7 +47,7 @@ func FindGameAndPlayer(w *Request, gameUuid, playerUuid string) (*md.Game, *md.P
 
 func IdentifyWsErrorAction(err error) int {
 	if websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNormalClosure) {
-		log.Println("close error:",err)
+		log.Println("close error:", err)
 		return BreakWsLoop
 	}
 
@@ -72,4 +73,35 @@ func IdentifyWsErrorAction(err error) int {
 	*/
 	log.Println("continuing due to:", err)
 	return ContinueWsLoop
+}
+
+func WriteJsonWithRetry(ws *websocket.Conn, resp interface{}) int {
+	var retries int
+
+writeJsonLoop:
+	for {
+		if err := ws.WriteJSON(resp); err != nil {
+			switch IdentifyWsErrorAction(err) {
+			case RetryWriteConn:
+				if retries < maxWriteWsRetries {
+					retries++
+					log.Printf("writing json failed to ws [%s]; retrying... (retry no. %d)\n", ws.RemoteAddr().String(), retries)
+					time.Sleep(time.Duration(retries*backOffFactor) * time.Second)
+					continue writeJsonLoop
+
+				} else {
+					log.Printf("max retries reached for writing to ws [%s]:%s", ws.RemoteAddr().String(), err)
+					return BreakWsLoop
+				}
+
+			default:
+				log.Println("breaking writeJsonLoop due to:", err)
+				return BreakWsLoop
+			}
+
+			// Successful write and continue the main ws loop
+		} else {
+			return ContinueWsLoop
+		}
+	}
 }
