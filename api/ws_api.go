@@ -175,12 +175,11 @@ wsLoop:
 					break wsLoop
 				}
 
-			case BreakWsLoop:
+			case BreakLoop:
 				log.Printf("break ws conn loop [%s] due to: %s\n", ws.RemoteAddr().String(), err)
 				break wsLoop
 
-			default:
-				// For now all the other errors will continue the loop
+			case ContinueLoop:
 				continue wsLoop
 			}
 		}
@@ -195,9 +194,9 @@ wsLoop:
 			resp.AddError("incoming req payload must contain 'code' field", "")
 
 			switch WriteJsonWithRetry(ws, resp) {
-			case BreakWsLoop:
+			case BreakLoop:
 				break wsLoop
-			case ContinueWsLoop:
+			default:
 				continue wsLoop
 			}
 		}
@@ -210,9 +209,9 @@ wsLoop:
 			resp := req.HandleCreateGame()
 
 			switch WriteJsonWithRetry(ws, resp) {
-			case BreakWsLoop:
+			case BreakLoop:
 				break wsLoop
-			case ContinueWsLoop:
+			default:
 				continue wsLoop
 			}
 
@@ -223,9 +222,9 @@ wsLoop:
 
 			if resp.Error.ErrorDetails != "" {
 				switch WriteJsonWithRetry(ws, resp) {
-				case BreakWsLoop:
+				case BreakLoop:
 					break wsLoop
-				case ContinueWsLoop:
+				default:
 					continue wsLoop
 				}
 			}
@@ -233,19 +232,21 @@ wsLoop:
 			// attacker turn is set to false
 			resp.Payload.IsTurn = false
 			switch WriteJsonWithRetry(ws, resp) {
-			case BreakWsLoop:
+			case BreakLoop:
 				break wsLoop
-			case ContinueWsLoop:
-				// resume the rest of operation
+			case ContinueLoop:
+				continue wsLoop
+			case PassThrough:
 			}
 
 			// defender turn is set to true
 			resp.Payload.IsTurn = true
 			switch WriteJsonWithRetry(defender.WsConn, resp) {
-			case BreakWsLoop:
+			case BreakLoop:
 				break wsLoop
-			case ContinueWsLoop:
-				// resume the rest of operation
+			case ContinueLoop:
+				continue wsLoop
+			case PassThrough:
 			}
 
 			// If this attack caused the game to end.
@@ -256,20 +257,22 @@ wsLoop:
 				respAttacker := md.NewMessage[md.RespEndGame](md.CodeEndGame)
 				respAttacker.AddPayload(md.RespEndGame{PlayerMatchStatus: md.PlayerMatchStatusWon})
 				switch WriteJsonWithRetry(ws, respAttacker) {
-				case BreakWsLoop:
+				case BreakLoop:
 					break wsLoop
-				case ContinueWsLoop:
-					// resume the rest of operation
+				case ContinueLoop:
+					continue wsLoop
+				case PassThrough:
 				}
 
 				// Sending failure code to the defender
 				respDefender := md.NewMessage[md.RespEndGame](md.CodeEndGame)
 				respDefender.AddPayload(md.RespEndGame{PlayerMatchStatus: md.PlayerMatchStatusLost})
 				switch WriteJsonWithRetry(defender.WsConn, respDefender) {
-				case BreakWsLoop:
+				case BreakLoop:
 					break wsLoop
-				case ContinueWsLoop:
-					// resume the rest of operation
+				case ContinueLoop:
+					continue wsLoop
+				case PassThrough:
 				}
 			}
 
@@ -279,35 +282,40 @@ wsLoop:
 
 			if resp.Error.ErrorDetails != "" {
 				switch WriteJsonWithRetry(ws, resp) {
-				case BreakWsLoop:
+				case BreakLoop:
 					break wsLoop
-				case ContinueWsLoop:
+				default:
 					continue wsLoop
 				}
 			}
 
 			switch WriteJsonWithRetry(ws, resp) {
-			case BreakWsLoop:
+			case BreakLoop:
 				break wsLoop
-			case ContinueWsLoop:
-				// resume the rest of operation
+			case ContinueLoop:
+				continue wsLoop
+			case PassThrough:
 			}
 
 			if game.HostPlayer.IsReady && game.JoinPlayer.IsReady {
 				respStartGame := md.NewMessage[md.NoPayload](md.CodeStartGame)
 				switch SendMsgToBothPlayers(game, &respStartGame, &respStartGame) {
-				case BreakWsLoop:
+				case BreakLoop:
 					break wsLoop
-				case ContinueWsLoop:
-					continue
+				case PassThrough:
 				}
 			}
 
 		case md.CodeJoinGame:
 			req := NewRequest(s, ws, payload)
 			resp, game := req.HandleJoinPlayer()
-			if err := ws.WriteJSON(resp); err != nil {
-				log.Printf("failed to join player: %v\n", err)
+
+			switch WriteJsonWithRetry(ws, resp) {
+			case BreakLoop:
+				break wsLoop
+			case ContinueLoop:
+				continue wsLoop
+			case PassThrough:
 			}
 
 			// If the second playerd joined successfully, then `CodeSelectGrid`
@@ -315,10 +323,9 @@ wsLoop:
 			if resp.Error.ErrorDetails == "" {
 				readyResp := md.NewMessage[md.NoPayload](md.CodeSelectGrid)
 				switch SendMsgToBothPlayers(game, &readyResp, &readyResp) {
-				case BreakWsLoop:
+				case BreakLoop:
 					break wsLoop
-				case ContinueWsLoop:
-					continue
+				case PassThrough:
 				}
 			}
 
@@ -326,10 +333,10 @@ wsLoop:
 			respInvalidSignal := md.NewMessage[md.NoPayload](md.CodeInvalidSignal)
 			respInvalidSignal.AddError("", "invalid code in the incoming payload")
 			switch WriteJsonWithRetry(ws, respInvalidSignal) {
-			case BreakWsLoop:
+			case BreakLoop:
 				break wsLoop
-			case ContinueWsLoop:
-				// resume the rest of operation
+			default:
+				continue wsLoop
 			}
 		}
 	}

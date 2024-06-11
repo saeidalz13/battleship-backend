@@ -10,8 +10,9 @@ import (
 )
 
 const (
-	BreakWsLoop int = iota
-	ContinueWsLoop
+	BreakLoop int = iota
+	ContinueLoop
+	PassThrough
 	RetryWriteConn
 )
 
@@ -21,23 +22,23 @@ func SendMsgToBothPlayers(game *md.Game, hostMsg, joinMsg interface{}) int {
 	for _, player := range playerOfGames {
 		if player.IsHost {
 			switch WriteJsonWithRetry(player.WsConn, hostMsg) {
-			case BreakWsLoop:
-				return BreakWsLoop
-			case ContinueWsLoop:
+			case BreakLoop:
+				return BreakLoop
+			default:
 				continue
 			}
 
 		} else {
 			switch WriteJsonWithRetry(player.WsConn, joinMsg) {
-			case BreakWsLoop:
-				return BreakWsLoop
-			case ContinueWsLoop:
+			case BreakLoop:
+				return BreakLoop
+			default:
 				continue
 			}
 		}
 	}
 
-	return ContinueWsLoop
+	return PassThrough
 }
 
 func FindGameAndPlayer(w *Request, gameUuid, playerUuid string) (*md.Game, *md.Player, error) {
@@ -56,7 +57,7 @@ func FindGameAndPlayer(w *Request, gameUuid, playerUuid string) (*md.Game, *md.P
 func IdentifyWsErrorAction(err error) int {
 	if websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNormalClosure) {
 		log.Println("close error:", err)
-		return BreakWsLoop
+		return BreakLoop
 	}
 
 	if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
@@ -80,7 +81,7 @@ func IdentifyWsErrorAction(err error) int {
 		CloseTLSHandshake            = 1015
 	*/
 	log.Println("continuing due to:", err)
-	return ContinueWsLoop
+	return ContinueLoop
 }
 
 func WriteJsonWithRetry(ws *websocket.Conn, resp interface{}) int {
@@ -99,21 +100,21 @@ writeJsonLoop:
 
 				} else {
 					log.Printf("max retries reached for writing to ws [%s]:%s", ws.RemoteAddr().String(), err)
-					return BreakWsLoop
+					return BreakLoop
 				}
 
-			case BreakWsLoop:
+			case BreakLoop:
 				log.Println("breaking writeJsonLoop due to:", err)
-				return BreakWsLoop
+				return BreakLoop
 
-			case ContinueWsLoop:
+			case ContinueLoop:
 				log.Println("continue but this error happened:", err)
-				return ContinueWsLoop
+				return ContinueLoop
 			}
 
 			// Successful write and continue the main ws loop
 		} else {
-			return ContinueWsLoop
+			return PassThrough
 		}
 	}
 }
