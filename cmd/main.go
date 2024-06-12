@@ -36,5 +36,5 @@ func main() {
 	mux.HandleFunc("GET /battleship", server.HandleWs)
 
 	log.Printf("Listening to port %d\n", port)
-	log.Fatalln(http.ListenAndServe(":"+fmt.Sprintf("%d", port), mux))
+	log.Fatalln(http.ListenAndServe("0.0.0.0:"+fmt.Sprintf("%d", port), mux))
 }
