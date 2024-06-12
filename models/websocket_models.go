@@ -23,7 +23,7 @@ const (
 )
 
 const (
-	CodeCreateGame = iota
+	CodeCreateGame int = iota
 	CodeJoinGame
 	CodeSelectGrid
 	CodeReady
@@ -31,6 +31,7 @@ const (
 	CodeAttack
 	CodeEndGame
 	CodeInvalidSignal
+	CodeSignalAbsent  // if the req msg does not contain "code" field
 )
 
 const (
