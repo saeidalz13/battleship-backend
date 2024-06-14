@@ -24,7 +24,7 @@ const (
 )
 
 var (
-	defaultPort    int = 8000
+	defaultPort int = 8000
 	// allowedOrigins     = map[string]bool{
 	// 	"https://www.allowed_url.com": true,
 	// }
@@ -154,8 +154,6 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 	defer func() {
 		ws.Close()
 		log.Println("connection closed:", ws.RemoteAddr().String())
-
-		// TODO: Remove game from games
 	}()
 
 wsLoop:

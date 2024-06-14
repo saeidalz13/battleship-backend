@@ -9,8 +9,6 @@ import (
 	md "github.com/saeidalz13/battleship-backend/models"
 )
 
-// TODO: Remove unnecessary loggings
-
 type RequestHandler interface {
 	HandleCreateGame() *md.Message[md.RespCreateGame]
 	HandleReadyPlayer() (*md.Message[md.NoPayload], *md.Game)
