@@ -40,14 +40,13 @@ var (
 	}
 )
 
-
 type Server struct {
-	port    *int
-	stage   string
-	Games   map[string]*md.Game
-	Players map[string]*md.Player
-	mu      sync.RWMutex
-	endGame chan string
+	port               *int
+	stage              string
+	mu                 sync.RWMutex
+	endGame            chan string
+	Games              map[string]*md.Game
+	Players            map[string]*md.Player
 }
 
 func (s *Server) AddGame() *md.Game {
@@ -152,17 +151,9 @@ func WithStage(stage string) Option {
 	}
 }
 
-func (s *Server) manageGames() {
-	for {
-		gameUuid := <-s.endGame
-
-		s.FindGame(gameUuid)
-		delete(s.Games, gameUuid)
-	}
-}
-
 func (s *Server) manageWsConn(ws *websocket.Conn) {
 	defer func() {
+		s.removePlayer(ws.RemoteAddr().String())
 		ws.Close()
 		log.Println("connection closed:", ws.RemoteAddr().String())
 	}()
@@ -229,7 +220,7 @@ wsLoop:
 		case md.CodeAttack:
 			req := NewRequest(s, nil, payload)
 			// response will have the IsTurn field of attacker
-			resp, defender := req.HandleAttack()
+			resp, defender, game := req.HandleAttack()
 
 			if resp.Error.ErrorDetails != "" {
 				switch WriteJsonWithRetry(ws, resp) {
@@ -285,6 +276,10 @@ wsLoop:
 					continue wsLoop
 				case PassThrough:
 				}
+
+				// For now I put this here:
+				// Sending signal to channel that game is over
+				s.endGame <- game.Uuid
 			}
 
 		case md.CodeReady:
@@ -366,4 +361,36 @@ func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
 
 	// managing connection on another goroutine
 	go s.manageWsConn(ws)
+}
+
+func (s *Server) ManageGames() {
+	for {
+		gameUuid := <-s.endGame
+		game, err := s.FindGame(gameUuid)
+		// err means the game was not found.
+		if err != nil {
+			continue
+		}
+
+		// Find all the players associated with the game
+		// then delete both players and game from map
+		players := game.GetPlayers()
+		for _, player := range players {
+			delete(s.Players, player.Uuid)
+		}
+		delete(s.Games, gameUuid)
+		log.Printf("deleted game %s and its associated players\n", gameUuid)
+	}
+}
+
+// Remove the player from Players map.
+// For now this is O(n).
+func (s *Server) removePlayer(remoteAddr string) {
+	for _, player := range s.Players {
+		if remoteAddr == player.WsConn.RemoteAddr().String() {
+			delete(s.Players, remoteAddr)
+			log.Printf("remove player from map: %s\n", player.Uuid)
+			return
+		}
+	}
 }

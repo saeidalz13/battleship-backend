@@ -31,6 +31,10 @@ func main() {
 	}
 
 	server := api.NewServer(api.WithPort(port), api.WithStage(stage))
+	
+	// Starting this to keep listening to unbuffered chan
+	// so any end game signal would manage games and players map
+	go server.ManageGames()
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /battleship", server.HandleWs)
