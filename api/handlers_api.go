@@ -9,6 +9,8 @@ import (
 	md "github.com/saeidalz13/battleship-backend/models"
 )
 
+// TODO: Remove unnecessary loggings
+
 type RequestHandler interface {
 	HandleCreateGame() *md.Message[md.RespCreateGame]
 	HandleReadyPlayer() (*md.Message[md.NoPayload], *md.Game)
@@ -62,7 +64,6 @@ func (w *Request) HandleReadyPlayer() (*md.Message[md.NoPayload], *md.Game) {
 		resp.AddError(err.Error(), cerr.ConstErrInvalidPayload)
 		return &resp, nil
 	}
-	log.Printf("unmarshaled ready player payload: %+v\n", readyPlayerReq)
 
 	game, player, err := FindGameAndPlayer(w, readyPlayerReq.Payload.GameUuid, readyPlayerReq.Payload.PlayerUuid)
 	if err != nil {
@@ -97,7 +98,6 @@ func (w *Request) HandleJoinPlayer() (*md.Message[md.RespJoinGame], *md.Game) {
 		resp.AddError(err.Error(), cerr.ConstErrInvalidPayload)
 		return &resp, nil
 	}
-	log.Printf("unmarshaled join game payload: %+v\n", joinGameReq)
 
 	game, err := w.Server.AddJoinPlayer(joinGameReq.Payload.GameUuid, w.Ws)
 	if err != nil {

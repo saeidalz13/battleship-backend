@@ -35,6 +35,8 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /battleship", server.HandleWs)
 
+	// TODO: End points for database
+
 	log.Printf("Listening to port %d\n", port)
 	log.Fatalln(http.ListenAndServe("0.0.0.0:"+fmt.Sprintf("%d", port), mux))
 }

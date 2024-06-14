@@ -25,9 +25,9 @@ const (
 
 var (
 	defaultPort    int = 8000
-	allowedOrigins     = map[string]bool{
-		"https://www.allowed_url.com": true,
-	}
+	// allowedOrigins     = map[string]bool{
+	// 	"https://www.allowed_url.com": true,
+	// }
 	upgrader = websocket.Upgrader{
 
 		// good average time since this is not a high-latency operation such as video streaming
@@ -154,6 +154,8 @@ func (s *Server) manageWsConn(ws *websocket.Conn) {
 	defer func() {
 		ws.Close()
 		log.Println("connection closed:", ws.RemoteAddr().String())
+
+		// TODO: Remove game from games
 	}()
 
 wsLoop:
