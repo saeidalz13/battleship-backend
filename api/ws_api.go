@@ -88,7 +88,6 @@ func (s *Server) FindGame(gameUuid string) (*md.Game, error) {
 	if !prs {
 		return nil, cerr.ErrGameNotExists(gameUuid)
 	}
-	log.Printf("game found: %s", gameUuid)
 	return game, nil
 }
 
@@ -100,7 +99,6 @@ func (s *Server) FindPlayer(playerUuid string) (*md.Player, error) {
 	if !prs {
 		return nil, cerr.ErrPlayerNotExist(playerUuid)
 	}
-	log.Printf("player found: %s", playerUuid)
 	return player, nil
 }
 
