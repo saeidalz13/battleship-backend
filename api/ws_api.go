@@ -342,7 +342,6 @@ wsLoop:
 
 func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
 	// use Upgrade method to make a websocket connection
-	fmt.Println(r.Header.Get("Origin"))
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
