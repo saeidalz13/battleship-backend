@@ -40,12 +40,14 @@ var (
 	}
 )
 
+
 type Server struct {
 	port    *int
 	stage   string
 	Games   map[string]*md.Game
 	Players map[string]*md.Player
 	mu      sync.RWMutex
+	endGame chan string
 }
 
 func (s *Server) AddGame() *md.Game {
@@ -124,6 +126,8 @@ func NewServer(optFuncs ...Option) *Server {
 	// 	}
 	// 	return nil
 	// }
+
+	server.endGame = make(chan string)
 	return &server
 }
 
@@ -145,6 +149,15 @@ func WithStage(stage string) Option {
 		}
 		s.stage = stage
 		return nil
+	}
+}
+
+func (s *Server) manageGames() {
+	for {
+		gameUuid := <-s.endGame
+
+		s.FindGame(gameUuid)
+		delete(s.Games, gameUuid)
 	}
 }
 
