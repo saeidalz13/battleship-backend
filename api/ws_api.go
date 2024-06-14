@@ -119,13 +119,13 @@ func NewServer(optFuncs ...Option) *Server {
 	server.Games = make(map[string]*md.Game)
 	server.Players = make(map[string]*md.Player)
 
-	if server.stage == StageProd {
-		upgrader.CheckOrigin = func(r *http.Request) bool {
-			origin := r.Header.Get("Origin")
-			return allowedOrigins[origin]
-		}
-		return nil
-	}
+	// if server.stage == StageProd {
+	// 	upgrader.CheckOrigin = func(r *http.Request) bool {
+	// 		origin := r.Header.Get("Origin")
+	// 		return allowedOrigins[origin]
+	// 	}
+	// 	return nil
+	// }
 	return &server
 }
 
@@ -344,6 +344,7 @@ wsLoop:
 
 func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
 	// use Upgrade method to make a websocket connection
+	fmt.Println(r.Header.Get("Origin"))
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
