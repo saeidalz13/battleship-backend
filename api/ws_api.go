@@ -41,12 +41,12 @@ var (
 )
 
 type Server struct {
-	port               *int
-	stage              string
-	mu                 sync.RWMutex
-	endGame            chan string
-	Games              map[string]*md.Game
-	Players            map[string]*md.Player
+	port    *int
+	stage   string
+	mu      sync.RWMutex
+	endGame chan string
+	Games   map[string]*md.Game
+	Players map[string]*md.Player
 }
 
 func (s *Server) AddGame() *md.Game {
