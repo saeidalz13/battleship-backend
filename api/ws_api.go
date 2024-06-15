@@ -24,10 +24,10 @@ const (
 )
 
 var (
-	defaultPort    int = 8000
-	allowedOrigins     = map[string]bool{
-		"https://www.allowed_url.com": true,
-	}
+	defaultPort int = 8000
+	// allowedOrigins     = map[string]bool{
+	// 	"https://www.allowed_url.com": true,
+	// }
 	upgrader = websocket.Upgrader{
 
 		// good average time since this is not a high-latency operation such as video streaming
@@ -88,7 +88,6 @@ func (s *Server) FindGame(gameUuid string) (*md.Game, error) {
 	if !prs {
 		return nil, cerr.ErrGameNotExists(gameUuid)
 	}
-	log.Printf("game found: %s", gameUuid)
 	return game, nil
 }
 
@@ -100,7 +99,6 @@ func (s *Server) FindPlayer(playerUuid string) (*md.Player, error) {
 	if !prs {
 		return nil, cerr.ErrPlayerNotExist(playerUuid)
 	}
-	log.Printf("player found: %s", playerUuid)
 	return player, nil
 }
 
@@ -344,7 +342,6 @@ wsLoop:
 
 func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
 	// use Upgrade method to make a websocket connection
-	fmt.Println(r.Header.Get("Origin"))
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)

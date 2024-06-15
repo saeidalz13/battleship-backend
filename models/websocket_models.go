@@ -1,8 +1,6 @@
 package models
 
 import (
-	"log"
-
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	cerr "github.com/saeidalz13/battleship-backend/internal/error"
@@ -31,7 +29,7 @@ const (
 	CodeAttack
 	CodeEndGame
 	CodeInvalidSignal
-	CodeSignalAbsent  // if the req msg does not contain "code" field
+	CodeSignalAbsent // if the req msg does not contain "code" field
 )
 
 const (
@@ -148,12 +146,10 @@ func (p *Player) FetchDefenceGridPositionCode(x, y int) (int, error) {
 
 func (p *Player) SetAttackGrid(newGrid GridInt) {
 	p.AttackGrid = newGrid
-	log.Printf("player %s attack grid set to: %+v\n", p.Uuid, p.AttackGrid)
 }
 
 func (p *Player) SetDefenceGrid(newGrid GridInt) {
 	p.DefenceGrid = newGrid
-	log.Printf("player %s defence grid set to: %+v\n", p.Uuid, p.DefenceGrid)
 }
 
 func (p *Player) SunkShip() {
@@ -186,13 +182,11 @@ func (g *Game) GetPlayers() []*Player {
 func (g *Game) CreateJoinPlayer(ws *websocket.Conn) {
 	joinPlayer := NewPlayer(ws, false, false)
 	g.JoinPlayer = joinPlayer
-	log.Printf("join player created and added to game: %+v\n", joinPlayer.Uuid)
 }
 
 func (g *Game) CreateHostPlayer(ws *websocket.Conn) {
 	hostPlayer := NewPlayer(ws, true, true)
 	g.HostPlayer = hostPlayer
-	log.Printf("host player created and added to game: %+v\n", hostPlayer.Uuid)
 }
 
 type Ship struct {
