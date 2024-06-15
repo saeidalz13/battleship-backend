@@ -19,8 +19,9 @@ const (
 )
 
 const (
-	maxWriteWsRetries int = 3
-	backOffFactor     int = 2
+	maxWriteWsRetries int           = 3
+	backOffFactor     int           = 2
+	maxTimeGame       time.Duration = time.Minute * 30
 )
 
 var (
@@ -220,7 +221,7 @@ wsLoop:
 		case md.CodeAttack:
 			req := NewRequest(s, nil, payload)
 			// response will have the IsTurn field of attacker
-			resp, defender, game := req.HandleAttack()
+			resp, defender := req.HandleAttack()
 
 			if resp.Error.ErrorDetails != "" {
 				switch WriteJsonWithRetry(ws, resp) {
@@ -255,6 +256,8 @@ wsLoop:
 			// Both attacker and defender will get a end game
 			// message indicating if they lost or won
 			if defender.MatchStatus == md.PlayerMatchStatusLost {
+				currentGame := defender.CurrentGame
+
 				// Sending victory code to the attacker
 				respAttacker := md.NewMessage[md.RespEndGame](md.CodeEndGame)
 				respAttacker.AddPayload(md.RespEndGame{PlayerMatchStatus: md.PlayerMatchStatusWon})
@@ -277,9 +280,7 @@ wsLoop:
 				case PassThrough:
 				}
 
-				// For now I put this here:
-				// Sending signal to channel that game is over
-				s.endGame <- game.Uuid
+				s.endGame <- currentGame.Uuid
 			}
 
 		case md.CodeReady:
@@ -376,7 +377,9 @@ func (s *Server) ManageGames() {
 		// then delete both players and game from map
 		players := game.GetPlayers()
 		for _, player := range players {
-			delete(s.Players, player.Uuid)
+			if player != nil {
+				delete(s.Players, player.Uuid)
+			}
 		}
 		delete(s.Games, gameUuid)
 		log.Printf("deleted game %s and its associated players\n", gameUuid)
@@ -388,27 +391,52 @@ func (s *Server) ManageGames() {
 func (s *Server) removePlayer(remoteAddr string) {
 	for _, player := range s.Players {
 		if remoteAddr == player.WsConn.RemoteAddr().String() {
-
 			// If the player gets removed, then the other player
 			// needs to be notified that the game has ended.
 			// For now this logic, can change based on what we want.
 			var otherPlayer *md.Player
 			if player.IsHost {
-				player.CurrentGame.HostPlayer = nil
+				// player.CurrentGame.HostPlayer = nil
 				otherPlayer = player.CurrentGame.JoinPlayer
 			} else {
-				player.CurrentGame.JoinPlayer = nil
+				// player.CurrentGame.JoinPlayer = nil
 				otherPlayer = player.CurrentGame.HostPlayer
 			}
-			
+
+			delete(s.Players, player.Uuid)
+			delete(s.Games, otherPlayer.CurrentGame.Uuid)
+			log.Printf("removed player and its current game from map: %s\n", player.Uuid)
+
 			respAttacker := md.NewMessage[md.NoPayload](md.CodeOtherPlayerDisconnected)
 			// Whatever happens to writing to this connection, next steps
 			// must happen. Ignoring the outcome
-			_ = WriteJsonWithRetry(otherPlayer.WsConn, respAttacker) 
-
-			delete(s.Players, player.Uuid)
-			log.Printf("removed player from map: %s\n", player.Uuid)
+			_ = WriteJsonWithRetry(otherPlayer.WsConn, respAttacker)
 			return
 		}
 	}
+}
+
+// This function makes sure all the games get removed
+// after 30 minutes. This is to make sure, if anything happened
+// to the connections and writing to them, removal of extra
+// data is certainly executed.
+func (s *Server) RemoveGameAfterMaxTime(gameUuid string) {
+	time.Sleep(maxTimeGame)
+
+	game, err := s.FindGame(gameUuid)
+	// err means the game was not found. Means
+	// that the game already ended.
+	if err != nil {
+		return
+	}
+
+	// Find all the players associated with the game
+	// then delete both players and game from map
+	players := game.GetPlayers()
+	for _, player := range players {
+		if player != nil {
+			delete(s.Players, player.Uuid)
+		}
+	}
+	delete(s.Games, gameUuid)
 }

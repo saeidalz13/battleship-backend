@@ -13,7 +13,7 @@ type RequestHandler interface {
 	HandleCreateGame() *md.Message[md.RespCreateGame]
 	HandleReadyPlayer() (*md.Message[md.NoPayload], *md.Game)
 	HandleJoinPlayer() (*md.Message[md.RespJoinGame], *md.Game)
-	HandleAttack() (*md.Message[md.RespAttack], *md.Player, *md.Game)
+	HandleAttack() (*md.Message[md.RespAttack], *md.Player)
 }
 
 // Every incoming valid request will have this structure
@@ -45,6 +45,8 @@ func NewRequest(server *Server, ws *websocket.Conn, payload ...[]byte) *Request 
 
 func (w *Request) HandleCreateGame() *md.Message[md.RespCreateGame] {
 	game := w.Server.AddGame()
+	go w.Server.RemoveGameAfterMaxTime(game.Uuid)
+
 	hostPlayer := w.Server.AddHostPlayer(game, w.Ws)
 
 	resp := md.NewMessage[md.RespCreateGame](md.CodeCreateGame)
@@ -108,14 +110,14 @@ func (w *Request) HandleJoinPlayer() (*md.Message[md.RespJoinGame], *md.Game) {
 }
 
 // Handle the attack logic for the incoming request
-func (w *Request) HandleAttack() (*md.Message[md.RespAttack], *md.Player, *md.Game) {
+func (w *Request) HandleAttack() (*md.Message[md.RespAttack], *md.Player) {
 	var reqAttack md.Message[md.ReqAttack]
 	resp := md.NewMessage[md.RespAttack](md.CodeAttack)
 
 	// Deserialize the data
 	if err := json.Unmarshal(w.Payload, &reqAttack); err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrInvalidPayload)
-		return &resp, nil, nil
+		return &resp, nil
 	}
 
 	// Check x and y validity
@@ -123,25 +125,25 @@ func (w *Request) HandleAttack() (*md.Message[md.RespAttack], *md.Player, *md.Ga
 	y := reqAttack.Payload.Y
 	if x > md.GameValidUpperBound || y > md.GameValidUpperBound || x < md.GameValidLowerBound || y < md.GameValidLowerBound {
 		resp.AddError(cerr.ErrXorYOutOfGridBound(x, y).Error(), cerr.ConstErrAttack)
-		return &resp, nil, nil
+		return &resp, nil
 	}
 
 	game, attacker, err := FindGameAndPlayer(w, reqAttack.Payload.GameUuid, reqAttack.Payload.PlayerUuid)
 	if err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrAttack)
-		return &resp, nil, nil
+		return &resp, nil
 	}
 
 	// If attacker has the correct IsTurn Field
 	if !attacker.IsTurn {
 		resp.AddError(cerr.ErrNotTurnForAttacker(attacker.Uuid).Error(), cerr.ConstErrAttack)
-		return &resp, nil, nil
+		return &resp, nil
 	}
 
 	// Check if the attack position was already hit before (invalid position to attack)
 	if attacker.AttackGrid[x][y] != md.PositionStateAttackGridEmpty {
 		resp.AddError(cerr.ErrAttackPositionAlreadyFilled(x, y).Error(), cerr.ConstErrAttack)
-		return &resp, nil, nil
+		return &resp, nil
 	}
 
 	// Idenitify the defender
@@ -155,7 +157,7 @@ func (w *Request) HandleAttack() (*md.Message[md.RespAttack], *md.Player, *md.Ga
 	if err != nil {
 		// Invalid position in defender defence grid (already hit)
 		resp.AddError(err.Error(), cerr.ConstErrAttack)
-		return &resp, defender, game
+		return &resp, defender
 	}
 
 	// Change the status of players turn
@@ -174,7 +176,7 @@ func (w *Request) HandleAttack() (*md.Message[md.RespAttack], *md.Player, *md.Ga
 			SunkenShipsHost: game.HostPlayer.SunkenShips,
 			SunkenShipsJoin: game.JoinPlayer.SunkenShips,
 		})
-		return &resp, defender, game
+		return &resp, defender
 	}
 
 	// Apply the attack to the position for both defender and attacker
@@ -200,5 +202,5 @@ func (w *Request) HandleAttack() (*md.Message[md.RespAttack], *md.Player, *md.Ga
 
 	resp.Payload.SunkenShipsHost = game.HostPlayer.SunkenShips
 	resp.Payload.SunkenShipsJoin = game.JoinPlayer.SunkenShips
-	return &resp, defender, game
+	return &resp, defender
 }
