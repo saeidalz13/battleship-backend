@@ -30,6 +30,8 @@ const (
 	CodeEndGame
 	CodeInvalidSignal
 	CodeSignalAbsent // if the req msg does not contain "code" field
+
+	CodeOtherPlayerDisconnected
 )
 
 const (
@@ -99,9 +101,10 @@ type Player struct {
 	DefenceGrid [][]int
 	Ships       map[int]*Ship
 	WsConn      *websocket.Conn
+	CurrentGame *Game
 }
 
-func NewPlayer(ws *websocket.Conn, isHost, isTurn bool) *Player {
+func NewPlayer(ws *websocket.Conn, currentGame *Game, isHost, isTurn bool) *Player {
 	return &Player{
 		IsTurn:      isTurn,
 		IsHost:      isHost,
@@ -113,6 +116,7 @@ func NewPlayer(ws *websocket.Conn, isHost, isTurn bool) *Player {
 		DefenceGrid: NewGrid(),
 		Ships:       NewShipsMap(),
 		WsConn:      ws,
+		CurrentGame: currentGame,
 	}
 }
 
@@ -179,13 +183,13 @@ func (g *Game) GetPlayers() []*Player {
 	return []*Player{g.HostPlayer, g.JoinPlayer}
 }
 
-func (g *Game) CreateJoinPlayer(ws *websocket.Conn) {
-	joinPlayer := NewPlayer(ws, false, false)
+func (g *Game) CreateJoinPlayer(ws *websocket.Conn, currentGame *Game) {
+	joinPlayer := NewPlayer(ws, currentGame, false, false)
 	g.JoinPlayer = joinPlayer
 }
 
-func (g *Game) CreateHostPlayer(ws *websocket.Conn) {
-	hostPlayer := NewPlayer(ws, true, true)
+func (g *Game) CreateHostPlayer(ws *websocket.Conn, currentGame *Game) {
+	hostPlayer := NewPlayer(ws, currentGame, true, true)
 	g.HostPlayer = hostPlayer
 }
 

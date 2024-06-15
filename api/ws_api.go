@@ -62,7 +62,7 @@ func (s *Server) AddHostPlayer(game *md.Game, ws *websocket.Conn) *md.Player {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	game.CreateHostPlayer(ws)
+	game.CreateHostPlayer(ws, game)
 	s.Players[game.HostPlayer.Uuid] = game.HostPlayer
 	return game.HostPlayer
 }
@@ -76,7 +76,7 @@ func (s *Server) AddJoinPlayer(gameUuid string, ws *websocket.Conn) (*md.Game, e
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	game.CreateJoinPlayer(ws)
+	game.CreateJoinPlayer(ws, game)
 	s.Players[game.JoinPlayer.Uuid] = game.JoinPlayer
 	return game, nil
 }
@@ -388,8 +388,26 @@ func (s *Server) ManageGames() {
 func (s *Server) removePlayer(remoteAddr string) {
 	for _, player := range s.Players {
 		if remoteAddr == player.WsConn.RemoteAddr().String() {
-			delete(s.Players, remoteAddr)
-			log.Printf("remove player from map: %s\n", player.Uuid)
+
+			// If the player gets removed, then the other player
+			// needs to be notified that the game has ended.
+			// For now this logic, can change based on what we want.
+			var otherPlayer *md.Player
+			if player.IsHost {
+				player.CurrentGame.HostPlayer = nil
+				otherPlayer = player.CurrentGame.JoinPlayer
+			} else {
+				player.CurrentGame.JoinPlayer = nil
+				otherPlayer = player.CurrentGame.HostPlayer
+			}
+			
+			respAttacker := md.NewMessage[md.NoPayload](md.CodeOtherPlayerDisconnected)
+			// Whatever happens to writing to this connection, next steps
+			// must happen. Ignoring the outcome
+			_ = WriteJsonWithRetry(otherPlayer.WsConn, respAttacker) 
+
+			delete(s.Players, player.Uuid)
+			log.Printf("removed player from map: %s\n", player.Uuid)
 			return
 		}
 	}
