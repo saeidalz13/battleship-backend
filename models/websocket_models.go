@@ -32,7 +32,8 @@ const (
 	CodeSignalAbsent // if the req msg does not contain "code" field
 
 	CodeOtherPlayerDisconnected
-	CodeInvalidSessionID
+	CodeSessionID
+	CodeReceivedInvalidSessionID
 )
 
 const (

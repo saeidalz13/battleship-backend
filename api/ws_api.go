@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/base64"
 	"fmt"
 	"log"
 	"net/http"
@@ -92,24 +93,41 @@ func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "could not open websocket connection", http.StatusBadRequest)
 		return
 	}
-	log.Println("a new connection established!\tRemote Addr: ", conn.RemoteAddr().String())
 
 	sessionId := r.URL.Query().Get("sessionID")
 	switch sessionId {
 	case "":
-		session := NewSession(conn)
-		sessionId := uuid.New().String()
-		s.Sessions[sessionId] = session
+		// creating a new URL compatible session ID
+		sessionIdRaw := uuid.New().String()
+		sessionIdUrlCompatible := base64.RawURLEncoding.EncodeToString([]byte(sessionIdRaw))
+
+		session := NewSession(conn, sessionIdUrlCompatible)
+		s.Sessions[sessionIdUrlCompatible] = session
+
+		resp := md.NewMessage[md.RespSessionId](md.CodeSessionID)
+		resp.AddPayload(md.RespSessionId{SessionID: sessionIdUrlCompatible})
+		_ = conn.WriteJSON(resp)
+
+		log.Println("a new connection established\tRemote Addr: ", conn.RemoteAddr().String())
 		go session.manageSession()
 
 	default:
 		session, prs := s.Sessions[sessionId]
 		if !prs {
 			// This either means an expired session or invalid session ID
-			conn.WriteJSON(md.NewMessage[md.NoPayload](md.CodeInvalidSessionID))
+			conn.WriteJSON(md.NewMessage[md.NoPayload](md.CodeReceivedInvalidSessionID))
 			conn.Close()
 			return
 		}
+		// Triggers the WaitAndStop select block to stop
+		close(session.StopRetry)
+
+		// Setting the new fields for the session
+		session.GraceTimer.Stop()
+		session.Conn = conn
+		session.StopRetry = make(chan struct{})
+
+		log.Printf("session %s reconnected\n", session.ID)
 		go session.manageSession()
 	}
 }

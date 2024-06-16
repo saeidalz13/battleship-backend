@@ -22,14 +22,16 @@ type Session struct {
 	Conn       *websocket.Conn
 	Game       *md.Game
 	Player     *md.Player
-	GraceTimer <-chan time.Time
-	PingTicker *time.Ticker
+	GraceTimer *time.Timer
+	StopRetry  chan struct{}
 	mu         sync.Mutex
 }
 
-func NewSession(conn *websocket.Conn) *Session {
+func NewSession(conn *websocket.Conn, sessionID string) *Session {
 	return &Session{
-		Conn: conn,
+		ID:        sessionID,
+		Conn:      conn,
+		StopRetry: make(chan struct{}),
 	}
 }
 
@@ -48,6 +50,14 @@ sessionLoop:
 		_, payload, err := s.Conn.ReadMessage()
 		if err != nil {
 			switch IdentifyWsErrorAction(err) {
+			case ConnLoopAbnormalClosureRetry:
+				switch s.WaitAndClose() {
+				case ConnLoopCodeBreak:
+					break sessionLoop
+				case ConnLoopCodeContinue:
+					continue sessionLoop
+				}
+
 			case ConnLoopCodeRetry:
 				if retries < maxWriteWsRetries {
 					retries++
@@ -241,29 +251,24 @@ sessionLoop:
 	}
 }
 
-func (s *Session) WaitAndClose() {
-	s.mu.Lock()
-	s.PingTicker = time.NewTicker(PingInterval)
-	defer s.PingTicker.Stop()
+func (s *Session) WaitAndClose() int {
+    log.Printf("starting grace period for %s\n", s.ID)
 
-	s.GraceTimer = time.After(GracePeriod)
+	s.mu.Lock()
+	s.GraceTimer = time.AfterFunc(GracePeriod, func() {
+		s.mu.Lock()
+		delete(GlobalSessions, s.ID)
+		s.Conn.Close()
+		s.mu.Unlock()
+	})
 	s.mu.Unlock()
 
-	for {
-		select {
-		case <-s.GraceTimer:
-			s.mu.Lock()
+	select {
+	case <-s.GraceTimer.C:
+		return ConnLoopCodeBreak
 
-			delete(GlobalSessions, s.ID)
-			s.Conn.Close()
-
-			s.mu.Unlock()
-			return
-
-		case <-s.PingTicker.C:
-			if err := s.Conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				log.Printf("ping error for reconnection of session %s, player %s, error:%s\n", s.ID, s.Player.Uuid, err)
-			}
-		}
+		// If reconnection happens, the loop stops
+	case <-s.StopRetry:
+		return ConnLoopCodeContinue
 	}
 }

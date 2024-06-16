@@ -21,6 +21,7 @@ type RequestHandler interface {
 type Request struct {
 	Conn    *websocket.Conn
 	Payload []byte
+	Session *Session
 }
 
 // This tells the compiler that WsRequest struct must be of type of WsRequestHandler
@@ -44,8 +45,10 @@ func NewRequest(conn *websocket.Conn, payload ...[]byte) *Request {
 func (w *Request) HandleCreateGame() *md.Message[md.RespCreateGame] {
 	game := GlobalGameManager.AddGame()
 	go GlobalGameManager.CheckGameHealth(game)
+	w.Session.Game = game
 
 	hostPlayer := game.CreateHostPlayer(w.Conn)
+	w.Session.Player = hostPlayer
 
 	resp := md.NewMessage[md.RespCreateGame](md.CodeCreateGame)
 	resp.AddPayload(md.RespCreateGame{GameUuid: game.Uuid, HostUuid: hostPlayer.Uuid})
