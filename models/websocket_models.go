@@ -248,17 +248,3 @@ const (
 	ManageGameCodePlayerDisconnect
 	ManageGameCodeMaxTimeReached
 )
-
-// type EndGameSignal struct {
-// 	Code                   int
-// 	Game                   *Game
-// 	DisconnectedRemoteAddr string
-// }
-
-// func NewEndGameSignal(code int, game *Game, disconnectedRemoteAddr string) EndGameSignal {
-// 	return EndGameSignal{
-// 		Code:                   code,
-// 		Game:                   game,
-// 		DisconnectedRemoteAddr: disconnectedRemoteAddr,
-// 	}
-// }

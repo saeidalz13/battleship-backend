@@ -32,10 +32,14 @@ type SessionManager struct {
 
 func NewSessionManager() *SessionManager {
 	return &SessionManager{
-		Sessions: make(map[string]*Session),
+		Sessions:        make(map[string]*Session),
+		otherSessionMsg: make(chan OtherSessionMsg),
 	}
 }
 
+/*
+    TODO: Double check that the other session is in the same game (either with testing or a simple check here)
+*/ 
 func (sm *SessionManager) ManageOtherSessionMsg() {
 	for {
 		msg := <-sm.otherSessionMsg
@@ -43,8 +47,6 @@ func (sm *SessionManager) ManageOtherSessionMsg() {
 		sm.mu.Lock()
 
 		otherSession := GlobalSessionManager.Sessions[msg.ID]
-		otherSession.Conn.WriteJSON(msg.Payload)
-
 		switch WriteJsonWithRetry(otherSession.Conn, msg.Payload) {
 		case ConnLoopAbnormalClosureRetry:
 			switch otherSession.waitAndClose() {
@@ -314,17 +316,37 @@ sessionLoop:
 			// is sent to both players as an indication of grid selection
 			if resp.Error.ErrorDetails == "" {
 				readyResp := md.NewMessage[md.NoPayload](md.CodeSelectGrid)
-				switch SendMsgToBothPlayers(game, &readyResp, &readyResp) {
+
+				switch WriteJsonWithRetry(conn, readyResp) {
+				case ConnLoopAbnormalClosureRetry:
+					switch s.waitAndClose() {
+					case ConnLoopCodeBreak:
+						break sessionLoop
+
+					case ConnLoopCodeContinue:
+					}
+
 				case ConnLoopCodeBreak:
 					break sessionLoop
+
 				case ConnLoopCodePassThrough:
 				}
+
+				GlobalSessionManager.otherSessionMsg <- NewOtherSessionMsg(game.HostPlayer.SessionID, readyResp)
 			}
 
 		default:
 			respInvalidSignal := md.NewMessage[md.NoPayload](md.CodeInvalidSignal)
 			respInvalidSignal.AddError("", "invalid code in the incoming payload")
 			switch WriteJsonWithRetry(conn, respInvalidSignal) {
+			case ConnLoopAbnormalClosureRetry:
+				switch s.waitAndClose() {
+				case ConnLoopCodeBreak:
+					break sessionLoop
+
+				case ConnLoopCodeContinue:
+					continue sessionLoop
+				}
 			case ConnLoopCodeBreak:
 				break sessionLoop
 			default:
@@ -368,10 +390,6 @@ func (s *Session) waitAndClose() int {
 }
 
 func (s *Session) terminateSession() {
-	// Give it 15 seconds to make sure none of the info
-	// in session is used in other goroutines
-	// time.Sleep(time.Second * 15)
-
 	GlobalGameManager.mu.Lock()
 	delete(GlobalGameManager.Games, s.Game.Uuid)
 	GlobalGameManager.mu.Unlock()

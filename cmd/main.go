@@ -33,6 +33,7 @@ func main() {
 
 	server := api.NewServer(api.WithPort(port), api.WithStage(stage))
 	
+	go api.GlobalGameManager.ManageGameTermination()
 	go api.GlobalSessionManager.ManageOtherSessionMsg()
 
 	mux := http.NewServeMux()
