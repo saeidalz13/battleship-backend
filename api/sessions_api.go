@@ -36,14 +36,14 @@ func NewSession(conn *websocket.Conn, sessionID string) *Session {
 }
 
 func (s *Session) manageSession() {
-	conn := s.Conn
 	defer func() {
 		s.Conn.Close()
-		log.Println("connection closed:", conn.RemoteAddr().String())
+		log.Println("connection closed:", s.Conn.RemoteAddr().String())
 	}()
 
 sessionLoop:
 	for {
+		conn := s.Conn
 		// A WebSocket frame can be one of 6 types: text=1, binary=2, ping=9, pong=10, close=8 and continuation=0
 		// https://www.rfc-editor.org/rfc/rfc6455.html#section-11.8
 		retries := 0
@@ -252,7 +252,7 @@ sessionLoop:
 }
 
 func (s *Session) WaitAndClose() int {
-    log.Printf("starting grace period for %s\n", s.ID)
+	log.Printf("starting grace period for %s\n", s.ID)
 
 	s.mu.Lock()
 	s.GraceTimer = time.AfterFunc(GracePeriod, func() {

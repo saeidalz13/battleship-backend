@@ -128,6 +128,5 @@ func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
 		session.StopRetry = make(chan struct{})
 
 		log.Printf("session %s reconnected\n", session.ID)
-		go session.manageSession()
 	}
 }
