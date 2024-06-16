@@ -10,10 +10,11 @@ import (
 )
 
 const (
-	BreakLoop int = iota
-	ContinueLoop
-	PassThrough
-	RetryWriteConn
+	ConnLoopCodeBreak int = iota
+	ConnLoopCodeContinue
+	ConnLoopCodePassThrough
+	ConnLoopCodeRetry
+	ConnLoopAbnormalClosureRetry
 )
 
 func SendMsgToBothPlayers(game *md.Game, hostMsg, joinMsg interface{}) int {
@@ -22,31 +23,32 @@ func SendMsgToBothPlayers(game *md.Game, hostMsg, joinMsg interface{}) int {
 	for _, player := range playerOfGames {
 		if player.IsHost {
 			switch WriteJsonWithRetry(player.WsConn, hostMsg) {
-			case BreakLoop:
-				return BreakLoop
+			case ConnLoopCodeBreak:
+				return ConnLoopCodeBreak
 			default:
 				continue
 			}
 
 		} else {
 			switch WriteJsonWithRetry(player.WsConn, joinMsg) {
-			case BreakLoop:
-				return BreakLoop
+			case ConnLoopCodeBreak:
+				return ConnLoopCodeBreak
 			default:
 				continue
 			}
 		}
 	}
 
-	return PassThrough
+	return ConnLoopCodePassThrough
 }
 
 func FindGameAndPlayer(w *Request, gameUuid, playerUuid string) (*md.Game, *md.Player, error) {
-	game, err := w.Server.FindGame(gameUuid)
+	game, err := GlobalGameManager.FindGame(gameUuid)
 	if err != nil {
 		return nil, nil, err
 	}
-	player, err := w.Server.FindPlayer(playerUuid)
+
+	player, err := game.FindPlayer(playerUuid)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -55,33 +57,51 @@ func FindGameAndPlayer(w *Request, gameUuid, playerUuid string) (*md.Game, *md.P
 }
 
 func IdentifyWsErrorAction(err error) int {
-	if websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure, websocket.CloseNormalClosure) {
-		log.Println("close error:", err)
-		return BreakLoop
-	}
-
 	if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 		log.Println("timeout error:", err)
-		return RetryWriteConn
+		return ConnLoopCodeRetry
+	}
+
+	if websocket.IsCloseError(err, websocket.CloseTryAgainLater) {
+		log.Println("high server load/traffic error:", err)
+		return ConnLoopCodeRetry
+	}
+
+	if websocket.IsCloseError(err, websocket.CloseAbnormalClosure) {
+		log.Println("abnormal closure error:", err)
+		return ConnLoopAbnormalClosureRetry
+	}
+
+	if websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
+		log.Println("close error:", err)
+		return ConnLoopCodeBreak
+	}
+
+	if websocket.IsCloseError(err, websocket.CloseProtocolError, websocket.CloseInternalServerErr, websocket.CloseTLSHandshake, websocket.CloseMandatoryExtension) {
+		log.Println("critical error:", err)
+		return ConnLoopCodeBreak
 	}
 
 	/*
-		Cases to continue:
+		This might mean that the client is not from the application.
+		Breaking not to overwhelm the server with invalid payloads (e.g. binary data)
 
-		CloseProtocolError           = 1002
-		CloseUnsupportedData         = 1003
-		CloseNoStatusReceived        = 1005
-		CloseInvalidFramePayloadData = 1007
-		ClosePolicyViolation         = 1008
-		CloseMessageTooBig           = 1009
-		CloseMandatoryExtension      = 1010
-		CloseInternalServerErr       = 1011
-		CloseServiceRestart          = 1012
-		CloseTryAgainLater           = 1013
-		CloseTLSHandshake            = 1015
+		CloseUnsupportedData (1003):
+		- Client sends a binary message to a server that only supports text messages.
+		- Server closes the connection with CloseUnsupportedData because it cannot handle binary data.
+
+		CloseInvalidFramePayloadData (1007):
+		- Client sends a text message with a payload that is not properly encoded as UTF-8.
+		- Server attempts to decode the text message but fails due to invalid encoding.
+		- Server closes the connection with CloseInvalidFramePayloadData because the payload data is invalid.
 	*/
-	log.Println("continuing due to:", err)
-	return ContinueLoop
+	if websocket.IsCloseError(err, websocket.CloseInvalidFramePayloadData, websocket.CloseUnsupportedData, websocket.CloseMessageTooBig, websocket.ClosePolicyViolation, websocket.CloseServiceRestart, websocket.CloseNoStatusReceived) {
+		log.Println("non-critical error:", err)
+		return ConnLoopCodeBreak
+	}
+
+	log.Println("unexpected error:", err)
+	return ConnLoopCodeBreak
 }
 
 func WriteJsonWithRetry(ws *websocket.Conn, resp interface{}) int {
@@ -91,7 +111,7 @@ writeJsonLoop:
 	for {
 		if err := ws.WriteJSON(resp); err != nil {
 			switch IdentifyWsErrorAction(err) {
-			case RetryWriteConn:
+			case ConnLoopCodeRetry:
 				if retries < maxWriteWsRetries {
 					retries++
 					log.Printf("writing json failed to ws [%s]; retrying... (retry no. %d)\n", ws.RemoteAddr().String(), retries)
@@ -100,21 +120,23 @@ writeJsonLoop:
 
 				} else {
 					log.Printf("max retries reached for writing to ws [%s]:%s", ws.RemoteAddr().String(), err)
-					return BreakLoop
+					return ConnLoopCodeBreak
 				}
 
-			case BreakLoop:
+			case ConnLoopCodeBreak:
 				log.Println("breaking writeJsonLoop due to:", err)
-				return BreakLoop
-
-			case ContinueLoop:
-				log.Println("continue but this error happened:", err)
-				return ContinueLoop
+				return ConnLoopCodeBreak
 			}
 
 			// Successful write and continue the main ws loop
 		} else {
-			return PassThrough
+			return ConnLoopCodePassThrough
 		}
 	}
 }
+
+// func WaitAndClose(ws *websocket.Conn) {
+// 	timer := time.NewTimer(time.Minute * 3)
+// 	ticker := time.NewTicker(time.Second * 10)
+
+// }

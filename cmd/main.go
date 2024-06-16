@@ -12,6 +12,7 @@ import (
 	"github.com/saeidalz13/battleship-backend/api"
 )
 
+
 func main() {
 	if os.Getenv("STAGE") != "prod" {
 		if err := godotenv.Load(".env"); err != nil {
@@ -34,7 +35,7 @@ func main() {
 	
 	// Starting this to keep listening to unbuffered chan
 	// so any end game signal would manage games and players map
-	go server.ManageGames()
+	go api.GlobalGameManager.ManageGameTermination()
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /battleship", server.HandleWs)

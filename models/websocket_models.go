@@ -32,6 +32,7 @@ const (
 	CodeSignalAbsent // if the req msg does not contain "code" field
 
 	CodeOtherPlayerDisconnected
+	CodeInvalidSessionID
 )
 
 const (
@@ -161,10 +162,10 @@ func (p *Player) SunkShip() {
 }
 
 type Game struct {
+	IsFinished bool
 	Uuid       string
 	HostPlayer *Player
 	JoinPlayer *Player
-	IsFinished bool
 }
 
 func NewGame() *Game {
@@ -183,14 +184,27 @@ func (g *Game) GetPlayers() []*Player {
 	return []*Player{g.HostPlayer, g.JoinPlayer}
 }
 
-func (g *Game) CreateJoinPlayer(ws *websocket.Conn, currentGame *Game) {
-	joinPlayer := NewPlayer(ws, currentGame, false, false)
-	g.JoinPlayer = joinPlayer
+func (g *Game) FindPlayer(playerUuid string) (*Player, error) {
+	switch playerUuid {
+	case g.HostPlayer.Uuid:
+		return g.HostPlayer, nil
+	case g.JoinPlayer.Uuid:
+		return g.JoinPlayer, nil
+	default:
+		return nil, cerr.ErrPlayerNotExist(playerUuid)
+	}
 }
 
-func (g *Game) CreateHostPlayer(ws *websocket.Conn, currentGame *Game) {
-	hostPlayer := NewPlayer(ws, currentGame, true, true)
+func (g *Game) CreateJoinPlayer(ws *websocket.Conn) *Player {
+	joinPlayer := NewPlayer(ws, g, false, false)
+	g.JoinPlayer = joinPlayer
+	return joinPlayer
+}
+
+func (g *Game) CreateHostPlayer(ws *websocket.Conn) *Player {
+	hostPlayer := NewPlayer(ws, g, true, true)
 	g.HostPlayer = hostPlayer
+	return hostPlayer
 }
 
 type Ship struct {
@@ -222,4 +236,24 @@ func (sh *Ship) GotHit() {
 
 func (sh *Ship) IsSunk() bool {
 	return sh.hits == sh.length
+}
+
+const (
+	ManageGameCodeSuccess int = iota
+	ManageGameCodePlayerDisconnect
+	ManageGameCodeMaxTimeReached
+)
+
+type EndGameSignal struct {
+	Code       int
+	GameUuid   string
+	RemoteAddr string
+}
+
+func NewEndGameSignal(code int, gameuuid, remoteAddr string) EndGameSignal {
+	return EndGameSignal{
+		Code:       code,
+		GameUuid:   gameuuid,
+		RemoteAddr: remoteAddr,
+	}
 }
