@@ -13,14 +13,16 @@ import (
 var GlobalSessionManager = NewSessionManager()
 
 type OtherSessionMsg struct {
-	ID      string
-	Payload interface{}
+	ID       string
+	GameUuid string
+	Payload  interface{}
 }
 
-func NewOtherSessionMsg(id string, p interface{}) OtherSessionMsg {
+func NewOtherSessionMsg(id string, gameUuid string, p interface{}) OtherSessionMsg {
 	return OtherSessionMsg{
-		ID:      id,
-		Payload: p,
+		ID:       id,
+		GameUuid: gameUuid,
+		Payload:  p,
 	}
 }
 
@@ -37,16 +39,17 @@ func NewSessionManager() *SessionManager {
 	}
 }
 
-/*
-TODO: Double check that the other session is in the same game (either with testing or a simple check here)
-*/
 func (sm *SessionManager) ManageOtherSessionMsg() {
 	for {
 		msg := <-sm.otherSessionMsg
 
 		sm.mu.Lock()
-
 		otherSession := GlobalSessionManager.Sessions[msg.ID]
+
+		if otherSession.Game.Uuid != msg.GameUuid {
+			panic("other session msg game is not the same as game uuid; this error should never happen")
+		}
+
 		switch WriteJsonWithRetry(otherSession.Conn, msg.Payload) {
 		case ConnLoopAbnormalClosureRetry:
 			switch otherSession.waitAndClose() {
@@ -211,7 +214,7 @@ sessionLoop:
 
 			// defender turn is set to true
 			resp.Payload.IsTurn = true
-			GlobalSessionManager.otherSessionMsg <- NewOtherSessionMsg(defender.SessionID, resp)
+			GlobalSessionManager.otherSessionMsg <- NewOtherSessionMsg(defender.SessionID, s.Game.Uuid, resp)
 
 			// If this attack caused the game to end.
 			// Both attacker and defender will get a end game
@@ -238,7 +241,7 @@ sessionLoop:
 				// Sending failure code to the defender
 				respDefender := md.NewMessage[md.RespEndGame](md.CodeEndGame)
 				respDefender.AddPayload(md.RespEndGame{PlayerMatchStatus: md.PlayerMatchStatusLost})
-				GlobalSessionManager.otherSessionMsg <- NewOtherSessionMsg(defender.SessionID, respDefender)
+				GlobalSessionManager.otherSessionMsg <- NewOtherSessionMsg(defender.SessionID, s.Game.Uuid, respDefender)
 
 				// Tell the game manager to get rid of this game in map
 				GlobalGameManager.EndGameSignal <- s.Game.Uuid
@@ -293,7 +296,7 @@ sessionLoop:
 				if s.Player.IsHost {
 					otherPlayerSessionId = game.JoinPlayer.SessionID
 				}
-				GlobalSessionManager.otherSessionMsg <- NewOtherSessionMsg(otherPlayerSessionId, respStartGame)
+				GlobalSessionManager.otherSessionMsg <- NewOtherSessionMsg(otherPlayerSessionId, s.Game.Uuid, respStartGame)
 			}
 
 		case md.CodeJoinGame:
@@ -332,7 +335,7 @@ sessionLoop:
 				case ConnLoopCodePassThrough:
 				}
 
-				GlobalSessionManager.otherSessionMsg <- NewOtherSessionMsg(game.HostPlayer.SessionID, readyResp)
+				GlobalSessionManager.otherSessionMsg <- NewOtherSessionMsg(game.HostPlayer.SessionID, s.Game.Uuid, readyResp)
 			}
 
 		default:
@@ -368,10 +371,10 @@ func (s *Session) waitAndClose() int {
 	})
 	s.mu.Unlock()
 
-    // This means there is no game and abnormal closure is happening
-    if s.Game == nil {
-        return ConnLoopCodeBreak
-    }
+	// This means there is no game and abnormal closure is happening
+	if s.Game == nil {
+		return ConnLoopCodeBreak
+	}
 
 	otherPlayer := s.Game.HostPlayer
 	if s.Player.IsHost {
