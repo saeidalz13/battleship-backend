@@ -27,14 +27,15 @@ type Request struct {
 // This tells the compiler that WsRequest struct must be of type of WsRequestHandler
 var _ RequestHandler = (*Request)(nil)
 
-func NewRequest(conn *websocket.Conn, payload ...[]byte) *Request {
+func NewRequest(conn *websocket.Conn, session *Session, payload ...[]byte) *Request {
 	if len(payload) > 1 {
 		log.Println("cannot accept more than one payload")
 		return nil
 	}
 
 	wsReq := Request{
-		Conn: conn,
+		Conn:    conn,
+		Session: session,
 	}
 	if len(payload) != 0 {
 		wsReq.Payload = payload[0]
@@ -44,7 +45,6 @@ func NewRequest(conn *websocket.Conn, payload ...[]byte) *Request {
 
 func (w *Request) HandleCreateGame() *md.Message[md.RespCreateGame] {
 	game := GlobalGameManager.AddGame()
-	// go GlobalGameManager.CheckGameHealth(game)
 	w.Session.Game = game
 
 	hostPlayer := game.CreateHostPlayer(w.Conn, w.Session.ID)

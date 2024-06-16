@@ -38,8 +38,8 @@ func NewSessionManager() *SessionManager {
 }
 
 /*
-    TODO: Double check that the other session is in the same game (either with testing or a simple check here)
-*/ 
+TODO: Double check that the other session is in the same game (either with testing or a simple check here)
+*/
 func (sm *SessionManager) ManageOtherSessionMsg() {
 	for {
 		msg := <-sm.otherSessionMsg
@@ -161,7 +161,7 @@ sessionLoop:
 		switch signal.Code {
 
 		case md.CodeCreateGame:
-			req := NewRequest(conn)
+			req := NewRequest(conn, s)
 			resp := req.HandleCreateGame()
 
 			switch WriteJsonWithRetry(conn, resp) {
@@ -179,7 +179,7 @@ sessionLoop:
 			}
 
 		case md.CodeAttack:
-			req := NewRequest(nil, payload)
+			req := NewRequest(nil, s, payload)
 			// response will have the IsTurn field of attacker
 			resp, defender := req.HandleAttack()
 
@@ -245,7 +245,7 @@ sessionLoop:
 			}
 
 		case md.CodeReady:
-			req := NewRequest(nil, payload)
+			req := NewRequest(nil, s, payload)
 			resp, game := req.HandleReadyPlayer()
 
 			if resp.Error.ErrorDetails != "" {
@@ -297,7 +297,7 @@ sessionLoop:
 			}
 
 		case md.CodeJoinGame:
-			req := NewRequest(conn, payload)
+			req := NewRequest(conn, s, payload)
 			resp, game := req.HandleJoinPlayer()
 
 			switch WriteJsonWithRetry(conn, resp) {
