@@ -32,6 +32,8 @@ const (
 	CodeSignalAbsent // if the req msg does not contain "code" field
 
 	CodeOtherPlayerDisconnected
+	CodeOtherPlayerReconnected
+	CodeOtherPlayerGracePeriod
 	CodeSessionID
 	CodeReceivedInvalidSessionID
 )
@@ -103,10 +105,11 @@ type Player struct {
 	DefenceGrid [][]int
 	Ships       map[int]*Ship
 	WsConn      *websocket.Conn
+	SessionID   string
 	CurrentGame *Game
 }
 
-func NewPlayer(ws *websocket.Conn, currentGame *Game, isHost, isTurn bool) *Player {
+func NewPlayer(ws *websocket.Conn, currentGame *Game, isHost, isTurn bool, sessionID string) *Player {
 	return &Player{
 		IsTurn:      isTurn,
 		IsHost:      isHost,
@@ -119,6 +122,7 @@ func NewPlayer(ws *websocket.Conn, currentGame *Game, isHost, isTurn bool) *Play
 		Ships:       NewShipsMap(),
 		WsConn:      ws,
 		CurrentGame: currentGame,
+		SessionID:   sessionID,
 	}
 }
 
@@ -196,14 +200,14 @@ func (g *Game) FindPlayer(playerUuid string) (*Player, error) {
 	}
 }
 
-func (g *Game) CreateJoinPlayer(ws *websocket.Conn) *Player {
-	joinPlayer := NewPlayer(ws, g, false, false)
+func (g *Game) CreateJoinPlayer(ws *websocket.Conn, sessionID string) *Player {
+	joinPlayer := NewPlayer(ws, g, false, false, sessionID)
 	g.JoinPlayer = joinPlayer
 	return joinPlayer
 }
 
-func (g *Game) CreateHostPlayer(ws *websocket.Conn) *Player {
-	hostPlayer := NewPlayer(ws, g, true, true)
+func (g *Game) CreateHostPlayer(ws *websocket.Conn, sessionID string) *Player {
+	hostPlayer := NewPlayer(ws, g, true, true, sessionID)
 	g.HostPlayer = hostPlayer
 	return hostPlayer
 }
@@ -245,16 +249,16 @@ const (
 	ManageGameCodeMaxTimeReached
 )
 
-type EndGameSignal struct {
-	Code       int
-	GameUuid   string
-	RemoteAddr string
-}
+// type EndGameSignal struct {
+// 	Code                   int
+// 	Game                   *Game
+// 	DisconnectedRemoteAddr string
+// }
 
-func NewEndGameSignal(code int, gameuuid, remoteAddr string) EndGameSignal {
-	return EndGameSignal{
-		Code:       code,
-		GameUuid:   gameuuid,
-		RemoteAddr: remoteAddr,
-	}
-}
+// func NewEndGameSignal(code int, game *Game, disconnectedRemoteAddr string) EndGameSignal {
+// 	return EndGameSignal{
+// 		Code:                   code,
+// 		Game:                   game,
+// 		DisconnectedRemoteAddr: disconnectedRemoteAddr,
+// 	}
+// }

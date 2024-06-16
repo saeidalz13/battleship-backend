@@ -10,7 +10,59 @@ import (
 	md "github.com/saeidalz13/battleship-backend/models"
 )
 
-var GlobalSessions = make(map[string]*Session)
+var GlobalSessionManager = NewSessionManager()
+
+type OtherSessionMsg struct {
+	ID      string
+	Payload interface{}
+}
+
+func NewOtherSessionMsg(id string, p interface{}) OtherSessionMsg {
+	return OtherSessionMsg{
+		ID:      id,
+		Payload: p,
+	}
+}
+
+type SessionManager struct {
+	Sessions        map[string]*Session
+	otherSessionMsg chan OtherSessionMsg
+	mu              sync.Mutex
+}
+
+func NewSessionManager() *SessionManager {
+	return &SessionManager{
+		Sessions: make(map[string]*Session),
+	}
+}
+
+func (sm *SessionManager) ManageOtherSessionMsg() {
+	for {
+		msg := <-sm.otherSessionMsg
+
+		sm.mu.Lock()
+
+		otherSession := GlobalSessionManager.Sessions[msg.ID]
+		otherSession.Conn.WriteJSON(msg.Payload)
+
+		switch WriteJsonWithRetry(otherSession.Conn, msg.Payload) {
+		case ConnLoopAbnormalClosureRetry:
+			switch otherSession.waitAndClose() {
+			case ConnLoopCodeBreak:
+				otherSession.terminateSession()
+
+			case ConnLoopCodeContinue:
+			}
+
+		case ConnLoopCodeBreak:
+			otherSession.terminateSession()
+
+		case ConnLoopCodePassThrough:
+		}
+
+		sm.mu.Unlock()
+	}
+}
 
 const (
 	PingInterval time.Duration = time.Second * 15
@@ -18,13 +70,16 @@ const (
 )
 
 type Session struct {
+	// Player-related info
 	ID         string
 	Conn       *websocket.Conn
 	Game       *md.Game
 	Player     *md.Player
 	GraceTimer *time.Timer
-	StopRetry  chan struct{}
-	mu         sync.Mutex
+
+	// To send signal for player reconnection
+	StopRetry chan struct{}
+	mu        sync.Mutex
 }
 
 func NewSession(conn *websocket.Conn, sessionID string) *Session {
@@ -35,11 +90,8 @@ func NewSession(conn *websocket.Conn, sessionID string) *Session {
 	}
 }
 
-func (s *Session) manageSession() {
-	defer func() {
-		s.Conn.Close()
-		log.Println("connection closed:", s.Conn.RemoteAddr().String())
-	}()
+func (s *Session) run() {
+	defer s.terminateSession()
 
 sessionLoop:
 	for {
@@ -51,7 +103,7 @@ sessionLoop:
 		if err != nil {
 			switch IdentifyWsErrorAction(err) {
 			case ConnLoopAbnormalClosureRetry:
-				switch s.WaitAndClose() {
+				switch s.waitAndClose() {
 				case ConnLoopCodeBreak:
 					break sessionLoop
 				case ConnLoopCodeContinue:
@@ -88,6 +140,14 @@ sessionLoop:
 			resp.AddError("incoming req payload must contain 'code' field", "")
 
 			switch WriteJsonWithRetry(conn, resp) {
+			case ConnLoopAbnormalClosureRetry:
+				switch s.waitAndClose() {
+				case ConnLoopCodeBreak:
+					break sessionLoop
+				case ConnLoopCodeContinue:
+					continue sessionLoop
+				}
+
 			case ConnLoopCodeBreak:
 				break sessionLoop
 			default:
@@ -103,6 +163,13 @@ sessionLoop:
 			resp := req.HandleCreateGame()
 
 			switch WriteJsonWithRetry(conn, resp) {
+			case ConnLoopAbnormalClosureRetry:
+				switch s.waitAndClose() {
+				case ConnLoopCodeBreak:
+					break sessionLoop
+				case ConnLoopCodeContinue:
+					continue sessionLoop
+				}
 			case ConnLoopCodeBreak:
 				break sessionLoop
 			default:
@@ -123,62 +190,56 @@ sessionLoop:
 				}
 			}
 
-			done := make(chan bool, 2)
-			go func() {
-				// attacker turn is set to false
-				resp.Payload.IsTurn = false
-				switch WriteJsonWithRetry(conn, resp) {
+			// attacker turn is set to false
+			resp.Payload.IsTurn = false
+			switch WriteJsonWithRetry(conn, resp) {
+			case ConnLoopAbnormalClosureRetry:
+				switch s.waitAndClose() {
 				case ConnLoopCodeBreak:
-					done <- false
-				default:
-					done <- true
-				}
-			}()
-			go func() {
-				// defender turn is set to true
-				resp.Payload.IsTurn = true
-				switch WriteJsonWithRetry(defender.WsConn, resp) {
-				case ConnLoopCodeBreak:
-					done <- false
-				default:
-					done <- true
-				}
-			}()
+					break sessionLoop
 
-			// Wait for the results and break if any is false
-			for i := 0; i < 2; i++ {
-				if !<-done {
-					break
+				case ConnLoopCodeContinue:
 				}
+
+			case ConnLoopCodeBreak:
+				break sessionLoop
+
+			case ConnLoopCodePassThrough:
 			}
+
+			// defender turn is set to true
+			resp.Payload.IsTurn = true
+			GlobalSessionManager.otherSessionMsg <- NewOtherSessionMsg(defender.SessionID, resp)
 
 			// If this attack caused the game to end.
 			// Both attacker and defender will get a end game
 			// message indicating if they lost or won
 			if defender.MatchStatus == md.PlayerMatchStatusLost {
-				currentGame := defender.CurrentGame
-
-				done := make(chan bool, 2)
-				go func() {
-					// Sending victory code to the attacker
-					respAttacker := md.NewMessage[md.RespEndGame](md.CodeEndGame)
-					respAttacker.AddPayload(md.RespEndGame{PlayerMatchStatus: md.PlayerMatchStatusWon})
-					switch WriteJsonWithRetry(conn, respAttacker) {
+				// Sending victory code to the attacker
+				respAttacker := md.NewMessage[md.RespEndGame](md.CodeEndGame)
+				respAttacker.AddPayload(md.RespEndGame{PlayerMatchStatus: md.PlayerMatchStatusWon})
+				switch WriteJsonWithRetry(conn, respAttacker) {
+				case ConnLoopAbnormalClosureRetry:
+					switch s.waitAndClose() {
 					case ConnLoopCodeBreak:
-						done <- false
-					default:
-						done <- true
+						break sessionLoop
+
+					case ConnLoopCodeContinue:
 					}
-				}()
 
-				go func() {
-					// Sending failure code to the defender
-					respDefender := md.NewMessage[md.RespEndGame](md.CodeEndGame)
-					respDefender.AddPayload(md.RespEndGame{PlayerMatchStatus: md.PlayerMatchStatusLost})
-					_ = WriteJsonWithRetry(defender.WsConn, respDefender)
-				}()
+				case ConnLoopCodeBreak:
+					break sessionLoop
 
-				GlobalGameManager.endGameSignal <- md.NewEndGameSignal(md.ManageGameCodeSuccess, currentGame.Uuid, "")
+				case ConnLoopCodePassThrough:
+				}
+
+				// Sending failure code to the defender
+				respDefender := md.NewMessage[md.RespEndGame](md.CodeEndGame)
+				respDefender.AddPayload(md.RespEndGame{PlayerMatchStatus: md.PlayerMatchStatusLost})
+				GlobalSessionManager.otherSessionMsg <- NewOtherSessionMsg(defender.SessionID, respDefender)
+
+				// Tell the game manager to get rid of this game in map
+				GlobalGameManager.EndGameSignal <- s.Game.Uuid
 			}
 
 		case md.CodeReady:
@@ -195,20 +256,42 @@ sessionLoop:
 			}
 
 			switch WriteJsonWithRetry(conn, resp) {
+			case ConnLoopAbnormalClosureRetry:
+				switch s.waitAndClose() {
+				case ConnLoopCodeBreak:
+					break sessionLoop
+
+				case ConnLoopCodeContinue:
+				}
+
 			case ConnLoopCodeBreak:
 				break sessionLoop
-			case ConnLoopCodeContinue:
-				continue sessionLoop
+
 			case ConnLoopCodePassThrough:
 			}
 
 			if game.HostPlayer.IsReady && game.JoinPlayer.IsReady {
 				respStartGame := md.NewMessage[md.NoPayload](md.CodeStartGame)
-				switch SendMsgToBothPlayers(game, &respStartGame, &respStartGame) {
+				switch WriteJsonWithRetry(conn, respStartGame) {
+				case ConnLoopAbnormalClosureRetry:
+					switch s.waitAndClose() {
+					case ConnLoopCodeBreak:
+						break sessionLoop
+
+					case ConnLoopCodeContinue:
+					}
+
 				case ConnLoopCodeBreak:
 					break sessionLoop
+
 				case ConnLoopCodePassThrough:
 				}
+
+				otherPlayerSessionId := game.HostPlayer.SessionID
+				if s.Player.IsHost {
+					otherPlayerSessionId = game.JoinPlayer.SessionID
+				}
+				GlobalSessionManager.otherSessionMsg <- NewOtherSessionMsg(otherPlayerSessionId, respStartGame)
 			}
 
 		case md.CodeJoinGame:
@@ -251,24 +334,51 @@ sessionLoop:
 	}
 }
 
-func (s *Session) WaitAndClose() int {
+func (s *Session) waitAndClose() int {
 	log.Printf("starting grace period for %s\n", s.ID)
 
 	s.mu.Lock()
 	s.GraceTimer = time.AfterFunc(GracePeriod, func() {
-		s.mu.Lock()
-		delete(GlobalSessions, s.ID)
+		GlobalSessionManager.mu.Lock()
+		delete(GlobalSessionManager.Sessions, s.ID)
 		s.Conn.Close()
-		s.mu.Unlock()
+		GlobalSessionManager.mu.Unlock()
 	})
 	s.mu.Unlock()
 
+	otherPlayer := s.Game.HostPlayer
+	if s.Player.IsHost {
+		otherPlayer = s.Game.JoinPlayer
+	}
+	if err := otherPlayer.WsConn.WriteJSON(md.NewMessage[md.NoPayload](md.CodeOtherPlayerGracePeriod)); err != nil {
+		// If other player connection is disrupted as well, then end the session
+		return ConnLoopCodeBreak
+	}
+
 	select {
 	case <-s.GraceTimer.C:
+		_ = otherPlayer.WsConn.WriteJSON(md.NewMessage[md.NoPayload](md.CodeOtherPlayerDisconnected))
 		return ConnLoopCodeBreak
 
-		// If reconnection happens, the loop stops
+		// If reconnection happens, loop stops
 	case <-s.StopRetry:
+		_ = otherPlayer.WsConn.WriteJSON(md.NewMessage[md.NoPayload](md.CodeOtherPlayerReconnected))
 		return ConnLoopCodeContinue
 	}
+}
+
+func (s *Session) terminateSession() {
+	// Give it 15 seconds to make sure none of the info
+	// in session is used in other goroutines
+	// time.Sleep(time.Second * 15)
+
+	GlobalGameManager.mu.Lock()
+	delete(GlobalGameManager.Games, s.Game.Uuid)
+	GlobalGameManager.mu.Unlock()
+
+	GlobalSessionManager.mu.Lock()
+	delete(GlobalSessionManager.Sessions, s.ID)
+	GlobalSessionManager.mu.Unlock()
+
+	log.Println("session closed:", s.ID)
 }

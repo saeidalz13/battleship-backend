@@ -44,10 +44,10 @@ func NewRequest(conn *websocket.Conn, payload ...[]byte) *Request {
 
 func (w *Request) HandleCreateGame() *md.Message[md.RespCreateGame] {
 	game := GlobalGameManager.AddGame()
-	go GlobalGameManager.CheckGameHealth(game)
+	// go GlobalGameManager.CheckGameHealth(game)
 	w.Session.Game = game
 
-	hostPlayer := game.CreateHostPlayer(w.Conn)
+	hostPlayer := game.CreateHostPlayer(w.Conn, w.Session.ID)
 	w.Session.Player = hostPlayer
 
 	resp := md.NewMessage[md.RespCreateGame](md.CodeCreateGame)
@@ -106,7 +106,7 @@ func (w *Request) HandleJoinPlayer() (*md.Message[md.RespJoinGame], *md.Game) {
 		resp.AddError(err.Error(), cerr.ConstErrJoin)
 		return &resp, nil
 	}
-	joinPlayer := game.CreateJoinPlayer(w.Conn)
+	joinPlayer := game.CreateJoinPlayer(w.Conn, w.Session.ID)
 
 	resp.AddPayload(md.RespJoinGame{GameUuid: game.Uuid, PlayerUuid: joinPlayer.Uuid})
 	return &resp, game

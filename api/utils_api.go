@@ -17,31 +17,6 @@ const (
 	ConnLoopAbnormalClosureRetry
 )
 
-func SendMsgToBothPlayers(game *md.Game, hostMsg, joinMsg interface{}) int {
-	playerOfGames := game.GetPlayers()
-
-	for _, player := range playerOfGames {
-		if player.IsHost {
-			switch WriteJsonWithRetry(player.WsConn, hostMsg) {
-			case ConnLoopCodeBreak:
-				return ConnLoopCodeBreak
-			default:
-				continue
-			}
-
-		} else {
-			switch WriteJsonWithRetry(player.WsConn, joinMsg) {
-			case ConnLoopCodeBreak:
-				return ConnLoopCodeBreak
-			default:
-				continue
-			}
-		}
-	}
-
-	return ConnLoopCodePassThrough
-}
-
 func FindGameAndPlayer(w *Request, gameUuid, playerUuid string) (*md.Game, *md.Player, error) {
 	game, err := GlobalGameManager.FindGame(gameUuid)
 	if err != nil {
@@ -67,6 +42,7 @@ func IdentifyWsErrorAction(err error) int {
 		return ConnLoopCodeRetry
 	}
 
+	// Happens if the IOS client goes to background
 	if websocket.IsCloseError(err, websocket.CloseAbnormalClosure) {
 		log.Println("abnormal closure error:", err)
 		return ConnLoopAbnormalClosureRetry
@@ -104,24 +80,27 @@ func IdentifyWsErrorAction(err error) int {
 	return ConnLoopCodeBreak
 }
 
-func WriteJsonWithRetry(ws *websocket.Conn, resp interface{}) int {
+func WriteJsonWithRetry(conn *websocket.Conn, resp interface{}) int {
 	var retries int
 
 writeJsonLoop:
 	for {
-		if err := ws.WriteJSON(resp); err != nil {
+		if err := conn.WriteJSON(resp); err != nil {
 			switch IdentifyWsErrorAction(err) {
 			case ConnLoopCodeRetry:
 				if retries < maxWriteWsRetries {
 					retries++
-					log.Printf("writing json failed to ws [%s]; retrying... (retry no. %d)\n", ws.RemoteAddr().String(), retries)
+					log.Printf("writing json failed to ws [%s]; retrying... (retry no. %d)\n", conn.RemoteAddr().String(), retries)
 					time.Sleep(time.Duration(retries*backOffFactor) * time.Second)
 					continue writeJsonLoop
 
 				} else {
-					log.Printf("max retries reached for writing to ws [%s]:%s", ws.RemoteAddr().String(), err)
+					log.Printf("max retries reached for writing to ws [%s]:%s", conn.RemoteAddr().String(), err)
 					return ConnLoopCodeBreak
 				}
+
+			case ConnLoopAbnormalClosureRetry:
+				return ConnLoopAbnormalClosureRetry
 
 			case ConnLoopCodeBreak:
 				log.Println("breaking writeJsonLoop due to:", err)
@@ -135,8 +114,27 @@ writeJsonLoop:
 	}
 }
 
-// func WaitAndClose(ws *websocket.Conn) {
-// 	timer := time.NewTimer(time.Minute * 3)
-// 	ticker := time.NewTicker(time.Second * 10)
+func SendMsgToBothPlayers(game *md.Game, hostMsg, joinMsg interface{}) int {
+	playerOfGames := game.GetPlayers()
 
-// }
+	for _, player := range playerOfGames {
+		if player.IsHost {
+			switch WriteJsonWithRetry(player.WsConn, hostMsg) {
+			case ConnLoopCodeBreak:
+				return ConnLoopCodeBreak
+			default:
+				continue
+			}
+
+		} else {
+			switch WriteJsonWithRetry(player.WsConn, joinMsg) {
+			case ConnLoopCodeBreak:
+				return ConnLoopCodeBreak
+			default:
+				continue
+			}
+		}
+	}
+
+	return ConnLoopCodePassThrough
+}

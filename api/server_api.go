@@ -42,9 +42,8 @@ var (
 )
 
 type Server struct {
-	port     *int
-	stage    string
-	Sessions map[string]*Session
+	port  *int
+	stage string
 }
 
 type Option func(*Server) error
@@ -60,7 +59,6 @@ func NewServer(optFuncs ...Option) *Server {
 		server.port = &defaultPort
 	}
 
-	server.Sessions = make(map[string]*Session)
 	return &server
 }
 
@@ -94,25 +92,25 @@ func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionId := r.URL.Query().Get("sessionID")
-	switch sessionId {
+	sessionIdQuery := r.URL.Query().Get("sessionID")
+	switch sessionIdQuery {
 	case "":
 		// creating a new URL compatible session ID
-		sessionIdRaw := uuid.New().String()
-		sessionIdUrlCompatible := base64.RawURLEncoding.EncodeToString([]byte(sessionIdRaw))
+		newSessionIdRaw := uuid.New().String()
+		sessionIdUrlCompatible := base64.RawURLEncoding.EncodeToString([]byte(newSessionIdRaw))
 
 		session := NewSession(conn, sessionIdUrlCompatible)
-		s.Sessions[sessionIdUrlCompatible] = session
+		GlobalSessionManager.Sessions[sessionIdUrlCompatible] = session
 
 		resp := md.NewMessage[md.RespSessionId](md.CodeSessionID)
 		resp.AddPayload(md.RespSessionId{SessionID: sessionIdUrlCompatible})
 		_ = conn.WriteJSON(resp)
 
 		log.Println("a new connection established\tRemote Addr: ", conn.RemoteAddr().String())
-		go session.manageSession()
+		go session.run()
 
 	default:
-		session, prs := s.Sessions[sessionId]
+		session, prs := GlobalSessionManager.Sessions[sessionIdQuery]
 		if !prs {
 			// This either means an expired session or invalid session ID
 			conn.WriteJSON(md.NewMessage[md.NoPayload](md.CodeReceivedInvalidSessionID))
