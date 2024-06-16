@@ -368,6 +368,11 @@ func (s *Session) waitAndClose() int {
 	})
 	s.mu.Unlock()
 
+    // This means there is no game and abnormal closure is happening
+    if s.Game == nil {
+        return ConnLoopCodeBreak
+    }
+
 	otherPlayer := s.Game.HostPlayer
 	if s.Player.IsHost {
 		otherPlayer = s.Game.JoinPlayer
