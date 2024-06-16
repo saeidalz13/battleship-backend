@@ -24,7 +24,7 @@ func main() {
 		panic("stage must be either dev or prod")
 	}
 	portEnv := os.Getenv("PORT")
-	// psqlUrl := os.Getenv("PSQL_URL")
+	// psqlUrl := os.Getenv("DATABASE_URL")
 	// DB = db.MustConnectToDb(psqlUrl)
 	port, err := strconv.Atoi(portEnv)
 	if err != nil {

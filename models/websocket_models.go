@@ -21,7 +21,9 @@ const (
 )
 
 const (
-	CodeCreateGame int = iota
+	CodeSessionID int = iota
+	CodeReceivedInvalidSessionID
+	CodeCreateGame
 	CodeJoinGame
 	CodeSelectGrid
 	CodeReady
@@ -30,12 +32,9 @@ const (
 	CodeEndGame
 	CodeInvalidSignal
 	CodeSignalAbsent // if the req msg does not contain "code" field
-
 	CodeOtherPlayerDisconnected
 	CodeOtherPlayerReconnected
 	CodeOtherPlayerGracePeriod
-	CodeSessionID
-	CodeReceivedInvalidSessionID
 )
 
 const (
