@@ -241,9 +241,3 @@ func (sh *Ship) GotHit() {
 func (sh *Ship) IsSunk() bool {
 	return sh.hits == sh.length
 }
-
-const (
-	ManageGameCodeSuccess int = iota
-	ManageGameCodePlayerDisconnect
-	ManageGameCodeMaxTimeReached
-)

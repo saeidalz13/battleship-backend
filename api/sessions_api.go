@@ -305,11 +305,9 @@ sessionLoop:
 
 			switch WriteJsonWithRetry(conn, resp) {
 			case ConnLoopCodeBreak:
-				// delete(s.Players, game.JoinPlayer.Uuid)
 				game.JoinPlayer = nil
 				break sessionLoop
 			case ConnLoopCodeContinue:
-				// delete(s.Players, game.JoinPlayer.Uuid)
 				game.JoinPlayer = nil
 				continue sessionLoop
 			case ConnLoopCodePassThrough:
