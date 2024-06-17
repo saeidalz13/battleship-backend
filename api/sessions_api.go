@@ -243,8 +243,10 @@ sessionLoop:
 				respDefender.AddPayload(md.RespEndGame{PlayerMatchStatus: md.PlayerMatchStatusLost})
 				GlobalSessionManager.otherSessionMsg <- NewOtherSessionMsg(defender.SessionID, s.Game.Uuid, respDefender)
 
-				// Tell the game manager to get rid of this game in map
-				GlobalGameManager.EndGameSignal <- s.Game.Uuid
+				// Wait for 5 seconds to make sure all the messages have been
+				// sent and nothing has a nil pointer after session termination
+				time.Sleep(time.Second * 5)
+				return
 			}
 
 		case md.CodeReady:
@@ -403,9 +405,7 @@ func (s *Session) waitAndClose() int {
 }
 
 func (s *Session) terminateSession() {
-	GlobalGameManager.mu.Lock()
-	delete(GlobalGameManager.Games, s.Game.Uuid)
-	GlobalGameManager.mu.Unlock()
+	GlobalGameManager.EndGameSignal <- s.Game.Uuid
 
 	GlobalSessionManager.mu.Lock()
 	delete(GlobalSessionManager.Sessions, s.ID)
