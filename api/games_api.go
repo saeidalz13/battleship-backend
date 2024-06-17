@@ -51,3 +51,19 @@ func (gm *GameManager) ManageGameTermination() {
 		gm.mu.Unlock()
 	}
 }
+
+// Convenient helper func to fetch both the game and player
+func (gm *GameManager) FindGameAndPlayer(gameUuid, playerUuid string) (*md.Game, *md.Player, error) {
+	game, err := GlobalGameManager.FindGame(gameUuid)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	player, err := game.FindPlayer(playerUuid)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return game, player, nil
+}
+

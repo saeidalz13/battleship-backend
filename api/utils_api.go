@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	md "github.com/saeidalz13/battleship-backend/models"
 )
 
 const (
@@ -17,21 +16,7 @@ const (
 	ConnLoopAbnormalClosureRetry
 )
 
-func FindGameAndPlayer(w *Request, gameUuid, playerUuid string) (*md.Game, *md.Player, error) {
-	game, err := GlobalGameManager.FindGame(gameUuid)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	player, err := game.FindPlayer(playerUuid)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return game, player, nil
-}
-
-func IdentifyWsErrorAction(err error) int {
+func IdentifyWsConnErrAction(err error) int {
 	if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 		log.Println("timeout error:", err)
 		return ConnLoopCodeRetry
@@ -80,13 +65,13 @@ func IdentifyWsErrorAction(err error) int {
 	return ConnLoopCodeBreak
 }
 
-func WriteJsonWithRetry(conn *websocket.Conn, resp interface{}) int {
+func WriteJSONWithRetry(conn *websocket.Conn, resp interface{}) int {
 	var retries int
 
 writeJsonLoop:
 	for {
 		if err := conn.WriteJSON(resp); err != nil {
-			switch IdentifyWsErrorAction(err) {
+			switch IdentifyWsConnErrAction(err) {
 			case ConnLoopCodeRetry:
 				if retries < maxWriteWsRetries {
 					retries++
@@ -112,29 +97,4 @@ writeJsonLoop:
 			return ConnLoopCodePassThrough
 		}
 	}
-}
-
-func SendMsgToBothPlayers(game *md.Game, hostMsg, joinMsg interface{}) int {
-	playerOfGames := game.GetPlayers()
-
-	for _, player := range playerOfGames {
-		if player.IsHost {
-			switch WriteJsonWithRetry(player.WsConn, hostMsg) {
-			case ConnLoopCodeBreak:
-				return ConnLoopCodeBreak
-			default:
-				continue
-			}
-
-		} else {
-			switch WriteJsonWithRetry(player.WsConn, joinMsg) {
-			case ConnLoopCodeBreak:
-				return ConnLoopCodeBreak
-			default:
-				continue
-			}
-		}
-	}
-
-	return ConnLoopCodePassThrough
 }

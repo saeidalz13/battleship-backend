@@ -66,7 +66,7 @@ func (w *Request) HandleReadyPlayer() (*md.Message[md.NoPayload], *md.Game) {
 		return &resp, nil
 	}
 
-	game, player, err := FindGameAndPlayer(w, readyPlayerReq.Payload.GameUuid, readyPlayerReq.Payload.PlayerUuid)
+	game, player, err := GlobalGameManager.FindGameAndPlayer(readyPlayerReq.Payload.GameUuid, readyPlayerReq.Payload.PlayerUuid)
 	if err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrReady)
 		return &resp, nil
@@ -131,7 +131,7 @@ func (w *Request) HandleAttack() (*md.Message[md.RespAttack], *md.Player) {
 		return &resp, nil
 	}
 
-	game, attacker, err := FindGameAndPlayer(w, reqAttack.Payload.GameUuid, reqAttack.Payload.PlayerUuid)
+	game, attacker, err := GlobalGameManager.FindGameAndPlayer(reqAttack.Payload.GameUuid, reqAttack.Payload.PlayerUuid)
 	if err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrAttack)
 		return &resp, nil

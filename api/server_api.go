@@ -22,6 +22,8 @@ const (
 	backOffFactor           int           = 2
 	maxTimeGame             time.Duration = time.Minute * 30
 	connHealthCheckInterval time.Duration = time.Second * 45
+
+	URLQuerySessionIDKeyword string = "sessionID"
 )
 
 var (
@@ -92,7 +94,7 @@ func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionIdQuery := r.URL.Query().Get("sessionID")
+	sessionIdQuery := r.URL.Query().Get(URLQuerySessionIDKeyword)
 	switch sessionIdQuery {
 	case "":
 		// creating a new URL compatible session ID
@@ -117,11 +119,11 @@ func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
 			conn.Close()
 			return
 		}
-		// Triggers the WaitAndStop select block to stop
+		// Signal for reconnection
 		close(session.StopRetry)
+		session.GraceTimer.Stop()
 
 		// Setting the new fields for the session
-		session.GraceTimer.Stop()
 		session.Conn = conn
 		session.StopRetry = make(chan struct{})
 

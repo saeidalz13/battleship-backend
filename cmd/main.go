@@ -12,7 +12,6 @@ import (
 	"github.com/saeidalz13/battleship-backend/api"
 )
 
-
 func main() {
 	if os.Getenv("STAGE") != "prod" {
 		if err := godotenv.Load(".env"); err != nil {
@@ -32,9 +31,9 @@ func main() {
 	}
 
 	server := api.NewServer(api.WithPort(port), api.WithStage(stage))
-	
+
 	go api.GlobalGameManager.ManageGameTermination()
-	go api.GlobalSessionManager.ManageOtherSessionMsg()
+	go api.GlobalSessionManager.ManageCommunication()
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /battleship", server.HandleWs)
