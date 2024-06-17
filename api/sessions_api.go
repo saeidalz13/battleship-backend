@@ -363,8 +363,8 @@ func (s *Session) waitAndClose() int {
 	s.mu.Lock()
 	s.GraceTimer = time.AfterFunc(GracePeriod, func() {
 		GlobalSessionManager.mu.Lock()
-		delete(GlobalSessionManager.Sessions, s.ID)
 		s.Conn.Close()
+		delete(GlobalSessionManager.Sessions, s.ID)
 		GlobalSessionManager.mu.Unlock()
 	})
 	s.mu.Unlock()
@@ -378,9 +378,12 @@ func (s *Session) waitAndClose() int {
 	if s.Player.IsHost {
 		otherPlayer = s.Game.JoinPlayer
 	}
-	if err := otherPlayer.WsConn.WriteJSON(md.NewMessage[md.NoPayload](md.CodeOtherPlayerGracePeriod)); err != nil {
-		// If other player connection is disrupted as well, then end the session
-		return ConnLoopCodeBreak
+
+	if otherPlayer != nil {
+		if err := otherPlayer.WsConn.WriteJSON(md.NewMessage[md.NoPayload](md.CodeOtherPlayerGracePeriod)); err != nil {
+			// If other player connection is disrupted as well, then end the session
+			return ConnLoopCodeBreak
+		}
 	}
 
 	select {
