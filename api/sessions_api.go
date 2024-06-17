@@ -387,12 +387,16 @@ func (s *Session) waitAndClose() int {
 
 	select {
 	case <-s.GraceTimer.C:
-		_ = otherPlayer.WsConn.WriteJSON(md.NewMessage[md.NoPayload](md.CodeOtherPlayerDisconnected))
+		if otherPlayer != nil {
+			_ = otherPlayer.WsConn.WriteJSON(md.NewMessage[md.NoPayload](md.CodeOtherPlayerDisconnected))
+		}
 		return ConnLoopCodeBreak
 
 		// If reconnection happens, loop stops
 	case <-s.StopRetry:
-		_ = otherPlayer.WsConn.WriteJSON(md.NewMessage[md.NoPayload](md.CodeOtherPlayerReconnected))
+		if otherPlayer != nil {
+			_ = otherPlayer.WsConn.WriteJSON(md.NewMessage[md.NoPayload](md.CodeOtherPlayerReconnected))
+		}
 		return ConnLoopCodeContinue
 	}
 }
