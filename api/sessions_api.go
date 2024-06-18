@@ -45,7 +45,7 @@ func (sm *SessionManager) ManageCommunication() {
 		msg := <-sm.CommunicationChan
 
 		sm.mu.Lock()
-		receiverSession, prs := GlobalSessionManager.Sessions[msg.ReceiverID]
+		receiverSession, prs := sm.Sessions[msg.ReceiverID]
 		if !prs {
 			// It should never be the case that the other session
 			// is not found. The sender session should terminate
@@ -82,20 +82,24 @@ const (
 )
 
 type Session struct {
-	ID         string
-	Conn       *websocket.Conn
-	Game       *md.Game
-	Player     *md.Player
-	GraceTimer *time.Timer
-	StopRetry  chan struct{}
-	mu         sync.Mutex
+	ID             string
+	Conn           *websocket.Conn
+	Game           *md.Game
+	Player         *md.Player
+	GraceTimer     *time.Timer
+	StopRetry      chan struct{}
+	mu             sync.Mutex
+	GameManager    *GameManager
+	SessionManager *SessionManager
 }
 
-func NewSession(conn *websocket.Conn, sessionID string) *Session {
+func NewSession(conn *websocket.Conn, sessionID string, gameManager *GameManager, sessionManager *SessionManager) *Session {
 	return &Session{
-		ID:        sessionID,
-		Conn:      conn,
-		StopRetry: make(chan struct{}),
+		ID:             sessionID,
+		Conn:           conn,
+		StopRetry:      make(chan struct{}),
+		GameManager:    gameManager,
+		SessionManager: sessionManager,
 	}
 }
 
@@ -218,7 +222,7 @@ sessionLoop:
 
 			// defender turn is set to true
 			resp.Payload.IsTurn = true
-			GlobalSessionManager.CommunicationChan <- NewSessionMessage(s, defender.SessionID, s.Game.Uuid, resp)
+			s.SessionManager.CommunicationChan <- NewSessionMessage(s, defender.SessionID, s.Game.Uuid, resp)
 
 			// If this attack caused the game to end.
 			// Both attacker and defender will get a end game
@@ -245,7 +249,7 @@ sessionLoop:
 				// Sending failure code to the defender
 				respDefender := md.NewMessage[md.RespEndGame](md.CodeEndGame)
 				respDefender.AddPayload(md.RespEndGame{PlayerMatchStatus: md.PlayerMatchStatusLost})
-				GlobalSessionManager.CommunicationChan <- NewSessionMessage(s, defender.SessionID, s.Game.Uuid, respDefender)
+				s.SessionManager.CommunicationChan <- NewSessionMessage(s, defender.SessionID, s.Game.Uuid, respDefender)
 
 				// Wait for 5 seconds to make sure all the messages have been
 				// sent and nothing has a nil pointer after session termination
@@ -302,7 +306,7 @@ sessionLoop:
 				if s.Player.IsHost {
 					otherPlayerSessionId = game.JoinPlayer.SessionID
 				}
-				GlobalSessionManager.CommunicationChan <- NewSessionMessage(s, otherPlayerSessionId, s.Game.Uuid, respStartGame)
+				s.SessionManager.CommunicationChan <- NewSessionMessage(s, otherPlayerSessionId, s.Game.Uuid, respStartGame)
 			}
 
 		case md.CodeJoinGame:
@@ -310,12 +314,17 @@ sessionLoop:
 			resp, game := req.HandleJoinPlayer()
 
 			switch WriteJSONWithRetry(conn, resp) {
+			case ConnLoopAbnormalClosureRetry:
+				switch s.handleAbnormalClosure() {
+				case ConnLoopCodeBreak:
+					break sessionLoop
+
+				case ConnLoopCodeContinue:
+				}
+
 			case ConnLoopCodeBreak:
-				game.JoinPlayer = nil
 				break sessionLoop
-			case ConnLoopCodeContinue:
-				game.JoinPlayer = nil
-				continue sessionLoop
+
 			case ConnLoopCodePassThrough:
 			}
 
@@ -339,7 +348,14 @@ sessionLoop:
 				case ConnLoopCodePassThrough:
 				}
 
-				GlobalSessionManager.CommunicationChan <- NewSessionMessage(s, game.HostPlayer.SessionID, s.Game.Uuid, readyResp)
+				log.Println("sesion", s)
+				log.Println("sesion id", game.HostPlayer.SessionID)
+				log.Println("game id", s.Game.Uuid)
+				log.Println(readyResp)
+				log.Printf("%+v\n", s.SessionManager)
+				log.Printf("%+v\n", s.SessionManager.CommunicationChan)
+
+				s.SessionManager.CommunicationChan <- NewSessionMessage(s, game.HostPlayer.SessionID, s.Game.Uuid, readyResp)
 			}
 
 		default:
@@ -368,10 +384,10 @@ func (s *Session) handleAbnormalClosure() int {
 
 	s.mu.Lock()
 	s.GraceTimer = time.AfterFunc(GracePeriod, func() {
-		GlobalSessionManager.mu.Lock()
+		s.SessionManager.mu.Lock()
 		s.Conn.Close()
-		delete(GlobalSessionManager.Sessions, s.ID)
-		GlobalSessionManager.mu.Unlock()
+		delete(s.SessionManager.Sessions, s.ID)
+		s.SessionManager.mu.Unlock()
 	})
 	s.mu.Unlock()
 
@@ -397,6 +413,7 @@ func (s *Session) handleAbnormalClosure() int {
 		if otherPlayer != nil {
 			_ = otherPlayer.WsConn.WriteJSON(md.NewMessage[md.NoPayload](md.CodeOtherPlayerDisconnected))
 		}
+		log.Printf("session terminated: %s\n", s.ID)
 		return ConnLoopCodeBreak
 
 		// If reconnection happens, loop stops
@@ -404,16 +421,19 @@ func (s *Session) handleAbnormalClosure() int {
 		if otherPlayer != nil {
 			_ = otherPlayer.WsConn.WriteJSON(md.NewMessage[md.NoPayload](md.CodeOtherPlayerReconnected))
 		}
+		log.Printf("player reconnected, session: %s\n", s.ID)
 		return ConnLoopCodeContinue
 	}
 }
 
 func (s *Session) terminate() {
-	GlobalGameManager.EndGameSignal <- s.Game.Uuid
+	if s.Game != nil {
+		s.GameManager.EndGameSignal <- s.Game.Uuid
+	}
 
-	GlobalSessionManager.mu.Lock()
-	delete(GlobalSessionManager.Sessions, s.ID)
-	GlobalSessionManager.mu.Unlock()
+	s.SessionManager.mu.Lock()
+	delete(s.SessionManager.Sessions, s.ID)
+	s.SessionManager.mu.Unlock()
 
 	log.Println("session closed:", s.ID)
 }

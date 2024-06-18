@@ -44,13 +44,15 @@ var (
 )
 
 type Server struct {
-	port  *int
-	stage string
+	port           *int
+	stage          string
+	GameManager    *GameManager
+	SessionManager *SessionManager
 }
 
 type Option func(*Server) error
 
-func NewServer(optFuncs ...Option) *Server {
+func NewServer(sessionManager *SessionManager, gameManger *GameManager, optFuncs ...Option) *Server {
 	var server Server
 	for _, opt := range optFuncs {
 		if err := opt(&server); err != nil {
@@ -60,6 +62,9 @@ func NewServer(optFuncs ...Option) *Server {
 	if server.port == nil {
 		server.port = &defaultPort
 	}
+
+	server.SessionManager = sessionManager
+	server.GameManager = gameManger
 
 	return &server
 }
@@ -101,8 +106,8 @@ func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
 		newSessionIdRaw := uuid.New().String()
 		sessionIdUrlCompatible := base64.RawURLEncoding.EncodeToString([]byte(newSessionIdRaw))
 
-		session := NewSession(conn, sessionIdUrlCompatible)
-		GlobalSessionManager.Sessions[sessionIdUrlCompatible] = session
+		session := NewSession(conn, sessionIdUrlCompatible, s.GameManager, s.SessionManager)
+		s.SessionManager.Sessions[sessionIdUrlCompatible] = session
 
 		resp := md.NewMessage[md.RespSessionId](md.CodeSessionID)
 		resp.AddPayload(md.RespSessionId{SessionID: sessionIdUrlCompatible})
@@ -112,7 +117,7 @@ func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
 		go session.run()
 
 	default:
-		session, prs := GlobalSessionManager.Sessions[sessionIdQuery]
+		session, prs := s.SessionManager.Sessions[sessionIdQuery]
 		if !prs {
 			// This either means an expired session or invalid session ID
 			conn.WriteJSON(md.NewMessage[md.NoPayload](md.CodeReceivedInvalidSessionID))

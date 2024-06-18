@@ -44,7 +44,7 @@ func NewRequest(conn *websocket.Conn, session *Session, payload ...[]byte) *Requ
 }
 
 func (w *Request) HandleCreateGame() *md.Message[md.RespCreateGame] {
-	game := GlobalGameManager.AddGame()
+	game := w.Session.GameManager.AddGame()
 	w.Session.Game = game
 
 	hostPlayer := game.CreateHostPlayer(w.Conn, w.Session.ID)
@@ -66,7 +66,7 @@ func (w *Request) HandleReadyPlayer() (*md.Message[md.NoPayload], *md.Game) {
 		return &resp, nil
 	}
 
-	game, player, err := GlobalGameManager.FindGameAndPlayer(readyPlayerReq.Payload.GameUuid, readyPlayerReq.Payload.PlayerUuid)
+	game, player, err := w.Session.GameManager.FindGameAndPlayer(readyPlayerReq.Payload.GameUuid, readyPlayerReq.Payload.PlayerUuid)
 	if err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrReady)
 		return &resp, nil
@@ -100,13 +100,16 @@ func (w *Request) HandleJoinPlayer() (*md.Message[md.RespJoinGame], *md.Game) {
 		return &resp, nil
 	}
 
-	// Find the game, if exists, create the join player
-	game, err := GlobalGameManager.FindGame(joinGameReq.Payload.GameUuid)
+	game, err := w.Session.GameManager.FindGame(joinGameReq.Payload.GameUuid)
 	if err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrJoin)
 		return &resp, nil
 	}
+
 	joinPlayer := game.CreateJoinPlayer(w.Conn, w.Session.ID)
+
+	w.Session.Game = game
+	w.Session.Player = joinPlayer
 
 	resp.AddPayload(md.RespJoinGame{GameUuid: game.Uuid, PlayerUuid: joinPlayer.Uuid})
 	return &resp, game
@@ -117,13 +120,11 @@ func (w *Request) HandleAttack() (*md.Message[md.RespAttack], *md.Player) {
 	var reqAttack md.Message[md.ReqAttack]
 	resp := md.NewMessage[md.RespAttack](md.CodeAttack)
 
-	// Deserialize the data
 	if err := json.Unmarshal(w.Payload, &reqAttack); err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrInvalidPayload)
 		return &resp, nil
 	}
 
-	// Check x and y validity
 	x := reqAttack.Payload.X
 	y := reqAttack.Payload.Y
 	if x > md.GameValidUpperBound || y > md.GameValidUpperBound || x < md.GameValidLowerBound || y < md.GameValidLowerBound {
@@ -131,7 +132,7 @@ func (w *Request) HandleAttack() (*md.Message[md.RespAttack], *md.Player) {
 		return &resp, nil
 	}
 
-	game, attacker, err := GlobalGameManager.FindGameAndPlayer(reqAttack.Payload.GameUuid, reqAttack.Payload.PlayerUuid)
+	game, attacker, err := w.Session.GameManager.FindGameAndPlayer(reqAttack.Payload.GameUuid, reqAttack.Payload.PlayerUuid)
 	if err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrAttack)
 		return &resp, nil
