@@ -19,23 +19,23 @@ type RequestHandler interface {
 // Every incoming valid request will have this structure
 // The request then is handled in line with WsRequestHandler interface
 type Request struct {
-	Server  *Server
-	Ws      *websocket.Conn
+	Conn    *websocket.Conn
 	Payload []byte
+	Session *Session
 }
 
 // This tells the compiler that WsRequest struct must be of type of WsRequestHandler
 var _ RequestHandler = (*Request)(nil)
 
-func NewRequest(server *Server, ws *websocket.Conn, payload ...[]byte) *Request {
+func NewRequest(conn *websocket.Conn, session *Session, payload ...[]byte) *Request {
 	if len(payload) > 1 {
 		log.Println("cannot accept more than one payload")
 		return nil
 	}
 
 	wsReq := Request{
-		Server: server,
-		Ws:     ws,
+		Conn:    conn,
+		Session: session,
 	}
 	if len(payload) != 0 {
 		wsReq.Payload = payload[0]
@@ -44,8 +44,11 @@ func NewRequest(server *Server, ws *websocket.Conn, payload ...[]byte) *Request 
 }
 
 func (w *Request) HandleCreateGame() *md.Message[md.RespCreateGame] {
-	game := w.Server.AddGame()
-	hostPlayer := w.Server.AddHostPlayer(game, w.Ws)
+	game := GlobalGameManager.AddGame()
+	w.Session.Game = game
+
+	hostPlayer := game.CreateHostPlayer(w.Conn, w.Session.ID)
+	w.Session.Player = hostPlayer
 
 	resp := md.NewMessage[md.RespCreateGame](md.CodeCreateGame)
 	resp.AddPayload(md.RespCreateGame{GameUuid: game.Uuid, HostUuid: hostPlayer.Uuid})
@@ -63,7 +66,7 @@ func (w *Request) HandleReadyPlayer() (*md.Message[md.NoPayload], *md.Game) {
 		return &resp, nil
 	}
 
-	game, player, err := FindGameAndPlayer(w, readyPlayerReq.Payload.GameUuid, readyPlayerReq.Payload.PlayerUuid)
+	game, player, err := GlobalGameManager.FindGameAndPlayer(readyPlayerReq.Payload.GameUuid, readyPlayerReq.Payload.PlayerUuid)
 	if err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrReady)
 		return &resp, nil
@@ -97,13 +100,15 @@ func (w *Request) HandleJoinPlayer() (*md.Message[md.RespJoinGame], *md.Game) {
 		return &resp, nil
 	}
 
-	game, err := w.Server.AddJoinPlayer(joinGameReq.Payload.GameUuid, w.Ws)
+	// Find the game, if exists, create the join player
+	game, err := GlobalGameManager.FindGame(joinGameReq.Payload.GameUuid)
 	if err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrJoin)
 		return &resp, nil
 	}
+	joinPlayer := game.CreateJoinPlayer(w.Conn, w.Session.ID)
 
-	resp.AddPayload(md.RespJoinGame{GameUuid: game.Uuid, PlayerUuid: game.JoinPlayer.Uuid})
+	resp.AddPayload(md.RespJoinGame{GameUuid: game.Uuid, PlayerUuid: joinPlayer.Uuid})
 	return &resp, game
 }
 
@@ -126,7 +131,7 @@ func (w *Request) HandleAttack() (*md.Message[md.RespAttack], *md.Player) {
 		return &resp, nil
 	}
 
-	game, attacker, err := FindGameAndPlayer(w, reqAttack.Payload.GameUuid, reqAttack.Payload.PlayerUuid)
+	game, attacker, err := GlobalGameManager.FindGameAndPlayer(reqAttack.Payload.GameUuid, reqAttack.Payload.PlayerUuid)
 	if err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrAttack)
 		return &resp, nil

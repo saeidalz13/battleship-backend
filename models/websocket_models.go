@@ -21,7 +21,9 @@ const (
 )
 
 const (
-	CodeCreateGame int = iota
+	CodeSessionID int = iota
+	CodeReceivedInvalidSessionID
+	CodeCreateGame
 	CodeJoinGame
 	CodeSelectGrid
 	CodeReady
@@ -30,6 +32,9 @@ const (
 	CodeEndGame
 	CodeInvalidSignal
 	CodeSignalAbsent // if the req msg does not contain "code" field
+	CodeOtherPlayerDisconnected
+	CodeOtherPlayerReconnected
+	CodeOtherPlayerGracePeriod
 )
 
 const (
@@ -99,9 +104,11 @@ type Player struct {
 	DefenceGrid [][]int
 	Ships       map[int]*Ship
 	WsConn      *websocket.Conn
+	SessionID   string
+	CurrentGame *Game
 }
 
-func NewPlayer(ws *websocket.Conn, isHost, isTurn bool) *Player {
+func NewPlayer(ws *websocket.Conn, currentGame *Game, isHost, isTurn bool, sessionID string) *Player {
 	return &Player{
 		IsTurn:      isTurn,
 		IsHost:      isHost,
@@ -113,6 +120,8 @@ func NewPlayer(ws *websocket.Conn, isHost, isTurn bool) *Player {
 		DefenceGrid: NewGrid(),
 		Ships:       NewShipsMap(),
 		WsConn:      ws,
+		CurrentGame: currentGame,
+		SessionID:   sessionID,
 	}
 }
 
@@ -157,10 +166,10 @@ func (p *Player) SunkShip() {
 }
 
 type Game struct {
+	IsFinished bool
 	Uuid       string
 	HostPlayer *Player
 	JoinPlayer *Player
-	IsFinished bool
 }
 
 func NewGame() *Game {
@@ -179,14 +188,27 @@ func (g *Game) GetPlayers() []*Player {
 	return []*Player{g.HostPlayer, g.JoinPlayer}
 }
 
-func (g *Game) CreateJoinPlayer(ws *websocket.Conn) {
-	joinPlayer := NewPlayer(ws, false, false)
-	g.JoinPlayer = joinPlayer
+func (g *Game) FindPlayer(playerUuid string) (*Player, error) {
+	switch playerUuid {
+	case g.HostPlayer.Uuid:
+		return g.HostPlayer, nil
+	case g.JoinPlayer.Uuid:
+		return g.JoinPlayer, nil
+	default:
+		return nil, cerr.ErrPlayerNotExist(playerUuid)
+	}
 }
 
-func (g *Game) CreateHostPlayer(ws *websocket.Conn) {
-	hostPlayer := NewPlayer(ws, true, true)
+func (g *Game) CreateJoinPlayer(ws *websocket.Conn, sessionID string) *Player {
+	joinPlayer := NewPlayer(ws, g, false, false, sessionID)
+	g.JoinPlayer = joinPlayer
+	return joinPlayer
+}
+
+func (g *Game) CreateHostPlayer(ws *websocket.Conn, sessionID string) *Player {
+	hostPlayer := NewPlayer(ws, g, true, true, sessionID)
 	g.HostPlayer = hostPlayer
+	return hostPlayer
 }
 
 type Ship struct {

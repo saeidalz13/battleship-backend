@@ -19,6 +19,10 @@ type RespAttack struct {
 	SunkenShipsJoin int  `json:"sunken_ships_join"`
 }
 
+type RespSessionId struct {
+	SessionID string `json:"session_id"`
+}
+
 type RespEndGame struct {
 	PlayerMatchStatus int `json:"player_match_status"`
 }
