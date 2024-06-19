@@ -9,20 +9,28 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/saeidalz13/battleship-backend/api"
+	md "github.com/saeidalz13/battleship-backend/models"
 )
 
 var (
-	HostConn     *websocket.Conn
-	JoinConn     *websocket.Conn
-	GameUuid     string
-	HostPlayerId string
-	JoinPlayerId string
+	HostConn           *websocket.Conn
+	JoinConn           *websocket.Conn
+	GameUuid           string
+	HostPlayerId       string
+	JoinPlayerId       string
+	HostSessionID      string
+	JoinSessionID      string
+	testGameManager    = api.NewGameManager()
+	testSessionManager = api.NewSessionManager()
 )
 
 func TestMain(m *testing.M) {
 	go func() {
 		stage := "dev"
-		server := api.NewServer(api.WithPort(7171), api.WithStage(stage))
+		server := api.NewServer(testSessionManager, testGameManager, api.WithPort(7171), api.WithStage(stage))
+
+		go server.GameManager.ManageGameTermination()
+		go server.SessionManager.ManageCommunication()
 
 		mux := http.NewServeMux()
 		mux.HandleFunc("GET /battleship", server.HandleWs)
@@ -50,12 +58,24 @@ func TestMain(m *testing.M) {
 	}
 	HostConn = c
 
+	// Read host session ID
+	var respSessionId md.Message[md.RespSessionId]
+	_ = HostConn.ReadJSON(&respSessionId)
+	HostSessionID = respSessionId.Payload.SessionID
+
 	c2, _, err := dialer.Dial("ws://localhost:7171/battleship", nil)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
 	}
 	JoinConn = c2
+
+	// Read Join sessoin ID
+	_ = JoinConn.ReadJSON(&respSessionId)
+	JoinSessionID = respSessionId.Payload.SessionID
+
+	log.Println("Host session ID:", HostSessionID)
+	log.Println("Join session ID:", JoinSessionID)
 
 	log.Printf("host: %s\tjoin: %s", HostConn.LocalAddr().String(), JoinConn.LocalAddr().String())
 	os.Exit(m.Run())
