@@ -348,13 +348,6 @@ sessionLoop:
 				case ConnLoopCodePassThrough:
 				}
 
-				log.Println("sesion", s)
-				log.Println("sesion id", game.HostPlayer.SessionID)
-				log.Println("game id", s.Game.Uuid)
-				log.Println(readyResp)
-				log.Printf("%+v\n", s.SessionManager)
-				log.Printf("%+v\n", s.SessionManager.CommunicationChan)
-
 				s.SessionManager.CommunicationChan <- NewSessionMessage(s, game.HostPlayer.SessionID, s.Game.Uuid, readyResp)
 			}
 
