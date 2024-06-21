@@ -11,16 +11,8 @@ import (
 )
 
 const (
-	PingInterval    time.Duration = time.Second * 15
-	GracePeriod     time.Duration = time.Minute * 3
-	CleanupInterval time.Duration = time.Minute * 20
-
-	// Assuming this capacity for the slice when
-	// we're cleaning up the sessions map.
-	assumedClosedConns = 5
+	gracePeriod time.Duration = time.Minute * 3
 )
-
-var GlobalSessionManager = NewSessionManager()
 
 type SessionMessage struct {
 	SenderSession *Session
@@ -37,84 +29,10 @@ func NewSessionMessage(senderSession *Session, receiverId string, gameUuid strin
 	}
 }
 
-type SessionManager struct {
-	Sessions          map[string]*Session
-	CommunicationChan chan SessionMessage
-	mu                sync.Mutex
-}
-
-func NewSessionManager() *SessionManager {
-	return &SessionManager{
-		Sessions:          make(map[string]*Session),
-		CommunicationChan: make(chan SessionMessage),
-	}
-}
-
-func (sm *SessionManager) ManageCommunication() {
-	for {
-		msg := <-sm.CommunicationChan
-
-		sm.mu.Lock()
-		receiverSession, prs := sm.Sessions[msg.ReceiverID]
-		if !prs {
-			// It should never be the case that the other session
-			// is not found. The sender session should terminate
-			msg.SenderSession.terminate()
-			continue
-		}
-
-		if receiverSession.Game.Uuid != msg.GameUuid {
-			panic("receiver session msg game is not the same as game uuid; this error should never happen")
-		}
-
-		switch WriteJSONWithRetry(receiverSession.Conn, msg.Payload) {
-		case ConnLoopAbnormalClosureRetry:
-			switch receiverSession.handleAbnormalClosure() {
-			case ConnLoopCodeBreak:
-				receiverSession.terminate()
-
-			case ConnLoopCodeContinue:
-			}
-
-		case ConnLoopCodeBreak:
-			receiverSession.terminate()
-
-		case ConnLoopCodePassThrough:
-		}
-
-		sm.mu.Unlock()
-	}
-}
-
-// To ensure that there is no dangling connections,
-// server session manager marks the connections with a
-// lifetime of more than 20 mins as stale and deletes them.
-func (sm *SessionManager) CleanUpPeriodically() {
-	for {
-		time.Sleep(CleanupInterval)
-
-		sm.mu.Lock()
-		
-		toDelete := make([]string, 0, assumedClosedConns)
-
-		for ID, session := range sm.Sessions {
-			if time.Since(session.CreatedAt) > CleanupInterval {
-				toDelete = append(toDelete, ID)
-			}
-		}
-
-		for _, ID := range toDelete {
-			delete(sm.Sessions, ID)
-		}
-
-		sm.mu.Unlock()
-	}
-}
-
 type Session struct {
 	ID             string
 	Conn           *websocket.Conn
-	Game           *md.Game
+	GameUuid       string
 	Player         *md.Player
 	GraceTimer     *time.Timer
 	StopRetry      chan struct{}
@@ -254,7 +172,7 @@ sessionLoop:
 
 			// defender turn is set to true
 			resp.Payload.IsTurn = true
-			s.SessionManager.CommunicationChan <- NewSessionMessage(s, defender.SessionID, s.Game.Uuid, resp)
+			s.SessionManager.CommunicationChan <- NewSessionMessage(s, defender.SessionID, s.GameUuid, resp)
 
 			// If this attack caused the game to end.
 			// Both attacker and defender will get a end game
@@ -281,7 +199,7 @@ sessionLoop:
 				// Sending failure code to the defender
 				respDefender := md.NewMessage[md.RespEndGame](md.CodeEndGame)
 				respDefender.AddPayload(md.RespEndGame{PlayerMatchStatus: md.PlayerMatchStatusLost})
-				s.SessionManager.CommunicationChan <- NewSessionMessage(s, defender.SessionID, s.Game.Uuid, respDefender)
+				s.SessionManager.CommunicationChan <- NewSessionMessage(s, defender.SessionID, s.GameUuid, respDefender)
 			}
 
 		case md.CodeReady:
@@ -333,7 +251,7 @@ sessionLoop:
 				if s.Player.IsHost {
 					otherPlayerSessionId = game.JoinPlayer.SessionID
 				}
-				s.SessionManager.CommunicationChan <- NewSessionMessage(s, otherPlayerSessionId, s.Game.Uuid, respStartGame)
+				s.SessionManager.CommunicationChan <- NewSessionMessage(s, otherPlayerSessionId, s.GameUuid, respStartGame)
 			}
 
 		case md.CodeJoinGame:
@@ -375,7 +293,49 @@ sessionLoop:
 				case ConnLoopCodePassThrough:
 				}
 
-				s.SessionManager.CommunicationChan <- NewSessionMessage(s, game.HostPlayer.SessionID, s.Game.Uuid, readyResp)
+				s.SessionManager.CommunicationChan <- NewSessionMessage(s, game.HostPlayer.SessionID, s.GameUuid, readyResp)
+			}
+
+		case md.CodeRequestRematchFromServer:
+			// 1. See if the game still exists
+			game, err := s.GameManager.FindGame(s.GameUuid)
+			if err != nil {
+				break sessionLoop
+			}
+
+			// 2. Check if the other player still exists
+			var otherPlayer *md.Player
+			for _, player := range game.Players {
+				if player.Uuid != s.Player.Uuid {
+					otherPlayer = player
+				}
+			}
+			// The other player had already quit and didn't
+			// want a rematch
+			if otherPlayer == nil {
+				break sessionLoop
+			}
+
+			msg := md.NewMessage[md.NoPayload](md.CodeRequestRematchFromOtherPlayer)
+			s.SessionManager.CommunicationChan <- NewSessionMessage(s, otherPlayer.SessionID, s.GameUuid, msg)
+
+		case md.CodeRematch:
+			s.restartGame()
+			readyResp := md.NewMessage[md.NoPayload](md.CodeSelectGrid)
+			
+			switch WriteJSONWithRetry(conn, readyResp) {
+			case ConnLoopAbnormalClosureRetry:
+				switch s.handleAbnormalClosure() {
+				case ConnLoopCodeBreak:
+					break sessionLoop
+
+				case ConnLoopCodeContinue:
+				}
+
+			case ConnLoopCodeBreak:
+				break sessionLoop
+
+			case ConnLoopCodePassThrough:
 			}
 
 		default:
@@ -403,7 +363,7 @@ func (s *Session) handleAbnormalClosure() int {
 	log.Printf("starting grace period for %s\n", s.ID)
 
 	s.mu.Lock()
-	s.GraceTimer = time.AfterFunc(GracePeriod, func() {
+	s.GraceTimer = time.AfterFunc(gracePeriod, func() {
 		s.SessionManager.mu.Lock()
 		s.Conn.Close()
 		delete(s.SessionManager.Sessions, s.ID)
@@ -412,13 +372,14 @@ func (s *Session) handleAbnormalClosure() int {
 	s.mu.Unlock()
 
 	// This means there is no game and abnormal closure is happening
-	if s.Game == nil {
+	game, err := s.GameManager.FindGame(s.GameUuid)
+	if err != nil {
 		return ConnLoopCodeBreak
 	}
 
-	otherPlayer := s.Game.HostPlayer
+	otherPlayer := game.HostPlayer
 	if s.Player.IsHost {
-		otherPlayer = s.Game.JoinPlayer
+		otherPlayer = game.JoinPlayer
 	}
 
 	if otherPlayer != nil {
@@ -446,14 +407,24 @@ func (s *Session) handleAbnormalClosure() int {
 	}
 }
 
+// This will delete player from the game players map
+// and delete the player session
 func (s *Session) terminate() {
-	if s.Game != nil {
-		s.GameManager.EndGameSignal <- s.Game.Uuid
+	s.GameManager.DeletePlayerChan <- NewDeletePlayerSignal(s.GameUuid, s.Player.Uuid)
+	s.SessionManager.DeleteSessionChan <- s.ID
+}
+
+// Restarting the game means we play the game with
+// the same gameUuid but the player info gets reset
+func (s *Session) restartGame() {
+	s.Player.AttackGrid = md.NewGrid()
+	s.Player.DefenceGrid = md.NewGrid()
+	if s.Player.IsHost {
+		s.Player.IsTurn = true
+	} else {
+		s.Player.IsTurn = false
 	}
-
-	s.SessionManager.mu.Lock()
-	delete(s.SessionManager.Sessions, s.ID)
-	s.SessionManager.mu.Unlock()
-
-	log.Println("session closed:", s.ID)
+	s.Player.Ships = md.NewShipsMap()
+	s.Player.SunkenShips = 0
+	s.Player.MatchStatus = md.PlayerMatchStatusUndefined
 }
