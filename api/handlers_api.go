@@ -45,7 +45,7 @@ func NewRequest(conn *websocket.Conn, session *Session, payload ...[]byte) *Requ
 
 func (w *Request) HandleCreateGame() *md.Message[md.RespCreateGame] {
 	game := w.Session.GameManager.AddGame()
-	w.Session.Game = game
+	w.Session.GameUuid = game.Uuid
 
 	hostPlayer := game.CreateHostPlayer(w.Conn, w.Session.ID)
 	w.Session.Player = hostPlayer
@@ -108,7 +108,7 @@ func (w *Request) HandleJoinPlayer() (*md.Message[md.RespJoinGame], *md.Game) {
 
 	joinPlayer := game.CreateJoinPlayer(w.Conn, w.Session.ID)
 
-	w.Session.Game = game
+	w.Session.GameUuid = game.Uuid
 	w.Session.Player = joinPlayer
 
 	resp.AddPayload(md.RespJoinGame{GameUuid: game.Uuid, PlayerUuid: joinPlayer.Uuid})

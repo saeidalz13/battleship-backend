@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	gracePeriod  time.Duration = time.Minute * 3
+	gracePeriod time.Duration = time.Minute * 3
 )
 
 type SessionMessage struct {
@@ -32,7 +32,7 @@ func NewSessionMessage(senderSession *Session, receiverId string, gameUuid strin
 type Session struct {
 	ID             string
 	Conn           *websocket.Conn
-	Game           *md.Game
+	GameUuid       string
 	Player         *md.Player
 	GraceTimer     *time.Timer
 	StopRetry      chan struct{}
@@ -172,7 +172,7 @@ sessionLoop:
 
 			// defender turn is set to true
 			resp.Payload.IsTurn = true
-			s.SessionManager.CommunicationChan <- NewSessionMessage(s, defender.SessionID, s.Game.Uuid, resp)
+			s.SessionManager.CommunicationChan <- NewSessionMessage(s, defender.SessionID, s.GameUuid, resp)
 
 			// If this attack caused the game to end.
 			// Both attacker and defender will get a end game
@@ -199,7 +199,7 @@ sessionLoop:
 				// Sending failure code to the defender
 				respDefender := md.NewMessage[md.RespEndGame](md.CodeEndGame)
 				respDefender.AddPayload(md.RespEndGame{PlayerMatchStatus: md.PlayerMatchStatusLost})
-				s.SessionManager.CommunicationChan <- NewSessionMessage(s, defender.SessionID, s.Game.Uuid, respDefender)
+				s.SessionManager.CommunicationChan <- NewSessionMessage(s, defender.SessionID, s.GameUuid, respDefender)
 			}
 
 		case md.CodeReady:
@@ -251,7 +251,7 @@ sessionLoop:
 				if s.Player.IsHost {
 					otherPlayerSessionId = game.JoinPlayer.SessionID
 				}
-				s.SessionManager.CommunicationChan <- NewSessionMessage(s, otherPlayerSessionId, s.Game.Uuid, respStartGame)
+				s.SessionManager.CommunicationChan <- NewSessionMessage(s, otherPlayerSessionId, s.GameUuid, respStartGame)
 			}
 
 		case md.CodeJoinGame:
@@ -293,13 +293,36 @@ sessionLoop:
 				case ConnLoopCodePassThrough:
 				}
 
-				s.SessionManager.CommunicationChan <- NewSessionMessage(s, game.HostPlayer.SessionID, s.Game.Uuid, readyResp)
+				s.SessionManager.CommunicationChan <- NewSessionMessage(s, game.HostPlayer.SessionID, s.GameUuid, readyResp)
 			}
 
-		case md.CodePlayAgain:
-			s.restartGame()
+		case md.CodeRequestRematchFromServer:
+			// 1. See if the game still exists
+			game, err := s.GameManager.FindGame(s.GameUuid)
+			if err != nil {
+				break sessionLoop
+			}
 
+			// 2. Check if the other player still exists
+			var otherPlayer *md.Player
+			for _, player := range game.Players {
+				if player.Uuid != s.Player.Uuid {
+					otherPlayer = player
+				}
+			}
+			// The other player had already quit and didn't
+			// want a rematch
+			if otherPlayer == nil {
+				break sessionLoop
+			}
+
+			msg := md.NewMessage[md.NoPayload](md.CodeRequestRematchFromOtherPlayer)
+			s.SessionManager.CommunicationChan <- NewSessionMessage(s, otherPlayer.SessionID, s.GameUuid, msg)
+
+		case md.CodeRematch:
+			s.restartGame()
 			readyResp := md.NewMessage[md.NoPayload](md.CodeSelectGrid)
+			
 			switch WriteJSONWithRetry(conn, readyResp) {
 			case ConnLoopAbnormalClosureRetry:
 				switch s.handleAbnormalClosure() {
@@ -349,13 +372,14 @@ func (s *Session) handleAbnormalClosure() int {
 	s.mu.Unlock()
 
 	// This means there is no game and abnormal closure is happening
-	if s.Game == nil {
+	game, err := s.GameManager.FindGame(s.GameUuid)
+	if err != nil {
 		return ConnLoopCodeBreak
 	}
 
-	otherPlayer := s.Game.HostPlayer
+	otherPlayer := game.HostPlayer
 	if s.Player.IsHost {
-		otherPlayer = s.Game.JoinPlayer
+		otherPlayer = game.JoinPlayer
 	}
 
 	if otherPlayer != nil {
@@ -383,19 +407,22 @@ func (s *Session) handleAbnormalClosure() int {
 	}
 }
 
+// This will delete player from the game players map
+// and delete the player session
 func (s *Session) terminate() {
-	if s.Game != nil {
-		s.GameManager.EndGameSignal <- s.Game.Uuid
-	}
-
-	s.SessionManager.DeletionChan <- s.ID
+	s.GameManager.DeletePlayerChan <- NewDeletePlayerSignal(s.GameUuid, s.Player.Uuid)
+	s.SessionManager.DeleteSessionChan <- s.ID
 }
 
+// Restarting the game means we play the game with
+// the same gameUuid but the player info gets reset
 func (s *Session) restartGame() {
 	s.Player.AttackGrid = md.NewGrid()
 	s.Player.DefenceGrid = md.NewGrid()
 	if s.Player.IsHost {
 		s.Player.IsTurn = true
+	} else {
+		s.Player.IsTurn = false
 	}
 	s.Player.Ships = md.NewShipsMap()
 	s.Player.SunkenShips = 0

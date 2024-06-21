@@ -9,16 +9,29 @@ import (
 
 var GlobalGameManager = NewGameManager()
 
+type deletePlayerSignal struct {
+	GameUuid   string
+	PlayerUuid string
+}
+
+func NewDeletePlayerSignal(gameUuid, playerUuid string) deletePlayerSignal {
+	return deletePlayerSignal{
+		GameUuid:   gameUuid,
+		PlayerUuid: playerUuid,
+	}
+}
+
 type GameManager struct {
-	Games         map[string]*md.Game
-	EndGameSignal chan string
-	mu            sync.RWMutex
+	Games            map[string]*md.Game
+	EndGameChan      chan string
+	DeletePlayerChan chan deletePlayerSignal
+	mu               sync.RWMutex
 }
 
 func NewGameManager() *GameManager {
 	return &GameManager{
-		Games:         make(map[string]*md.Game),
-		EndGameSignal: make(chan string),
+		Games:       make(map[string]*md.Game),
+		EndGameChan: make(chan string),
 	}
 }
 
@@ -44,7 +57,7 @@ func (gm *GameManager) FindGame(gameUuid string) (*md.Game, error) {
 
 func (gm *GameManager) ManageGameTermination() {
 	for {
-		gameUuid := <-gm.EndGameSignal
+		gameUuid := <-gm.EndGameChan
 
 		gm.mu.Lock()
 		delete(gm.Games, gameUuid)
@@ -67,3 +80,28 @@ func (gm *GameManager) FindGameAndPlayer(gameUuid, playerUuid string) (*md.Game,
 	return game, player, nil
 }
 
+// Listens on a channel to delete the player in each game
+// If the game has no players, then the game gets deleted too
+func (gm *GameManager) ManagePlayerDeletion() {
+	for {
+		gamePlayerUuids := <-gm.DeletePlayerChan
+
+		game, err := gm.FindGame(gamePlayerUuids.GameUuid)
+		if err != nil {
+			continue
+		}
+
+		gm.mu.Lock()
+		delete(game.Players, gamePlayerUuids.PlayerUuid)
+
+		foundKeys := make([]string, 0, 2)
+		for key := range game.Players {
+			foundKeys = append(foundKeys, key)
+		}
+
+		if len(foundKeys) == 0 {
+			delete(gm.Games, game.Uuid)
+		}
+		gm.mu.Unlock()
+	}
+}

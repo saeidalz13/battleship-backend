@@ -12,13 +12,13 @@ const (
 	// Assuming this capacity for the slice when
 	// we're cleaning up the sessions map.
 	assumedClosedConns               = 5
-	cleanupInterval    time.Duration = time.Minute * 15
+	cleanupInterval    time.Duration = time.Minute * 20
 )
 
 type SessionManager struct {
 	Sessions          map[string]*Session
 	CommunicationChan chan SessionMessage
-	DeletionChan      chan string
+	DeleteSessionChan chan string
 	mu                sync.Mutex
 }
 
@@ -26,13 +26,14 @@ func NewSessionManager() *SessionManager {
 	return &SessionManager{
 		Sessions:          make(map[string]*Session),
 		CommunicationChan: make(chan SessionMessage),
-		DeletionChan:      make(chan string),
+		DeleteSessionChan: make(chan string),
 	}
 }
 
+// Listens on DeletionChan for signal to delete session
 func (sm *SessionManager) ManageSessionsDeletion() {
 	for {
-		sessionId := <-sm.DeletionChan
+		sessionId := <-sm.DeleteSessionChan
 
 		sm.mu.Lock()
 		delete(sm.Sessions, sessionId)
@@ -42,6 +43,8 @@ func (sm *SessionManager) ManageSessionsDeletion() {
 	}
 }
 
+// Function to faciliate the communication between
+// two sessions through a channel
 func (sm *SessionManager) ManageCommunication() {
 	for {
 		msg := <-sm.CommunicationChan
@@ -55,7 +58,7 @@ func (sm *SessionManager) ManageCommunication() {
 			continue
 		}
 
-		if receiverSession.Game.Uuid != msg.GameUuid {
+		if receiverSession.GameUuid != msg.GameUuid {
 			panic("receiver session msg game is not the same as game uuid; this error should never happen")
 		}
 
@@ -86,7 +89,6 @@ func (sm *SessionManager) CleanUpPeriodically() {
 		time.Sleep(cleanupInterval)
 
 		sm.mu.Lock()
-
 		toDelete := make([]string, 0, assumedClosedConns)
 
 		for ID, session := range sm.Sessions {
@@ -98,7 +100,6 @@ func (sm *SessionManager) CleanUpPeriodically() {
 		for _, ID := range toDelete {
 			delete(sm.Sessions, ID)
 		}
-
 		sm.mu.Unlock()
 	}
 }

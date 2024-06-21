@@ -33,6 +33,7 @@ func main() {
 	server := api.NewServer(api.GlobalSessionManager, api.GlobalGameManager, api.WithPort(port), api.WithStage(stage))
 
 	go server.GameManager.ManageGameTermination()
+	go server.GameManager.ManagePlayerDeletion()
 	
 	go server.SessionManager.ManageCommunication()
 	go server.SessionManager.ManageSessionsDeletion()

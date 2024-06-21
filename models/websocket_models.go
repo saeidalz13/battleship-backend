@@ -35,7 +35,12 @@ const (
 	CodeOtherPlayerDisconnected
 	CodeOtherPlayerReconnected
 	CodeOtherPlayerGracePeriod
-	CodePlayAgain
+
+	CodeRequestRematchFromServer
+	CodeRequestRematchFromOtherPlayer
+
+	// This code is sent from both players if they want rematch
+	CodeRematch
 )
 
 const (
@@ -167,21 +172,23 @@ func (p *Player) SunkShip() {
 }
 
 type Game struct {
-	IsFinished bool
+	isFinished bool
 	Uuid       string
 	HostPlayer *Player
 	JoinPlayer *Player
+	Players    map[string]*Player
 }
 
 func NewGame() *Game {
 	return &Game{
 		Uuid:       uuid.NewString()[:6],
-		IsFinished: false,
+		isFinished: false,
+		Players:    make(map[string]*Player),
 	}
 }
 
 func (g *Game) FinishGame() {
-	g.IsFinished = true
+	g.isFinished = true
 }
 
 // returns a slice of players in the order of host then join.
@@ -190,25 +197,27 @@ func (g *Game) GetPlayers() []*Player {
 }
 
 func (g *Game) FindPlayer(playerUuid string) (*Player, error) {
-	switch playerUuid {
-	case g.HostPlayer.Uuid:
-		return g.HostPlayer, nil
-	case g.JoinPlayer.Uuid:
-		return g.JoinPlayer, nil
-	default:
+	player, prs := g.Players[playerUuid]
+	if !prs {
 		return nil, cerr.ErrPlayerNotExist(playerUuid)
 	}
+
+	return player, nil
 }
 
 func (g *Game) CreateJoinPlayer(ws *websocket.Conn, sessionID string) *Player {
 	joinPlayer := NewPlayer(ws, g, false, false, sessionID)
 	g.JoinPlayer = joinPlayer
+
+	g.Players[joinPlayer.Uuid] = joinPlayer
 	return joinPlayer
 }
 
 func (g *Game) CreateHostPlayer(ws *websocket.Conn, sessionID string) *Player {
 	hostPlayer := NewPlayer(ws, g, true, true, sessionID)
 	g.HostPlayer = hostPlayer
+
+	g.Players[hostPlayer.Uuid] = hostPlayer
 	return hostPlayer
 }
 
