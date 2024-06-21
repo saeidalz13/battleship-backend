@@ -35,6 +35,7 @@ func main() {
 	go server.GameManager.ManageGameTermination()
 	
 	go server.SessionManager.ManageCommunication()
+	go server.SessionManager.ManageSessionsDeletion()
 	go server.SessionManager.CleanUpPeriodically()
 
 	mux := http.NewServeMux()

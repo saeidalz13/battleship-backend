@@ -35,6 +35,7 @@ const (
 	CodeOtherPlayerDisconnected
 	CodeOtherPlayerReconnected
 	CodeOtherPlayerGracePeriod
+	CodePlayAgain
 )
 
 const (
