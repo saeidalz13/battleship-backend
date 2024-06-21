@@ -6,8 +6,6 @@ import (
 	"time"
 )
 
-var GlobalSessionManager = NewSessionManager()
-
 const (
 	// Assuming this capacity for the slice when
 	// we're cleaning up the sessions map.

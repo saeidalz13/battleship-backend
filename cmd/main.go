@@ -30,7 +30,7 @@ func main() {
 		panic(err)
 	}
 
-	server := api.NewServer(api.GlobalSessionManager, api.GlobalGameManager, api.WithPort(port), api.WithStage(stage))
+	server := api.NewServer(api.WithPort(port), api.WithStage(stage))
 
 	go server.GameManager.ManageGameTermination()
 	go server.GameManager.ManagePlayerDeletion()

@@ -7,8 +7,6 @@ import (
 	md "github.com/saeidalz13/battleship-backend/models"
 )
 
-var GlobalGameManager = NewGameManager()
-
 type deletePlayerSignal struct {
 	GameUuid   string
 	PlayerUuid string
@@ -93,7 +91,7 @@ func (gm *GameManager) ManagePlayerDeletion() {
 
 		gm.mu.Lock()
 		delete(game.Players, gamePlayerUuids.PlayerUuid)
-		
+
 		if len(game.Players) == 0 {
 			delete(gm.Games, game.Uuid)
 		}

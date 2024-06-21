@@ -52,7 +52,7 @@ type Server struct {
 
 type Option func(*Server) error
 
-func NewServer(sessionManager *SessionManager, gameManger *GameManager, optFuncs ...Option) *Server {
+func NewServer(optFuncs ...Option) *Server {
 	var server Server
 	for _, opt := range optFuncs {
 		if err := opt(&server); err != nil {
@@ -63,8 +63,8 @@ func NewServer(sessionManager *SessionManager, gameManger *GameManager, optFuncs
 		server.port = &defaultPort
 	}
 
-	server.SessionManager = sessionManager
-	server.GameManager = gameManger
+	server.SessionManager = NewSessionManager()
+	server.GameManager = NewGameManager()
 
 	return &server
 }

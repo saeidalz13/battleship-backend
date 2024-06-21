@@ -20,14 +20,12 @@ var (
 	JoinPlayerId       string
 	HostSessionID      string
 	JoinSessionID      string
-	testGameManager    = api.NewGameManager()
-	testSessionManager = api.NewSessionManager()
 )
 
 func TestMain(m *testing.M) {
 	go func() {
 		stage := "dev"
-		server := api.NewServer(testSessionManager, testGameManager, api.WithPort(7171), api.WithStage(stage))
+		server := api.NewServer(api.WithPort(7171), api.WithStage(stage))
 
 		go server.GameManager.ManageGameTermination()
 		go server.GameManager.ManagePlayerDeletion()
