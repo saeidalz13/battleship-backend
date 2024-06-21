@@ -93,13 +93,8 @@ func (gm *GameManager) ManagePlayerDeletion() {
 
 		gm.mu.Lock()
 		delete(game.Players, gamePlayerUuids.PlayerUuid)
-
-		foundKeys := make([]string, 0, 2)
-		for key := range game.Players {
-			foundKeys = append(foundKeys, key)
-		}
-
-		if len(foundKeys) == 0 {
+		
+		if len(game.Players) == 0 {
 			delete(gm.Games, game.Uuid)
 		}
 		gm.mu.Unlock()
