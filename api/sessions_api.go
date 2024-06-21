@@ -10,6 +10,16 @@ import (
 	md "github.com/saeidalz13/battleship-backend/models"
 )
 
+const (
+	PingInterval    time.Duration = time.Second * 15
+	GracePeriod     time.Duration = time.Minute * 3
+	CleanupInterval time.Duration = time.Minute * 20
+
+	// Assuming this capacity for the slice when
+	// we're cleaning up the sessions map.
+	assumedClosedConns = 5
+)
+
 var GlobalSessionManager = NewSessionManager()
 
 type SessionMessage struct {
@@ -76,10 +86,30 @@ func (sm *SessionManager) ManageCommunication() {
 	}
 }
 
-const (
-	PingInterval time.Duration = time.Second * 15
-	GracePeriod  time.Duration = time.Minute * 3
-)
+// To ensure that there is no dangling connections,
+// server session manager marks the connections with a
+// lifetime of more than 20 mins as stale and deletes them.
+func (sm *SessionManager) CleanUpPeriodically() {
+	for {
+		time.Sleep(CleanupInterval)
+
+		sm.mu.Lock()
+		
+		toDelete := make([]string, 0, assumedClosedConns)
+
+		for ID, session := range sm.Sessions {
+			if time.Since(session.CreatedAt) > CleanupInterval {
+				toDelete = append(toDelete, ID)
+			}
+		}
+
+		for _, ID := range toDelete {
+			delete(sm.Sessions, ID)
+		}
+
+		sm.mu.Unlock()
+	}
+}
 
 type Session struct {
 	ID             string
@@ -91,6 +121,7 @@ type Session struct {
 	mu             sync.Mutex
 	GameManager    *GameManager
 	SessionManager *SessionManager
+	CreatedAt      time.Time
 }
 
 func NewSession(conn *websocket.Conn, sessionID string, gameManager *GameManager, sessionManager *SessionManager) *Session {
@@ -100,6 +131,7 @@ func NewSession(conn *websocket.Conn, sessionID string, gameManager *GameManager
 		StopRetry:      make(chan struct{}),
 		GameManager:    gameManager,
 		SessionManager: sessionManager,
+		CreatedAt:      time.Now(),
 	}
 }
 
@@ -250,11 +282,6 @@ sessionLoop:
 				respDefender := md.NewMessage[md.RespEndGame](md.CodeEndGame)
 				respDefender.AddPayload(md.RespEndGame{PlayerMatchStatus: md.PlayerMatchStatusLost})
 				s.SessionManager.CommunicationChan <- NewSessionMessage(s, defender.SessionID, s.Game.Uuid, respDefender)
-
-				// Wait for 5 seconds to make sure all the messages have been
-				// sent and nothing has a nil pointer after session termination
-				time.Sleep(time.Second * 5)
-				return
 			}
 
 		case md.CodeReady:

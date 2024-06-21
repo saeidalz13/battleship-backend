@@ -33,7 +33,9 @@ func main() {
 	server := api.NewServer(api.GlobalSessionManager, api.GlobalGameManager, api.WithPort(port), api.WithStage(stage))
 
 	go server.GameManager.ManageGameTermination()
+	
 	go server.SessionManager.ManageCommunication()
+	go server.SessionManager.CleanUpPeriodically()
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /battleship", server.HandleWs)

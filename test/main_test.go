@@ -31,6 +31,7 @@ func TestMain(m *testing.M) {
 
 		go server.GameManager.ManageGameTermination()
 		go server.SessionManager.ManageCommunication()
+		go server.SessionManager.CleanUpPeriodically()
 
 		mux := http.NewServeMux()
 		mux.HandleFunc("GET /battleship", server.HandleWs)
