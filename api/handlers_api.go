@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"log"
 
-	"github.com/gorilla/websocket"
 	cerr "github.com/saeidalz13/battleship-backend/internal/error"
 	md "github.com/saeidalz13/battleship-backend/models"
 )
@@ -19,7 +18,6 @@ type RequestHandler interface {
 // Every incoming valid request will have this structure
 // The request then is handled in line with WsRequestHandler interface
 type Request struct {
-	Conn    *websocket.Conn
 	Payload []byte
 	Session *Session
 }
@@ -27,14 +25,13 @@ type Request struct {
 // This tells the compiler that WsRequest struct must be of type of WsRequestHandler
 var _ RequestHandler = (*Request)(nil)
 
-func NewRequest(conn *websocket.Conn, session *Session, payload ...[]byte) *Request {
+func NewRequest(session *Session, payload ...[]byte) *Request {
 	if len(payload) > 1 {
 		log.Println("cannot accept more than one payload")
 		return nil
 	}
 
 	wsReq := Request{
-		Conn:    conn,
 		Session: session,
 	}
 	if len(payload) != 0 {
@@ -43,12 +40,12 @@ func NewRequest(conn *websocket.Conn, session *Session, payload ...[]byte) *Requ
 	return &wsReq
 }
 
-func (w *Request) HandleCreateGame() *md.Message[md.RespCreateGame] {
-	game := w.Session.GameManager.AddGame()
-	w.Session.GameUuid = game.Uuid
+func (r *Request) HandleCreateGame() *md.Message[md.RespCreateGame] {
+	game := r.Session.GameManager.AddGame()
+	r.Session.GameUuid = game.Uuid
 
-	hostPlayer := game.CreateHostPlayer(w.Conn, w.Session.ID)
-	w.Session.Player = hostPlayer
+	hostPlayer := game.CreateHostPlayer(r.Session.Conn, r.Session.ID)
+	r.Session.Player = hostPlayer
 
 	resp := md.NewMessage[md.RespCreateGame](md.CodeCreateGame)
 	resp.AddPayload(md.RespCreateGame{GameUuid: game.Uuid, HostUuid: hostPlayer.Uuid})
@@ -57,16 +54,16 @@ func (w *Request) HandleCreateGame() *md.Message[md.RespCreateGame] {
 
 // User will choose the configurations of ships on defence grid.
 // Then the grid is sent to backend and adjustment happens accordingly.
-func (w *Request) HandleReadyPlayer() (*md.Message[md.NoPayload], *md.Game) {
+func (r *Request) HandleReadyPlayer() (*md.Message[md.NoPayload], *md.Game) {
 	var readyPlayerReq md.Message[md.ReqReadyPlayer]
 	resp := md.NewMessage[md.NoPayload](md.CodeReady)
 
-	if err := json.Unmarshal(w.Payload, &readyPlayerReq); err != nil {
+	if err := json.Unmarshal(r.Payload, &readyPlayerReq); err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrInvalidPayload)
 		return &resp, nil
 	}
 
-	game, player, err := w.Session.GameManager.FindGameAndPlayer(readyPlayerReq.Payload.GameUuid, readyPlayerReq.Payload.PlayerUuid)
+	game, player, err := r.Session.GameManager.FindGameAndPlayer(readyPlayerReq.Payload.GameUuid, readyPlayerReq.Payload.PlayerUuid)
 	if err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrReady)
 		return &resp, nil
@@ -91,36 +88,36 @@ func (w *Request) HandleReadyPlayer() (*md.Message[md.NoPayload], *md.Game) {
 
 // Join user sends the game uuid and if this game exists,
 // a new join player is created and added to the database
-func (w *Request) HandleJoinPlayer() (*md.Message[md.RespJoinGame], *md.Game) {
+func (r *Request) HandleJoinPlayer() (*md.Message[md.RespJoinGame], *md.Game) {
 	var joinGameReq md.Message[md.ReqJoinGame]
 	resp := md.NewMessage[md.RespJoinGame](md.CodeJoinGame)
 
-	if err := json.Unmarshal(w.Payload, &joinGameReq); err != nil {
+	if err := json.Unmarshal(r.Payload, &joinGameReq); err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrInvalidPayload)
 		return &resp, nil
 	}
 
-	game, err := w.Session.GameManager.FindGame(joinGameReq.Payload.GameUuid)
+	game, err := r.Session.GameManager.FindGame(joinGameReq.Payload.GameUuid)
 	if err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrJoin)
 		return &resp, nil
 	}
 
-	joinPlayer := game.CreateJoinPlayer(w.Conn, w.Session.ID)
+	joinPlayer := game.CreateJoinPlayer(r.Session.Conn, r.Session.ID)
 
-	w.Session.GameUuid = game.Uuid
-	w.Session.Player = joinPlayer
+	r.Session.GameUuid = game.Uuid
+	r.Session.Player = joinPlayer
 
 	resp.AddPayload(md.RespJoinGame{GameUuid: game.Uuid, PlayerUuid: joinPlayer.Uuid})
 	return &resp, game
 }
 
 // Handle the attack logic for the incoming request
-func (w *Request) HandleAttack() (*md.Message[md.RespAttack], *md.Player) {
+func (r *Request) HandleAttack() (*md.Message[md.RespAttack], *md.Player) {
 	var reqAttack md.Message[md.ReqAttack]
 	resp := md.NewMessage[md.RespAttack](md.CodeAttack)
 
-	if err := json.Unmarshal(w.Payload, &reqAttack); err != nil {
+	if err := json.Unmarshal(r.Payload, &reqAttack); err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrInvalidPayload)
 		return &resp, nil
 	}
@@ -132,7 +129,7 @@ func (w *Request) HandleAttack() (*md.Message[md.RespAttack], *md.Player) {
 		return &resp, nil
 	}
 
-	game, attacker, err := w.Session.GameManager.FindGameAndPlayer(reqAttack.Payload.GameUuid, reqAttack.Payload.PlayerUuid)
+	game, attacker, err := r.Session.GameManager.FindGameAndPlayer(reqAttack.Payload.GameUuid, reqAttack.Payload.PlayerUuid)
 	if err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrAttack)
 		return &resp, nil

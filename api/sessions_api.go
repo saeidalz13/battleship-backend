@@ -58,7 +58,7 @@ func (s *Session) run() {
 
 sessionLoop:
 	for {
-		conn := s.Conn
+		// conn := s.Conn
 		// A WebSocket frame can be one of 6 types: text=1, binary=2, ping=9, pong=10, close=8 and continuation=0
 		// https://www.rfc-editor.org/rfc/rfc6455.html#section-11.8
 		retries := 0
@@ -76,7 +76,7 @@ sessionLoop:
 			case ConnLoopCodeRetry:
 				if retries < maxWriteWsRetries {
 					retries++
-					log.Printf("failed to read from ws conn [%s]; retrying... (retry no. %d)\n", conn.RemoteAddr().String(), retries)
+					log.Printf("failed to read from ws conn [%s]; retrying... (retry no. %d)\n", s.Conn.RemoteAddr().String(), retries)
 					time.Sleep(time.Duration(retries*backOffFactor) * time.Second)
 					continue sessionLoop
 
@@ -85,7 +85,7 @@ sessionLoop:
 				}
 
 			case ConnLoopCodeBreak:
-				log.Printf("break ws conn loop [%s] due to: %s\n", conn.RemoteAddr().String(), err)
+				log.Printf("break ws conn loop [%s] due to: %s\n", s.Conn.RemoteAddr().String(), err)
 				break sessionLoop
 
 			case ConnLoopCodeContinue:
@@ -102,7 +102,7 @@ sessionLoop:
 			resp := md.NewMessage[md.NoPayload](md.CodeSignalAbsent)
 			resp.AddError("incoming req payload must contain 'code' field", "")
 
-			switch WriteJSONWithRetry(conn, resp) {
+			switch WriteJSONWithRetry(s.Conn, resp) {
 			case ConnLoopAbnormalClosureRetry:
 				switch s.handleAbnormalClosure() {
 				case ConnLoopCodeBreak:
@@ -122,10 +122,10 @@ sessionLoop:
 		switch signal.Code {
 
 		case md.CodeCreateGame:
-			req := NewRequest(conn, s)
+			req := NewRequest(s)
 			resp := req.HandleCreateGame()
 
-			switch WriteJSONWithRetry(conn, resp) {
+			switch WriteJSONWithRetry(s.Conn, resp) {
 			case ConnLoopAbnormalClosureRetry:
 				switch s.handleAbnormalClosure() {
 				case ConnLoopCodeBreak:
@@ -140,12 +140,12 @@ sessionLoop:
 			}
 
 		case md.CodeAttack:
-			req := NewRequest(nil, s, payload)
+			req := NewRequest(s, payload)
 			// response will have the IsTurn field of attacker
 			resp, defender := req.HandleAttack()
 
 			if resp.Error.ErrorDetails != "" {
-				switch WriteJSONWithRetry(conn, resp) {
+				switch WriteJSONWithRetry(s.Conn, resp) {
 				case ConnLoopCodeBreak:
 					break sessionLoop
 				default:
@@ -155,7 +155,7 @@ sessionLoop:
 
 			// attacker turn is set to false
 			resp.Payload.IsTurn = false
-			switch WriteJSONWithRetry(conn, resp) {
+			switch WriteJSONWithRetry(s.Conn, resp) {
 			case ConnLoopAbnormalClosureRetry:
 				switch s.handleAbnormalClosure() {
 				case ConnLoopCodeBreak:
@@ -181,7 +181,7 @@ sessionLoop:
 				// Sending victory code to the attacker
 				respAttacker := md.NewMessage[md.RespEndGame](md.CodeEndGame)
 				respAttacker.AddPayload(md.RespEndGame{PlayerMatchStatus: md.PlayerMatchStatusWon})
-				switch WriteJSONWithRetry(conn, respAttacker) {
+				switch WriteJSONWithRetry(s.Conn, respAttacker) {
 				case ConnLoopAbnormalClosureRetry:
 					switch s.handleAbnormalClosure() {
 					case ConnLoopCodeBreak:
@@ -203,11 +203,11 @@ sessionLoop:
 			}
 
 		case md.CodeReady:
-			req := NewRequest(nil, s, payload)
+			req := NewRequest(s, payload)
 			resp, game := req.HandleReadyPlayer()
 
 			if resp.Error.ErrorDetails != "" {
-				switch WriteJSONWithRetry(conn, resp) {
+				switch WriteJSONWithRetry(s.Conn, resp) {
 				case ConnLoopCodeBreak:
 					break sessionLoop
 				default:
@@ -215,7 +215,7 @@ sessionLoop:
 				}
 			}
 
-			switch WriteJSONWithRetry(conn, resp) {
+			switch WriteJSONWithRetry(s.Conn, resp) {
 			case ConnLoopAbnormalClosureRetry:
 				switch s.handleAbnormalClosure() {
 				case ConnLoopCodeBreak:
@@ -232,7 +232,7 @@ sessionLoop:
 
 			if game.HostPlayer.IsReady && game.JoinPlayer.IsReady {
 				respStartGame := md.NewMessage[md.NoPayload](md.CodeStartGame)
-				switch WriteJSONWithRetry(conn, respStartGame) {
+				switch WriteJSONWithRetry(s.Conn, respStartGame) {
 				case ConnLoopAbnormalClosureRetry:
 					switch s.handleAbnormalClosure() {
 					case ConnLoopCodeBreak:
@@ -255,10 +255,10 @@ sessionLoop:
 			}
 
 		case md.CodeJoinGame:
-			req := NewRequest(conn, s, payload)
+			req := NewRequest(s, payload)
 			resp, game := req.HandleJoinPlayer()
 
-			switch WriteJSONWithRetry(conn, resp) {
+			switch WriteJSONWithRetry(s.Conn, resp) {
 			case ConnLoopAbnormalClosureRetry:
 				switch s.handleAbnormalClosure() {
 				case ConnLoopCodeBreak:
@@ -278,7 +278,7 @@ sessionLoop:
 			if resp.Error.ErrorDetails == "" {
 				readyResp := md.NewMessage[md.NoPayload](md.CodeSelectGrid)
 
-				switch WriteJSONWithRetry(conn, readyResp) {
+				switch WriteJSONWithRetry(s.Conn, readyResp) {
 				case ConnLoopAbnormalClosureRetry:
 					switch s.handleAbnormalClosure() {
 					case ConnLoopCodeBreak:
@@ -322,8 +322,8 @@ sessionLoop:
 		case md.CodeRematch:
 			s.restartGame()
 			readyResp := md.NewMessage[md.NoPayload](md.CodeSelectGrid)
-			
-			switch WriteJSONWithRetry(conn, readyResp) {
+
+			switch WriteJSONWithRetry(s.Conn, readyResp) {
 			case ConnLoopAbnormalClosureRetry:
 				switch s.handleAbnormalClosure() {
 				case ConnLoopCodeBreak:
@@ -341,7 +341,7 @@ sessionLoop:
 		default:
 			respInvalidSignal := md.NewMessage[md.NoPayload](md.CodeInvalidSignal)
 			respInvalidSignal.AddError("", "invalid code in the incoming payload")
-			switch WriteJSONWithRetry(conn, respInvalidSignal) {
+			switch WriteJSONWithRetry(s.Conn, respInvalidSignal) {
 			case ConnLoopAbnormalClosureRetry:
 				switch s.handleAbnormalClosure() {
 				case ConnLoopCodeBreak:
