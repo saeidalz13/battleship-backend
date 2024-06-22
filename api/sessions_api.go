@@ -361,8 +361,8 @@ sessionLoop:
 // This will delete player from the game players map
 // and delete the player session
 func (s *Session) terminate() {
-	s.GameManager.DeletePlayerChan <- NewDeletePlayerSignal(s.GameUuid, s.Player.Uuid)
-	s.SessionManager.DeleteSessionChan <- s.ID
+	s.GameManager.DeletePlayerFromGame(s.GameUuid, s.Player.Uuid)
+	s.SessionManager.DeleteSession(s.ID)
 }
 
 // Restarting the game means we play the game with
@@ -427,5 +427,3 @@ func (s *Session) restartGame() {
 // 		return ConnLoopCodeContinue
 // 	}
 // }
-
-

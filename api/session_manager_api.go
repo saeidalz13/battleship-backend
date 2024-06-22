@@ -1,7 +1,6 @@
 package api
 
 import (
-	"log"
 	"sync"
 	"time"
 )
@@ -16,7 +15,6 @@ const (
 type SessionManager struct {
 	Sessions          map[string]*Session
 	CommunicationChan chan SessionMessage
-	DeleteSessionChan chan string
 	mu                sync.Mutex
 }
 
@@ -24,21 +22,13 @@ func NewSessionManager() *SessionManager {
 	return &SessionManager{
 		Sessions:          make(map[string]*Session),
 		CommunicationChan: make(chan SessionMessage),
-		DeleteSessionChan: make(chan string),
 	}
 }
 
-// Listens on DeletionChan for signal to delete session
-func (sm *SessionManager) ManageSessionsDeletion() {
-	for {
-		sessionId := <-sm.DeleteSessionChan
-
-		sm.mu.Lock()
-		delete(sm.Sessions, sessionId)
-		sm.mu.Unlock()
-
-		log.Println("session closed:", sessionId)
-	}
+func (sm *SessionManager) DeleteSession(sessionId string) {
+	sm.mu.Lock()
+	delete(sm.Sessions, sessionId)
+	sm.mu.Unlock()
 }
 
 // Function to faciliate the communication between

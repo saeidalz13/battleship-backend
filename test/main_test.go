@@ -27,11 +27,7 @@ func TestMain(m *testing.M) {
 		stage := "dev"
 		server := api.NewServer(api.WithPort(7171), api.WithStage(stage))
 
-		go server.GameManager.ManageGameTermination()
-		go server.GameManager.ManagePlayerDeletion()
-
 		go server.SessionManager.ManageCommunication()
-		go server.SessionManager.ManageSessionsDeletion()
 		go server.SessionManager.CleanUpPeriodically()
 
 		mux := http.NewServeMux()
