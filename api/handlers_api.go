@@ -44,7 +44,7 @@ func (r *Request) HandleCreateGame() *md.Message[md.RespCreateGame] {
 	game := r.Session.GameManager.AddGame()
 	r.Session.GameUuid = game.Uuid
 
-	hostPlayer := game.CreateHostPlayer(r.Session.Conn, r.Session.ID)
+	hostPlayer := game.CreateHostPlayer(r.Session.ID)
 	r.Session.Player = hostPlayer
 
 	resp := md.NewMessage[md.RespCreateGame](md.CodeCreateGame)
@@ -103,7 +103,7 @@ func (r *Request) HandleJoinPlayer() (*md.Message[md.RespJoinGame], *md.Game) {
 		return &resp, nil
 	}
 
-	joinPlayer := game.CreateJoinPlayer(r.Session.Conn, r.Session.ID)
+	joinPlayer := game.CreateJoinPlayer(r.Session.ID)
 
 	r.Session.GameUuid = game.Uuid
 	r.Session.Player = joinPlayer

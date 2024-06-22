@@ -2,7 +2,6 @@ package models
 
 import (
 	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
 	cerr "github.com/saeidalz13/battleship-backend/internal/error"
 )
 
@@ -109,12 +108,11 @@ type Player struct {
 	AttackGrid  [][]int
 	DefenceGrid [][]int
 	Ships       map[int]*Ship
-	WsConn      *websocket.Conn
 	SessionID   string
 	CurrentGame *Game
 }
 
-func NewPlayer(ws *websocket.Conn, currentGame *Game, isHost, isTurn bool, sessionID string) *Player {
+func NewPlayer(currentGame *Game, isHost, isTurn bool, sessionID string) *Player {
 	return &Player{
 		IsTurn:      isTurn,
 		IsHost:      isHost,
@@ -125,7 +123,6 @@ func NewPlayer(ws *websocket.Conn, currentGame *Game, isHost, isTurn bool, sessi
 		AttackGrid:  NewGrid(),
 		DefenceGrid: NewGrid(),
 		Ships:       NewShipsMap(),
-		WsConn:      ws,
 		CurrentGame: currentGame,
 		SessionID:   sessionID,
 	}
@@ -205,16 +202,16 @@ func (g *Game) FindPlayer(playerUuid string) (*Player, error) {
 	return player, nil
 }
 
-func (g *Game) CreateJoinPlayer(ws *websocket.Conn, sessionID string) *Player {
-	joinPlayer := NewPlayer(ws, g, false, false, sessionID)
+func (g *Game) CreateJoinPlayer(sessionID string) *Player {
+	joinPlayer := NewPlayer(g, false, false, sessionID)
 	g.JoinPlayer = joinPlayer
 
 	g.Players[joinPlayer.Uuid] = joinPlayer
 	return joinPlayer
 }
 
-func (g *Game) CreateHostPlayer(ws *websocket.Conn, sessionID string) *Player {
-	hostPlayer := NewPlayer(ws, g, true, true, sessionID)
+func (g *Game) CreateHostPlayer(sessionID string) *Player {
+	hostPlayer := NewPlayer(g, true, true, sessionID)
 	g.HostPlayer = hostPlayer
 
 	g.Players[hostPlayer.Uuid] = hostPlayer
