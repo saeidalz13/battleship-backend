@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	md "github.com/saeidalz13/battleship-backend/models"
+	mc "github.com/saeidalz13/battleship-backend/models/connection"
 )
 
 const (
@@ -109,8 +109,8 @@ func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
 		session := NewSession(conn, sessionIdUrlCompatible, s.GameManager, s.SessionManager)
 		s.SessionManager.Sessions[sessionIdUrlCompatible] = session
 
-		resp := md.NewMessage[md.RespSessionId](md.CodeSessionID)
-		resp.AddPayload(md.RespSessionId{SessionID: sessionIdUrlCompatible})
+		resp := mc.NewMessage[mc.RespSessionId](mc.CodeSessionID)
+		resp.AddPayload(mc.RespSessionId{SessionID: sessionIdUrlCompatible})
 		_ = conn.WriteJSON(resp)
 
 		log.Println("a new connection established\tRemote Addr: ", conn.RemoteAddr().String())
@@ -120,7 +120,7 @@ func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
 		session, prs := s.SessionManager.Sessions[sessionIdQuery]
 		if !prs {
 			// This either means an expired session or invalid session ID
-			conn.WriteJSON(md.NewMessage[md.NoPayload](md.CodeReceivedInvalidSessionID))
+			conn.WriteJSON(mc.NewMessage[mc.NoPayload](mc.CodeReceivedInvalidSessionID))
 			conn.Close()
 			return
 		}
@@ -128,7 +128,7 @@ func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
 		game, err := session.GameManager.FindGame(session.GameUuid)
 		if err != nil {
 			// This either means an expired session or invalid session ID
-			conn.WriteJSON(md.NewMessage[md.NoPayload](md.CodeReceivedInvalidSessionID))
+			conn.WriteJSON(mc.NewMessage[mc.NoPayload](mc.CodeReceivedInvalidSessionID))
 			conn.Close()
 			return
 		}
@@ -142,8 +142,8 @@ func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
 		session.StopRetry = make(chan struct{})
 
 		// Send the session data to update client information
-		msg := md.NewMessage[md.RespReconnect](md.CodeReconnectionSessionInfo)
-		msg.AddPayload(md.NewRespReconnect(session.Player, game))
+		msg := mc.NewMessage[mc.RespReconnect](mc.CodeReconnectionSessionInfo)
+		msg.AddPayload(mc.NewRespReconnect(session.Player, game))
 		_ = session.Conn.WriteJSON(msg)
 
 		log.Printf("session %s reconnected\n", session.ID)

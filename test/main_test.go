@@ -9,7 +9,8 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/saeidalz13/battleship-backend/api"
-	md "github.com/saeidalz13/battleship-backend/models"
+
+	mc "github.com/saeidalz13/battleship-backend/models/connection"
 )
 
 var (
@@ -57,7 +58,7 @@ func TestMain(m *testing.M) {
 	HostConn = c
 
 	// Read host session ID
-	var respSessionId md.Message[md.RespSessionId]
+	var respSessionId mc.Message[mc.RespSessionId]
 	_ = HostConn.ReadJSON(&respSessionId)
 	HostSessionID = respSessionId.Payload.SessionID
 

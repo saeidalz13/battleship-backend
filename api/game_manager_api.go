@@ -4,32 +4,32 @@ import (
 	"sync"
 
 	cerr "github.com/saeidalz13/battleship-backend/internal/error"
-	md "github.com/saeidalz13/battleship-backend/models"
+	b "github.com/saeidalz13/battleship-backend/models/battleship"
 )
 
 type GameManager struct {
-	Games       map[string]*md.Game
+	Games       map[string]*b.Game
 	EndGameChan chan string
 	mu          sync.RWMutex
 }
 
 func NewGameManager() *GameManager {
 	return &GameManager{
-		Games:       make(map[string]*md.Game),
+		Games:       make(map[string]*b.Game),
 		EndGameChan: make(chan string),
 	}
 }
 
-func (gm *GameManager) AddGame() *md.Game {
+func (gm *GameManager) AddGame() *b.Game {
 	gm.mu.Lock()
 	defer gm.mu.Unlock()
 
-	newGame := md.NewGame()
+	newGame := b.NewGame()
 	gm.Games[newGame.Uuid] = newGame
 	return newGame
 }
 
-func (gm *GameManager) FindGame(gameUuid string) (*md.Game, error) {
+func (gm *GameManager) FindGame(gameUuid string) (*b.Game, error) {
 	gm.mu.RLock()
 	defer gm.mu.RUnlock()
 
@@ -63,7 +63,7 @@ func (gm *GameManager) DeletePlayerFromGame(gameUuid, playerUuid string) {
 }
 
 // Convenient helper func to fetch both the game and player
-func (gm *GameManager) FindGameAndPlayer(gameUuid, playerUuid string) (*md.Game, *md.Player, error) {
+func (gm *GameManager) FindGameAndPlayer(gameUuid, playerUuid string) (*b.Game, *b.Player, error) {
 	game, err := gm.FindGame(gameUuid)
 	if err != nil {
 		return nil, nil, err

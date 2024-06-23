@@ -1,4 +1,9 @@
-package models
+package connection
+
+
+import (
+	b "github.com/saeidalz13/battleship-backend/models/battleship"
+)
 
 type RespJoinGame struct {
 	GameUuid   string `json:"game_uuid"`
@@ -35,21 +40,20 @@ type RespReconnect struct {
 	SessionID         string  `json:"session_id"`
 	GameUuid          string  `json:"game_uuid"`
 	PlayerUuid        string  `json:"player_uuid"`
-	DefenceGrid       GridInt `json:"defence_grid"`
-	AttackGrid        GridInt `json:"attack_grid"`
+	DefenceGrid       b.GridInt `json:"defence_grid"`
+	AttackGrid        b.GridInt `json:"attack_grid"`
 }
 
-func NewRespReconnect(player *Player, game *Game) RespReconnect {
+func NewRespReconnect(player *b.Player, game *b.Game) RespReconnect {
 	return RespReconnect{
 		IsTurn:            player.IsTurn,
 		PlayerMatchStatus: player.MatchStatus,
-		SunkenShipsHost:   game.HostPlayer.SunkenShips,
-		SunkenShipsJoin:   game.JoinPlayer.SunkenShips,
-		SessionID:         player.SessionID,
-		GameUuid:          player.CurrentGame.Uuid,
-		PlayerUuid:        player.Uuid,
-		DefenceGrid:       player.DefenceGrid,
-		AttackGrid:        player.AttackGrid,
+		// SunkenShipsHost: ,
+		SessionID:   player.SessionID,
+		GameUuid:    player.CurrentGame.Uuid,
+		PlayerUuid:  player.Uuid,
+		DefenceGrid: player.DefenceGrid,
+		AttackGrid:  player.AttackGrid,
 	}
 }
 
