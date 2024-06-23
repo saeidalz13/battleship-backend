@@ -124,6 +124,15 @@ func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
 			conn.Close()
 			return
 		}
+
+		game, err := session.GameManager.FindGame(session.GameUuid)
+		if err != nil {
+			// This either means an expired session or invalid session ID
+			conn.WriteJSON(md.NewMessage[md.NoPayload](md.CodeReceivedInvalidSessionID))
+			conn.Close()
+			return
+		}
+
 		// Signal for reconnection
 		close(session.StopRetry)
 		session.GraceTimer.Stop()
@@ -131,6 +140,11 @@ func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
 		// Setting the new fields for the session
 		session.Conn = conn
 		session.StopRetry = make(chan struct{})
+
+		// Send the session data to update client information
+		msg := md.NewMessage[md.RespReconnect](md.CodeReconnectionSessionInfo)
+		msg.AddPayload(md.NewRespReconnect(session.Player, game))
+		_ = session.Conn.WriteJSON(msg)
 
 		log.Printf("session %s reconnected\n", session.ID)
 	}

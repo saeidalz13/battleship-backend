@@ -13,6 +13,10 @@ func ErrGameNotExists(gameUuid string) error {
 	return fmt.Errorf("game with this uuid does not exist, uuid: %s", gameUuid)
 }
 
+func ErrGameIsNil(gameUuid string) error {
+	return fmt.Errorf("game with this uuid is nil\t uuid: %s", gameUuid)
+}
+
 func ErrPlayerNotExist(playerUuid string) error {
 	return fmt.Errorf("player with this uuid does not exist, uuid: %s", playerUuid)
 }
@@ -67,4 +71,8 @@ func ErrDefenceGridRowsOutOfBounds(rows, gameGridSize int) error {
 
 func ErrDefenceGridColsOutOfBounds(cols, gameGridSize int) error {
 	return fmt.Errorf("cols of defence grid must be %d \tcols: %d", gameGridSize, cols)
+}
+
+func ErrSessionNotFound(sessionId string) error {
+	return fmt.Errorf("session not found\tID: %s", sessionId)
 }

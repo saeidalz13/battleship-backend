@@ -37,6 +37,11 @@ func (gm *GameManager) FindGame(gameUuid string) (*md.Game, error) {
 	if !prs {
 		return nil, cerr.ErrGameNotExists(gameUuid)
 	}
+
+	if game == nil {
+		return nil, cerr.ErrGameIsNil(gameUuid)
+	}
+
 	return game, nil
 }
 

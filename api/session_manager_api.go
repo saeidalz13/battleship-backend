@@ -3,6 +3,8 @@ package api
 import (
 	"sync"
 	"time"
+
+	cerr "github.com/saeidalz13/battleship-backend/internal/error"
 )
 
 const (
@@ -15,7 +17,7 @@ const (
 type SessionManager struct {
 	Sessions          map[string]*Session
 	CommunicationChan chan SessionMessage
-	mu                sync.Mutex
+	mu                sync.RWMutex
 }
 
 func NewSessionManager() *SessionManager {
@@ -23,6 +25,18 @@ func NewSessionManager() *SessionManager {
 		Sessions:          make(map[string]*Session),
 		CommunicationChan: make(chan SessionMessage),
 	}
+}
+
+func (sm *SessionManager) FindSession(sessionId string) (*Session, error) {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
+
+	session, prs := sm.Sessions[sessionId]
+	if !prs {	
+		return nil, cerr.ErrSessionNotFound(sessionId)
+	}
+
+	return session, nil
 }
 
 func (sm *SessionManager) DeleteSession(sessionId string) {

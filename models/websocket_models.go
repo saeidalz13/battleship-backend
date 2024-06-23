@@ -34,12 +34,12 @@ const (
 	CodeOtherPlayerDisconnected
 	CodeOtherPlayerReconnected
 	CodeOtherPlayerGracePeriod
+	CodeReconnectionSessionInfo
+	// CodeRequestRematchFromServer
+	// CodeRequestRematchFromOtherPlayer
 
-	CodeRequestRematchFromServer
-	CodeRequestRematchFromOtherPlayer
-
-	// This code is sent from both players if they want rematch
-	CodeRematch
+	// // This code is sent from both players if they want rematch
+	// CodeRematch
 )
 
 const (
