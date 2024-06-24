@@ -107,7 +107,6 @@ func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
 		sessionIdUrlCompatible := base64.RawURLEncoding.EncodeToString([]byte(newSessionIdRaw))
 
 		session := NewSession(conn, sessionIdUrlCompatible, s.GameManager, s.SessionManager)
-		log.Println(sessionIdUrlCompatible)
 		s.SessionManager.Sessions[sessionIdUrlCompatible] = session
 
 		resp := mc.NewMessage[mc.RespSessionId](mc.CodeSessionID)
