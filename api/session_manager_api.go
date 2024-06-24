@@ -66,12 +66,12 @@ func (sm *SessionManager) ManageCommunication() {
 
 		switch WriteJSONWithRetry(receiverSession.Conn, msg.Payload) {
 		case ConnLoopAbnormalClosureRetry:
-			// switch receiverSession.handleAbnormalClosure() {
-			// case ConnLoopCodeBreak:
-			// 	receiverSession.terminate()
+			switch receiverSession.handleAbnormalClosure() {
+			case ConnLoopCodeBreak:
+				receiverSession.terminate()
 
-			// case ConnLoopCodeContinue:
-			// }
+			case ConnLoopCodeContinue:
+			}
 
 		case ConnLoopCodeBreak:
 			receiverSession.terminate()
