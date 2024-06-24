@@ -1,9 +1,13 @@
-package models
+package connection
+
+import (
+	b "github.com/saeidalz13/battleship-backend/models/battleship"
+)
 
 type ReqReadyPlayer struct {
 	GameUuid    string  `json:"game_uuid"`
 	PlayerUuid  string  `json:"player_uuid"`
-	DefenceGrid GridInt `json:"defence_grid"`
+	DefenceGrid b.GridInt `json:"defence_grid"`
 }
 
 type ReqJoinGame struct {

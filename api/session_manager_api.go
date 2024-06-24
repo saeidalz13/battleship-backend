@@ -1,12 +1,11 @@
 package api
 
 import (
-	"log"
 	"sync"
 	"time"
-)
 
-var GlobalSessionManager = NewSessionManager()
+	cerr "github.com/saeidalz13/battleship-backend/internal/error"
+)
 
 const (
 	// Assuming this capacity for the slice when
@@ -18,29 +17,32 @@ const (
 type SessionManager struct {
 	Sessions          map[string]*Session
 	CommunicationChan chan SessionMessage
-	DeleteSessionChan chan string
-	mu                sync.Mutex
+	mu                sync.RWMutex
 }
 
 func NewSessionManager() *SessionManager {
 	return &SessionManager{
 		Sessions:          make(map[string]*Session),
 		CommunicationChan: make(chan SessionMessage),
-		DeleteSessionChan: make(chan string),
 	}
 }
 
-// Listens on DeletionChan for signal to delete session
-func (sm *SessionManager) ManageSessionsDeletion() {
-	for {
-		sessionId := <-sm.DeleteSessionChan
+func (sm *SessionManager) FindSession(sessionId string) (*Session, error) {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
 
-		sm.mu.Lock()
-		delete(sm.Sessions, sessionId)
-		sm.mu.Unlock()
-
-		log.Println("session closed:", sessionId)
+	session, prs := sm.Sessions[sessionId]
+	if !prs {	
+		return nil, cerr.ErrSessionNotFound(sessionId)
 	}
+
+	return session, nil
+}
+
+func (sm *SessionManager) DeleteSession(sessionId string) {
+	sm.mu.Lock()
+	delete(sm.Sessions, sessionId)
+	sm.mu.Unlock()
 }
 
 // Function to faciliate the communication between
@@ -64,12 +66,12 @@ func (sm *SessionManager) ManageCommunication() {
 
 		switch WriteJSONWithRetry(receiverSession.Conn, msg.Payload) {
 		case ConnLoopAbnormalClosureRetry:
-			switch receiverSession.handleAbnormalClosure() {
-			case ConnLoopCodeBreak:
-				receiverSession.terminate()
+			// switch receiverSession.handleAbnormalClosure() {
+			// case ConnLoopCodeBreak:
+			// 	receiverSession.terminate()
 
-			case ConnLoopCodeContinue:
-			}
+			// case ConnLoopCodeContinue:
+			// }
 
 		case ConnLoopCodeBreak:
 			receiverSession.terminate()

@@ -6,7 +6,8 @@ import (
 
 	"github.com/gorilla/websocket"
 	cerr "github.com/saeidalz13/battleship-backend/internal/error"
-	md "github.com/saeidalz13/battleship-backend/models"
+	mb "github.com/saeidalz13/battleship-backend/models/battleship"
+	mc "github.com/saeidalz13/battleship-backend/models/connection"
 )
 
 type Test[T, K any] struct {
@@ -24,19 +25,19 @@ type Test[T, K any] struct {
 }
 
 func TestInvalidCode(t *testing.T) {
-	tests := []Test[md.Message[md.NoPayload], md.Message[md.NoPayload]]{
+	tests := []Test[mc.Message[mc.NoPayload], mc.Message[mc.NoPayload]]{
 		{
 			name:         "random invalid code 1",
-			expectedCode: md.CodeInvalidSignal,
-			reqPayload:   md.NewMessage[md.NoPayload](-1),
-			respPayload:  md.NewMessage[md.NoPayload](md.CodeInvalidSignal),
+			expectedCode: mc.CodeInvalidSignal,
+			reqPayload:   mc.NewMessage[mc.NoPayload](-1),
+			respPayload:  mc.NewMessage[mc.NoPayload](mc.CodeInvalidSignal),
 			conn:         HostConn,
 		},
 		{
 			name:         "random invalid code 2",
-			expectedCode: md.CodeInvalidSignal,
-			reqPayload:   md.NewMessage[md.NoPayload](999),
-			respPayload:  md.NewMessage[md.NoPayload](md.CodeInvalidSignal),
+			expectedCode: mc.CodeInvalidSignal,
+			reqPayload:   mc.NewMessage[mc.NoPayload](999),
+			respPayload:  mc.NewMessage[mc.NoPayload](mc.CodeInvalidSignal),
 			conn:         JoinConn,
 		},
 	}
@@ -59,13 +60,13 @@ func TestInvalidCode(t *testing.T) {
 }
 
 func TestCreateGame(t *testing.T) {
-	tests := []Test[md.Message[md.NoPayload], md.Message[md.RespCreateGame]]{
+	tests := []Test[mc.Message[mc.NoPayload], mc.Message[mc.RespCreateGame]]{
 		{
 			name:         "create game valid code",
-			expectedCode: md.CodeCreateGame,
+			expectedCode: mc.CodeCreateGame,
 			expectedErr:  "",
-			reqPayload:   md.NewMessage[md.NoPayload](md.CodeCreateGame),
-			respPayload:  md.NewMessage[md.RespCreateGame](md.CodeCreateGame),
+			reqPayload:   mc.NewMessage[mc.NoPayload](mc.CodeCreateGame),
+			respPayload:  mc.NewMessage[mc.RespCreateGame](mc.CodeCreateGame),
 			conn:         HostConn,
 		},
 	}
@@ -97,21 +98,21 @@ func TestCreateGame(t *testing.T) {
 }
 
 func TestJoinPlayer(t *testing.T) {
-	tests := []Test[md.Message[md.ReqJoinGame], md.Message[md.RespJoinGame]]{
+	tests := []Test[mc.Message[mc.ReqJoinGame], mc.Message[mc.RespJoinGame]]{
 		{
 			name:         "valid game uuid",
-			expectedCode: md.CodeJoinGame,
+			expectedCode: mc.CodeJoinGame,
 			expectedErr:  "",
-			reqPayload:   md.Message[md.ReqJoinGame]{Code: md.CodeJoinGame, Payload: md.ReqJoinGame{GameUuid: GameUuid}},
-			respPayload:  md.NewMessage[md.RespJoinGame](md.CodeJoinGame),
+			reqPayload:   mc.Message[mc.ReqJoinGame]{Code: mc.CodeJoinGame, Payload: mc.ReqJoinGame{GameUuid: GameUuid}},
+			respPayload:  mc.NewMessage[mc.RespJoinGame](mc.CodeJoinGame),
 			conn:         JoinConn,
 		},
 		{
 			name:         "invalid game uuid",
-			expectedCode: md.CodeJoinGame,
+			expectedCode: mc.CodeJoinGame,
 			expectedErr:  cerr.ErrGameNotExists("-1invalid").Error(),
-			reqPayload:   md.Message[md.ReqJoinGame]{Code: md.CodeJoinGame, Payload: md.ReqJoinGame{GameUuid: "-1invalid"}},
-			respPayload:  md.NewMessage[md.RespJoinGame](md.CodeJoinGame),
+			reqPayload:   mc.Message[mc.ReqJoinGame]{Code: mc.CodeJoinGame, Payload: mc.ReqJoinGame{GameUuid: "-1invalid"}},
+			respPayload:  mc.NewMessage[mc.RespJoinGame](mc.CodeJoinGame),
 			conn:         JoinConn,
 		},
 	}
@@ -144,7 +145,7 @@ func TestJoinPlayer(t *testing.T) {
 				// Read extra message of success to host
 				// we have to read it so it frees up the queue for the next steps of host read
 				// when join player is added, a select grid code is sent to both players
-				var respSelectGridHost md.Message[md.NoPayload]
+				var respSelectGridHost mc.Message[mc.NoPayload]
 				if err := HostConn.ReadJSON(&respSelectGridHost); err != nil {
 					t.Fatal(err)
 				}
@@ -152,7 +153,7 @@ func TestJoinPlayer(t *testing.T) {
 					t.Fatalf("failed to receive select ready message for host: %s", respSelectGridHost.Error.ErrorDetails)
 				}
 
-				var respSelectGridJoin md.Message[md.NoPayload]
+				var respSelectGridJoin mc.Message[mc.NoPayload]
 				if err := JoinConn.ReadJSON(&respSelectGridJoin); err != nil {
 					t.Fatal(err)
 				}
@@ -165,51 +166,51 @@ func TestJoinPlayer(t *testing.T) {
 }
 
 func TestReadyGame(t *testing.T) {
-	defenceGridHost := md.GridInt{
-		{0, md.PositionStateDefenceDestroyer, md.PositionStateDefenceDestroyer, 0, 0},
-		{md.PositionStateDefenceCruiser, 0, 0, md.PositionStateDefenceBattleship, 0},
-		{md.PositionStateDefenceCruiser, 0, 0, md.PositionStateDefenceBattleship, 0},
-		{md.PositionStateDefenceCruiser, 0, 0, md.PositionStateDefenceBattleship, 0},
-		{0, 0, 0, md.PositionStateDefenceBattleship, 0},
+	defenceGridHost := mb.GridInt{
+		{0, mb.PositionStateDefenceDestroyer, mb.PositionStateDefenceDestroyer, 0, 0},
+		{mb.PositionStateDefenceCruiser, 0, 0, mb.PositionStateDefenceBattleship, 0},
+		{mb.PositionStateDefenceCruiser, 0, 0, mb.PositionStateDefenceBattleship, 0},
+		{mb.PositionStateDefenceCruiser, 0, 0, mb.PositionStateDefenceBattleship, 0},
+		{0, 0, 0, mb.PositionStateDefenceBattleship, 0},
 	}
 
-	defenceGridJoin := md.GridInt{
-		{0, md.PositionStateDefenceDestroyer, md.PositionStateDefenceDestroyer, 0, 0},
-		{md.PositionStateDefenceCruiser, 0, 0, 0, md.PositionStateDefenceBattleship},
-		{md.PositionStateDefenceCruiser, 0, 0, 0, md.PositionStateDefenceBattleship},
-		{md.PositionStateDefenceCruiser, 0, 0, 0, md.PositionStateDefenceBattleship},
-		{0, 0, 0, 0, md.PositionStateDefenceBattleship},
+	defenceGridJoin := mb.GridInt{
+		{0, mb.PositionStateDefenceDestroyer, mb.PositionStateDefenceDestroyer, 0, 0},
+		{mb.PositionStateDefenceCruiser, 0, 0, 0, mb.PositionStateDefenceBattleship},
+		{mb.PositionStateDefenceCruiser, 0, 0, 0, mb.PositionStateDefenceBattleship},
+		{mb.PositionStateDefenceCruiser, 0, 0, 0, mb.PositionStateDefenceBattleship},
+		{0, 0, 0, 0, mb.PositionStateDefenceBattleship},
 	}
 
-	tests := []Test[md.Message[md.ReqReadyPlayer], md.Message[md.NoPayload]]{
+	tests := []Test[mc.Message[mc.ReqReadyPlayer], mc.Message[mc.NoPayload]]{
 		{
 			name:         "set defence grid ready host",
-			expectedCode: md.CodeReady,
+			expectedCode: mc.CodeReady,
 			expectedErr:  "",
-			reqPayload: md.Message[md.ReqReadyPlayer]{
-				Code: md.CodeReady,
-				Payload: md.ReqReadyPlayer{
+			reqPayload: mc.Message[mc.ReqReadyPlayer]{
+				Code: mc.CodeReady,
+				Payload: mc.ReqReadyPlayer{
 					DefenceGrid: defenceGridHost,
 					GameUuid:    GameUuid,
 					PlayerUuid:  HostPlayerId,
 				},
 			},
-			respPayload: md.Message[md.NoPayload]{},
+			respPayload: mc.Message[mc.NoPayload]{},
 			conn:        HostConn,
 		},
 		{
 			name:         "set defence grid ready join",
-			expectedCode: md.CodeReady,
+			expectedCode: mc.CodeReady,
 			expectedErr:  "",
-			reqPayload: md.Message[md.ReqReadyPlayer]{
-				Code: md.CodeReady,
-				Payload: md.ReqReadyPlayer{
+			reqPayload: mc.Message[mc.ReqReadyPlayer]{
+				Code: mc.CodeReady,
+				Payload: mc.ReqReadyPlayer{
 					DefenceGrid: defenceGridJoin,
 					GameUuid:    GameUuid,
 					PlayerUuid:  JoinPlayerId,
 				},
 			},
-			respPayload: md.Message[md.NoPayload]{},
+			respPayload: mc.Message[mc.NoPayload]{},
 			conn:        JoinConn,
 		},
 	}
@@ -238,13 +239,13 @@ func TestReadyGame(t *testing.T) {
 				// Reading game ready codes
 
 				// Host
-				var respStartGameHost md.Message[md.NoPayload]
+				var respStartGameHost mc.Message[mc.NoPayload]
 				if err := HostConn.ReadJSON(&respStartGameHost); err != nil {
 					t.Fatal(err)
 				}
 
 				// Join
-				var respStartGameJoin md.Message[md.NoPayload]
+				var respStartGameJoin mc.Message[mc.NoPayload]
 				if err := JoinConn.ReadJSON(&respStartGameJoin); err != nil {
 					t.Fatal(err)
 				}
@@ -254,22 +255,22 @@ func TestReadyGame(t *testing.T) {
 }
 
 func TestAttack(t *testing.T) {
-	tests := []Test[md.Message[md.ReqAttack], md.Message[md.RespAttack]]{
+	tests := []Test[mc.Message[mc.ReqAttack], mc.Message[mc.RespAttack]]{
 		{
 			name:         "successful hit attack valid payload host",
-			expectedCode: md.CodeAttack,
+			expectedCode: mc.CodeAttack,
 			expectedErr:  "",
-			reqPayload: md.Message[md.ReqAttack]{Code: md.CodeAttack, Payload: md.ReqAttack{
+			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   GameUuid,
 				PlayerUuid: HostPlayerId,
 				X:          0,
 				Y:          1,
 			}},
-			respPayload: md.Message[md.RespAttack]{},
-			expectedRespPayload: md.Message[md.RespAttack]{Code: md.CodeAttack, Payload: md.RespAttack{
+			respPayload: mc.Message[mc.RespAttack]{},
+			expectedRespPayload: mc.Message[mc.RespAttack]{Code: mc.CodeAttack, Payload: mc.RespAttack{
 				X:               0,
 				Y:               1,
-				PositionState:   md.PositionStateAttackGridHit,
+				PositionState:   mb.PositionStateAttackGridHit,
 				IsTurn:          false,
 				SunkenShipsHost: 0,
 				SunkenShipsJoin: 0,
@@ -280,19 +281,19 @@ func TestAttack(t *testing.T) {
 
 		{
 			name:         "successful hit attack valid payload join",
-			expectedCode: md.CodeAttack,
+			expectedCode: mc.CodeAttack,
 			expectedErr:  "",
-			reqPayload: md.Message[md.ReqAttack]{Code: md.CodeAttack, Payload: md.ReqAttack{
+			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   GameUuid,
 				PlayerUuid: JoinPlayerId,
 				X:          0,
 				Y:          1,
 			}},
-			respPayload: md.Message[md.RespAttack]{},
-			expectedRespPayload: md.Message[md.RespAttack]{Code: md.CodeAttack, Payload: md.RespAttack{
+			respPayload: mc.Message[mc.RespAttack]{},
+			expectedRespPayload: mc.Message[mc.RespAttack]{Code: mc.CodeAttack, Payload: mc.RespAttack{
 				X:               0,
 				Y:               1,
-				PositionState:   md.PositionStateAttackGridHit,
+				PositionState:   mb.PositionStateAttackGridHit,
 				IsTurn:          false,
 				SunkenShipsHost: 0,
 				SunkenShipsJoin: 0,
@@ -303,19 +304,19 @@ func TestAttack(t *testing.T) {
 
 		{
 			name:         "another successful hit attack valid payload and sink ship",
-			expectedCode: md.CodeAttack,
+			expectedCode: mc.CodeAttack,
 			expectedErr:  "",
-			reqPayload: md.Message[md.ReqAttack]{Code: md.CodeAttack, Payload: md.ReqAttack{
+			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   GameUuid,
 				PlayerUuid: HostPlayerId,
 				X:          0,
 				Y:          2,
 			}},
-			respPayload: md.Message[md.RespAttack]{},
-			expectedRespPayload: md.Message[md.RespAttack]{Code: md.CodeAttack, Payload: md.RespAttack{
+			respPayload: mc.Message[mc.RespAttack]{},
+			expectedRespPayload: mc.Message[mc.RespAttack]{Code: mc.CodeAttack, Payload: mc.RespAttack{
 				X:               0,
 				Y:               2,
-				PositionState:   md.PositionStateAttackGridHit,
+				PositionState:   mb.PositionStateAttackGridHit,
 				IsTurn:          false,
 				SunkenShipsHost: 0,
 				SunkenShipsJoin: 1,
@@ -326,19 +327,19 @@ func TestAttack(t *testing.T) {
 
 		{
 			name:         "successful miss attack valid payload join",
-			expectedCode: md.CodeAttack,
+			expectedCode: mc.CodeAttack,
 			expectedErr:  "",
-			reqPayload: md.Message[md.ReqAttack]{Code: md.CodeAttack, Payload: md.ReqAttack{
+			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   GameUuid,
 				PlayerUuid: JoinPlayerId,
 				X:          0,
 				Y:          0,
 			}},
-			respPayload: md.Message[md.RespAttack]{},
-			expectedRespPayload: md.Message[md.RespAttack]{Code: md.CodeAttack, Payload: md.RespAttack{
+			respPayload: mc.Message[mc.RespAttack]{},
+			expectedRespPayload: mc.Message[mc.RespAttack]{Code: mc.CodeAttack, Payload: mc.RespAttack{
 				X:               0,
 				Y:               0,
-				PositionState:   md.PositionStateAttackGridMiss,
+				PositionState:   mb.PositionStateAttackGridMiss,
 				IsTurn:          false,
 				SunkenShipsHost: 0,
 				SunkenShipsJoin: 1,
@@ -349,64 +350,64 @@ func TestAttack(t *testing.T) {
 
 		{
 			name:         "wrong turn of player join",
-			expectedCode: md.CodeAttack,
+			expectedCode: mc.CodeAttack,
 			expectedErr:  cerr.ErrNotTurnForAttacker(JoinPlayerId).Error(),
-			reqPayload: md.Message[md.ReqAttack]{Code: md.CodeAttack, Payload: md.ReqAttack{
+			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   GameUuid,
 				PlayerUuid: JoinPlayerId,
 				X:          0,
 				Y:          0,
 			}},
-			respPayload: md.Message[md.RespAttack]{},
-			expectedRespPayload: md.Message[md.RespAttack]{Code: md.CodeAttack},
+			respPayload: mc.Message[mc.RespAttack]{},
+			expectedRespPayload: mc.Message[mc.RespAttack]{Code: mc.CodeAttack},
 			conn:      JoinConn,
 			otherConn: HostConn,
 		},
 
 		{
 			name:         "invalid x attack host",
-			expectedCode: md.CodeAttack,
+			expectedCode: mc.CodeAttack,
 			expectedErr:  cerr.ErrXorYOutOfGridBound(-1, 0).Error(),
-			reqPayload: md.Message[md.ReqAttack]{Code: md.CodeAttack, Payload: md.ReqAttack{
+			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   GameUuid,
 				PlayerUuid: HostPlayerId,
 				X:          -1,
 				Y:          0,
 			}},
-			respPayload:         md.Message[md.RespAttack]{},
-			expectedRespPayload: md.Message[md.RespAttack]{Code: md.CodeAttack},
+			respPayload:         mc.Message[mc.RespAttack]{},
+			expectedRespPayload: mc.Message[mc.RespAttack]{Code: mc.CodeAttack},
 			conn:                HostConn,
 			otherConn:           JoinConn,
 		},
 
 		{
 			name:         "invalid y attack host",
-			expectedCode: md.CodeAttack,
+			expectedCode: mc.CodeAttack,
 			expectedErr:  cerr.ErrXorYOutOfGridBound(0, -1).Error(),
-			reqPayload: md.Message[md.ReqAttack]{Code: md.CodeAttack, Payload: md.ReqAttack{
+			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   GameUuid,
 				PlayerUuid: HostPlayerId,
 				X:          0,
 				Y:          -1,
 			}},
-			respPayload:         md.Message[md.RespAttack]{},
-			expectedRespPayload: md.Message[md.RespAttack]{Code: md.CodeAttack},
+			respPayload:         mc.Message[mc.RespAttack]{},
+			expectedRespPayload: mc.Message[mc.RespAttack]{Code: mc.CodeAttack},
 			conn:                HostConn,
 			otherConn:           JoinConn,
 		},
 
 		{
 			name:         "invalid attack already hit host",
-			expectedCode: md.CodeAttack,
+			expectedCode: mc.CodeAttack,
 			expectedErr:  cerr.ErrAttackPositionAlreadyFilled(0, 1).Error(),
-			reqPayload: md.Message[md.ReqAttack]{Code: md.CodeAttack, Payload: md.ReqAttack{
+			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   GameUuid,
 				PlayerUuid: HostPlayerId,
 				X:          0,
 				Y:          1,
 			}},
-			respPayload:         md.Message[md.RespAttack]{},
-			expectedRespPayload: md.Message[md.RespAttack]{Code: md.CodeAttack},
+			respPayload:         mc.Message[mc.RespAttack]{},
+			expectedRespPayload: mc.Message[mc.RespAttack]{Code: mc.CodeAttack},
 			conn:                HostConn,
 			otherConn:           JoinConn,
 		},
@@ -438,7 +439,7 @@ func TestAttack(t *testing.T) {
 				// If the attack was successful (in terms of operation and no error occurred)
 				// a resp is sent to both players. Here we read from the defender connection
 				// to empty the queue
-				var respJoin md.RespAttack
+				var respJoin mc.RespAttack
 				if err := test.otherConn.ReadJSON(&respJoin); err != nil {
 					t.Fatal(err)
 				}

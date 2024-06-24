@@ -9,7 +9,8 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/saeidalz13/battleship-backend/api"
-	md "github.com/saeidalz13/battleship-backend/models"
+
+	mc "github.com/saeidalz13/battleship-backend/models/connection"
 )
 
 var (
@@ -20,20 +21,14 @@ var (
 	JoinPlayerId       string
 	HostSessionID      string
 	JoinSessionID      string
-	testGameManager    = api.NewGameManager()
-	testSessionManager = api.NewSessionManager()
 )
 
 func TestMain(m *testing.M) {
 	go func() {
 		stage := "dev"
-		server := api.NewServer(testSessionManager, testGameManager, api.WithPort(7171), api.WithStage(stage))
-
-		go server.GameManager.ManageGameTermination()
-		go server.GameManager.ManagePlayerDeletion()
+		server := api.NewServer(api.WithPort(7171), api.WithStage(stage))
 
 		go server.SessionManager.ManageCommunication()
-		go server.SessionManager.ManageSessionsDeletion()
 		go server.SessionManager.CleanUpPeriodically()
 
 		mux := http.NewServeMux()
@@ -63,7 +58,7 @@ func TestMain(m *testing.M) {
 	HostConn = c
 
 	// Read host session ID
-	var respSessionId md.Message[md.RespSessionId]
+	var respSessionId mc.Message[mc.RespSessionId]
 	_ = HostConn.ReadJSON(&respSessionId)
 	HostSessionID = respSessionId.Payload.SessionID
 
