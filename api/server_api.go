@@ -126,14 +126,6 @@ func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		game, err := session.GameManager.FindGame(session.GameUuid)
-		if err != nil {
-			// This either means an expired session or invalid session ID
-			conn.WriteJSON(mc.NewMessage[mc.NoPayload](mc.CodeReceivedInvalidSessionID))
-			conn.Close()
-			return
-		}
-
 		// Signal for reconnection
 		close(session.StopRetry)
 		session.GraceTimer.Stop()
@@ -142,11 +134,22 @@ func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
 		session.Conn = conn
 		session.StopRetry = make(chan struct{})
 
-		// Send the session data to update client information
-		msg := mc.NewMessage[mc.RespReconnect](mc.CodeReconnectionSessionInfo)
-		msg.AddPayload(mc.NewRespReconnect(session.Player, game))
-		_ = session.Conn.WriteJSON(msg)
+		/*
+			we discussed that if app total closure or crash happens
+			it is not the server's fault. Hence, the server doesn not need
+			to provide the session information upon reconnection
+			Send the session data to update client information
+		*/
 
-		log.Printf("session %s reconnected\n", session.ID)
+		// game, err := session.GameManager.FindGame(session.GameUuid)
+		// if err != nil {
+		// 	// This either means an expired session or invalid session ID
+		// 	conn.WriteJSON(mc.NewMessage[mc.NoPayload](mc.CodeReceivedInvalidSessionID))
+		// 	conn.Close()
+		// 	return
+		// }
+		// msg := mc.NewMessage[mc.RespReconnect](mc.CodeReconnectionSessionInfo)
+		// msg.AddPayload(mc.NewRespReconnect(session.Player, game))
+		// _ = session.Conn.WriteJSON(msg)
 	}
 }

@@ -15,7 +15,6 @@ const (
 	CodeOtherPlayerDisconnected
 	CodeOtherPlayerReconnected
 	CodeOtherPlayerGracePeriod
-	CodeReconnectionSessionInfo
 	// CodeRequestRematchFromServer
 	// CodeRequestRematchFromOtherPlayer
 

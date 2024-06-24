@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	gracePeriod time.Duration = time.Minute
+	gracePeriod time.Duration = time.Minute * 2
 )
 
 type SessionMessage struct {
