@@ -363,7 +363,9 @@ sessionLoop:
 // This will delete player from the game players map
 // and delete the player session
 func (s *Session) terminate() {
-	s.GameManager.DeletePlayerFromGame(s.GameUuid, s.Player.Uuid)
+	if s.Player != nil {
+		s.GameManager.DeletePlayerFromGame(s.GameUuid, s.Player.Uuid)
+	}
 	s.SessionManager.DeleteSession(s.ID)
 }
 
@@ -386,31 +388,36 @@ func (s *Session) handleAbnormalClosure() int {
 	if s.Player.IsHost {
 		otherPlayer = game.JoinPlayer
 	}
-	if otherPlayer == nil {
-		return ConnLoopCodeBreak
-	}
-	
-	otherSession, err := s.SessionManager.FindSession(otherPlayer.SessionID)
-	if err != nil {
-		return ConnLoopCodeBreak
+
+	var otherSession *Session
+	if otherPlayer != nil {
+		var err error
+		otherSession, err = s.SessionManager.FindSession(otherPlayer.SessionID)
+		if err != nil {
+			return ConnLoopCodeBreak
+		}
 	}
 
-	if err := otherSession.Conn.WriteJSON(mc.NewMessage[mc.NoPayload](mc.CodeOtherPlayerGracePeriod)); err != nil {
-		// If other player connection is disrupted as well, then end the session
-		return ConnLoopCodeBreak
+	if otherSession != nil {
+		if err := otherSession.Conn.WriteJSON(mc.NewMessage[mc.NoPayload](mc.CodeOtherPlayerGracePeriod)); err != nil {
+			// If other player connection is disrupted as well, then end the session
+			return ConnLoopCodeBreak
+		}
 	}
-	
+
 	select {
 	case <-s.GraceTimer.C:
-		_ = otherSession.Conn.WriteJSON(mc.NewMessage[mc.NoPayload](mc.CodeOtherPlayerDisconnected))
-
+		if otherSession != nil {
+			_ = otherSession.Conn.WriteJSON(mc.NewMessage[mc.NoPayload](mc.CodeOtherPlayerDisconnected))
+		}
 		log.Printf("session terminated: %s\n", s.ID)
 		return ConnLoopCodeBreak
 
 		// If reconnection happens, loop stops
 	case <-s.StopRetry:
-		_ = otherSession.Conn.WriteJSON(mc.NewMessage[mc.NoPayload](mc.CodeOtherPlayerReconnected))
-
+		if otherSession != nil {
+			_ = otherSession.Conn.WriteJSON(mc.NewMessage[mc.NoPayload](mc.CodeOtherPlayerReconnected))
+		}
 		log.Printf("player reconnected, session: %s\n", s.ID)
 		return ConnLoopCodeContinue
 	}
