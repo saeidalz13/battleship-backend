@@ -17,6 +17,7 @@ type RespAttack struct {
 	IsTurn          bool `json:"is_turn"`
 	SunkenShipsHost int  `json:"sunken_ships_host"`
 	SunkenShipsJoin int  `json:"sunken_ships_join"`
+	DidSink         bool `json:"did_sink"`
 }
 
 type RespSessionId struct {
