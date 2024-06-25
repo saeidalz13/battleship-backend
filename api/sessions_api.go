@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"log"
-	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -35,12 +34,10 @@ type Session struct {
 	Conn           *websocket.Conn
 	GameUuid       string
 	Player         *mb.Player
-	GraceTimer     *time.Timer
 	StopRetry      chan struct{}
 	GameManager    *GameManager
 	SessionManager *SessionManager
 	CreatedAt      time.Time
-	mu             sync.Mutex
 }
 
 func NewSession(conn *websocket.Conn, sessionID string, gameManager *GameManager, sessionManager *SessionManager) *Session {
@@ -372,11 +369,7 @@ func (s *Session) terminate() {
 func (s *Session) handleAbnormalClosure() int {
 	log.Printf("starting grace period for %s\n", s.ID)
 
-	s.mu.Lock()
-	s.GraceTimer = time.AfterFunc(gracePeriod, func() {
-		s.SessionManager.DeleteSession(s.ID)
-	})
-	s.mu.Unlock()
+	timer := time.NewTimer(gracePeriod)
 
 	// This means there is no game and abnormal closure is happening
 	game, err := s.GameManager.FindGame(s.GameUuid)
@@ -406,7 +399,7 @@ func (s *Session) handleAbnormalClosure() int {
 	}
 
 	select {
-	case <-s.GraceTimer.C:
+	case <-timer.C:
 		if otherSession != nil {
 			_ = otherSession.Conn.WriteJSON(mc.NewMessage[mc.NoPayload](mc.CodeOtherPlayerDisconnected))
 		}

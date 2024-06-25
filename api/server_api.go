@@ -127,7 +127,6 @@ func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
 
 		// Signal for reconnection
 		close(session.StopRetry)
-		session.GraceTimer.Stop()
 
 		// Setting the new fields for the session
 		session.Conn = conn
