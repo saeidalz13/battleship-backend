@@ -1,6 +1,7 @@
 package api
 
 import (
+	"log"
 	"sync"
 
 	cerr "github.com/saeidalz13/battleship-backend/internal/error"
@@ -53,11 +54,13 @@ func (gm *GameManager) DeletePlayerFromGame(gameUuid, playerUuid string) {
 
 	gm.mu.Lock()
 	delete(game.Players, playerUuid)
+	log.Printf("player deleted: %s", playerUuid)
 
 	// Check if that was the last player
 	// If yes, remove the game
 	if len(game.Players) == 0 {
 		delete(gm.Games, game.Uuid)
+		log.Printf("game deleted: %s", game.Uuid)
 	}
 	gm.mu.Unlock()
 }

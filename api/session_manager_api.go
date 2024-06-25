@@ -1,6 +1,7 @@
 package api
 
 import (
+	"log"
 	"sync"
 	"time"
 
@@ -11,7 +12,7 @@ const (
 	// Assuming this capacity for the slice when
 	// we're cleaning up the sessions map.
 	assumedClosedConns               = 5
-	cleanupInterval    time.Duration = time.Minute * 20
+	cleanupInterval    time.Duration = time.Minute * 20 
 )
 
 type SessionManager struct {
@@ -42,6 +43,7 @@ func (sm *SessionManager) FindSession(sessionId string) (*Session, error) {
 func (sm *SessionManager) DeleteSession(sessionId string) {
 	sm.mu.Lock()
 	delete(sm.Sessions, sessionId)
+	log.Printf("session deleted: %s", sessionId)
 	sm.mu.Unlock()
 }
 
@@ -99,8 +101,10 @@ func (sm *SessionManager) CleanUpPeriodically() {
 			}
 		}
 
+		log.Println("Clean up sessions:")
 		for _, ID := range toDelete {
 			delete(sm.Sessions, ID)
+			log.Printf("removed: %s", ID)
 		}
 		sm.mu.Unlock()
 	}
