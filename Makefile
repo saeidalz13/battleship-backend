@@ -24,3 +24,6 @@ test:
 # Log
 flylogs:
 	fly logs -a battleship-go-ios
+
+depstage:
+	fly deploy --app battleship-go-ios-staging --dockerfile Dockerfile.staging
