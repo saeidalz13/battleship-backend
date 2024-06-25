@@ -21,13 +21,13 @@ func NewGameManager() *GameManager {
 	}
 }
 
-func (gm *GameManager) AddGame() *b.Game {
+func (gm *GameManager) AddGame(gameDifficulty int) *b.Game {
 	gm.mu.Lock()
 	defer gm.mu.Unlock()
 
-	newGame := b.NewGame()
-	gm.Games[newGame.Uuid] = newGame
-	return newGame
+	newGame := b.NewGame(gameDifficulty)
+	gm.Games[newGame.Uuid] = &newGame
+	return &newGame
 }
 
 func (gm *GameManager) FindGame(gameUuid string) (*b.Game, error) {

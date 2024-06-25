@@ -23,14 +23,14 @@ type Player struct {
 	IsReady     bool
 	MatchStatus int
 	SunkenShips int
-	AttackGrid  [][]int
-	DefenceGrid [][]int
+	AttackGrid  GridInt
+	DefenceGrid GridInt
 	Ships       map[int]*Ship
 	SessionID   string
 	CurrentGame *Game
 }
 
-func NewPlayer(currentGame *Game, isHost, isTurn bool, sessionID string) *Player {
+func NewPlayer(currentGame *Game, isHost, isTurn bool, sessionID string, gridSize int) *Player {
 	return &Player{
 		IsTurn:      isTurn,
 		IsHost:      isHost,
@@ -38,8 +38,8 @@ func NewPlayer(currentGame *Game, isHost, isTurn bool, sessionID string) *Player
 		MatchStatus: PlayerMatchStatusUndefined,
 		SunkenShips: 0,
 		Uuid:        uuid.NewString()[:10],
-		AttackGrid:  NewGrid(),
-		DefenceGrid: NewGrid(),
+		AttackGrid:  NewGrid(gridSize),
+		DefenceGrid: NewGrid(gridSize),
 		Ships:       NewShipsMap(),
 		CurrentGame: currentGame,
 		SessionID:   sessionID,

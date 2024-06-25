@@ -17,10 +17,10 @@ const (
 
 // Creates a new default grid
 // All indexes are zero/PositionStatusNeutral
-func NewGrid() GridInt {
-	grid := make(GridInt, GameGridSize)
-	for i := 0; i < GameGridSize; i++ {
-		grid[i] = make([]int, GameGridSize)
+func NewGrid(gridSize int) GridInt {
+	grid := make(GridInt, gridSize)
+	for i := 0; i < gridSize; i++ {
+		grid[i] = make([]int, gridSize)
 	}
 	return grid
 }

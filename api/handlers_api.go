@@ -42,13 +42,26 @@ func NewRequest(session *Session, payload ...[]byte) *Request {
 }
 
 func (r *Request) HandleCreateGame() *mc.Message[mc.RespCreateGame] {
-	game := r.Session.GameManager.AddGame()
+	var reqCreateGame mc.Message[mc.ReqCreateGame]
+	resp := mc.NewMessage[mc.RespCreateGame](mc.CodeCreateGame)
+
+	if err := json.Unmarshal(r.Payload, &reqCreateGame); err != nil {
+		resp.AddError(err.Error(), cerr.ConstErrInvalidPayload)
+		return &resp
+	}
+
+	gameDifficulty := reqCreateGame.Payload.GameDifficulty
+	if gameDifficulty != mb.GameDifficultyEasy && gameDifficulty != mb.GameDifficultyHard {
+		resp.AddError(cerr.ErrInvalidGameDifficulty().Error(), "")
+		return &resp
+	}
+
+	game := r.Session.GameManager.AddGame(gameDifficulty)
 	r.Session.GameUuid = game.Uuid
 
 	hostPlayer := game.CreateHostPlayer(r.Session.ID)
 	r.Session.Player = hostPlayer
 
-	resp := mc.NewMessage[mc.RespCreateGame](mc.CodeCreateGame)
 	resp.AddPayload(mc.RespCreateGame{GameUuid: game.Uuid, HostUuid: hostPlayer.Uuid})
 	return &resp
 }
@@ -72,13 +85,13 @@ func (r *Request) HandleReadyPlayer() (*mc.Message[mc.NoPayload], *mb.Game) {
 
 	// Check to see if rows and cols are equal to game's grid size
 	rows := len(readyPlayerReq.Payload.DefenceGrid)
-	if rows != mb.GameGridSize {
-		resp.AddError(cerr.ErrDefenceGridRowsOutOfBounds(rows, mb.GameGridSize).Error(), cerr.ConstErrReady)
+	if rows != game.GridSize {
+		resp.AddError(cerr.ErrDefenceGridRowsOutOfBounds(rows, game.GridSize).Error(), cerr.ConstErrReady)
 		return &resp, nil
 	}
 	cols := len(readyPlayerReq.Payload.DefenceGrid[0])
-	if cols != mb.GameGridSize {
-		resp.AddError(cerr.ErrDefenceGridColsOutOfBounds(cols, mb.GameGridSize).Error(), cerr.ConstErrReady)
+	if cols != game.GridSize {
+		resp.AddError(cerr.ErrDefenceGridColsOutOfBounds(cols, game.GridSize).Error(), cerr.ConstErrReady)
 		return &resp, nil
 	}
 
@@ -122,17 +135,17 @@ func (r *Request) HandleAttack() (*mc.Message[mc.RespAttack], *mb.Player) {
 		resp.AddError(err.Error(), cerr.ConstErrInvalidPayload)
 		return &resp, nil
 	}
-
-	x := reqAttack.Payload.X
-	y := reqAttack.Payload.Y
-	if x > mb.GameValidUpperBound || y > mb.GameValidUpperBound || x < mb.GameValidLowerBound || y < mb.GameValidLowerBound {
-		resp.AddError(cerr.ErrXorYOutOfGridBound(x, y).Error(), cerr.ConstErrAttack)
-		return &resp, nil
-	}
-
+	
 	game, attacker, err := r.Session.GameManager.FindGameAndPlayer(reqAttack.Payload.GameUuid, reqAttack.Payload.PlayerUuid)
 	if err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrAttack)
+		return &resp, nil
+	}
+
+	x := reqAttack.Payload.X
+	y := reqAttack.Payload.Y
+	if x > game.ValidUpperBound || y > game.ValidUpperBound || x < game.ValidLowerBound || y < game.ValidLowerBound {
+		resp.AddError(cerr.ErrXorYOutOfGridBound(x, y).Error(), cerr.ConstErrAttack)
 		return &resp, nil
 	}
 
