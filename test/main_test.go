@@ -10,23 +10,26 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/saeidalz13/battleship-backend/api"
 
+	mb "github.com/saeidalz13/battleship-backend/models/battleship"
 	mc "github.com/saeidalz13/battleship-backend/models/connection"
 )
 
 var (
-	HostConn           *websocket.Conn
-	JoinConn           *websocket.Conn
-	GameUuid           string
-	HostPlayerId       string
-	JoinPlayerId       string
-	HostSessionID      string
-	JoinSessionID      string
+	HostConn       *websocket.Conn
+	JoinConn       *websocket.Conn
+	GameUuid       string
+	testHostPlayer *mb.Player
+	testJoinPlayer *mb.Player
+	HostSessionID  string
+	JoinSessionID  string
+	testServer     *api.Server
 )
 
 func TestMain(m *testing.M) {
 	go func() {
 		stage := "dev"
 		server := api.NewServer(api.WithPort(7171), api.WithStage(stage))
+		testServer = server
 
 		go server.SessionManager.ManageCommunication()
 		go server.SessionManager.CleanUpPeriodically()

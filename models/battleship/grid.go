@@ -2,6 +2,15 @@ package battleship
 
 type GridInt [][]int
 
+type Coords struct {
+	X int `json:"x"`
+	Y int `json:"y"`
+}
+
+func NewCoords(x, y int) Coords {
+	return Coords{X: x, Y: y}
+}
+
 const (
 	GameGridSize = 5
 )
