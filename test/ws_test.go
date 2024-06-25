@@ -320,6 +320,7 @@ func TestAttack(t *testing.T) {
 				IsTurn:          false,
 				SunkenShipsHost: 0,
 				SunkenShipsJoin: 1,
+				DidSink:         true,
 			}},
 			conn:      HostConn,
 			otherConn: JoinConn,
@@ -358,10 +359,10 @@ func TestAttack(t *testing.T) {
 				X:          0,
 				Y:          0,
 			}},
-			respPayload: mc.Message[mc.RespAttack]{},
+			respPayload:         mc.Message[mc.RespAttack]{},
 			expectedRespPayload: mc.Message[mc.RespAttack]{Code: mc.CodeAttack},
-			conn:      JoinConn,
-			otherConn: HostConn,
+			conn:                JoinConn,
+			otherConn:           HostConn,
 		},
 
 		{
