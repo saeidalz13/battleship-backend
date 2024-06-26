@@ -61,7 +61,7 @@ func (p *Player) IsShipSunken(code int) bool {
 func (p *Player) HitShip(code, x, y int) {
 	p.DefenceGrid[x][y] = PositionStateDefenceGridHit
 	p.Ships[code].GotHit()
-	p.Ships[code].coordsHits = append(p.Ships[code].coordsHits, NewCoords(x, y))
+	p.Ships[code].hitCoordinates = append(p.Ships[code].hitCoordinates, NewCoords(x, y))
 }
 
 func (p *Player) IdentifyHitCoordsEssence(x, y int) (int, error) {

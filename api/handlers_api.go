@@ -195,8 +195,8 @@ func (r *Request) HandleAttack() (*mc.Message[mc.RespAttack], *mb.Player) {
 
 	// Check if the attack caused the ship to sink
 	if defender.IsShipSunken(positionCode) {
-		resp.Payload.DefenderSunkenShipsCoords = defender.Ships[positionCode].GetHitCoords()
-		
+		resp.Payload.DefenderSunkenShipsCoords = defender.Ships[positionCode].GetHitCoordinates()
+
 		// Check if this sunken ship was the last one and the attacker is lost
 		if defender.IsLoser() {
 			defender.MatchStatus = mb.PlayerMatchStatusLost
