@@ -11,7 +11,7 @@ import (
 
 type RequestHandler interface {
 	HandleCreateGame() *mc.Message[mc.RespCreateGame]
-	HandleReadyPlayer() (*mc.Message[mc.NoPayload], *mb.Game)
+	HandleReadyPlayer() (mc.Message[mc.NoPayload], *mb.Game)
 	HandleJoinPlayer() (*mc.Message[mc.RespJoinGame], *mb.Game)
 	HandleAttack() (*mc.Message[mc.RespAttack], *mb.Player)
 }
@@ -68,36 +68,36 @@ func (r *Request) HandleCreateGame() *mc.Message[mc.RespCreateGame] {
 
 // User will choose the configurations of ships on defence grid.
 // Then the grid is sent to backend and adjustment happens accordingly.
-func (r *Request) HandleReadyPlayer() (*mc.Message[mc.NoPayload], *mb.Game) {
+func (r *Request) HandleReadyPlayer() (mc.Message[mc.NoPayload], *mb.Game) {
 	var readyPlayerReq mc.Message[mc.ReqReadyPlayer]
 	resp := mc.NewMessage[mc.NoPayload](mc.CodeReady)
 
 	if err := json.Unmarshal(r.Payload, &readyPlayerReq); err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrInvalidPayload)
-		return &resp, nil
+		return resp, nil
 	}
 
 	game, player, err := r.Session.GameManager.FindGameAndPlayer(readyPlayerReq.Payload.GameUuid, readyPlayerReq.Payload.PlayerUuid)
 	if err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrReady)
-		return &resp, nil
+		return resp, nil
 	}
 
 	// Check to see if rows and cols are equal to game's grid size
 	rows := len(readyPlayerReq.Payload.DefenceGrid)
 	if rows != game.GridSize {
 		resp.AddError(cerr.ErrDefenceGridRowsOutOfBounds(rows, game.GridSize).Error(), cerr.ConstErrReady)
-		return &resp, nil
+		return resp, nil
 	}
 	cols := len(readyPlayerReq.Payload.DefenceGrid[0])
 	if cols != game.GridSize {
 		resp.AddError(cerr.ErrDefenceGridColsOutOfBounds(cols, game.GridSize).Error(), cerr.ConstErrReady)
-		return &resp, nil
+		return resp, nil
 	}
 
 	player.SetDefenceGrid(readyPlayerReq.Payload.DefenceGrid)
 	player.IsReady = true
-	return &resp, game
+	return resp, game
 }
 
 // Join user sends the game uuid and if this game exists,

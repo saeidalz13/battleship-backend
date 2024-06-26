@@ -4,7 +4,7 @@ type NoPayload bool
 type Message[T any] struct {
 	Code    int     `json:"code"`
 	Payload T       `json:"payload,omitempty"`
-	Error   RespErr `json:"error,omitempty"`
+	Error   *RespErr `json:"error,omitempty"`
 }
 
 func NewMessage[T any](code int) Message[T] {
@@ -16,5 +16,5 @@ func (m *Message[T]) AddPayload(payload T) {
 }
 
 func (m *Message[T]) AddError(errorDetails, message string) {
-	m.Error = *NewRespErr(errorDetails, message)
+	m.Error = NewRespErr(errorDetails, message)
 }

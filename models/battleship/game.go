@@ -18,9 +18,9 @@ const (
 )
 
 const (
-	GridSizeEasy   int = 5
-	GridSizeNormal int = 6
-	GridSizeHard   int = 7
+	GridSizeEasy   int = 6
+	GridSizeNormal int = 7
+	GridSizeHard   int = 8
 )
 
 type Game struct {
@@ -78,7 +78,7 @@ func (g *Game) FindPlayer(playerUuid string) (*Player, error) {
 }
 
 func (g *Game) CreateJoinPlayer(sessionID string) *Player {
-	joinPlayer := NewPlayer(g, false, false, sessionID, g.GridSize)
+	joinPlayer := NewPlayer(false, false, sessionID, g.GridSize)
 	g.JoinPlayer = joinPlayer
 
 	g.Players[joinPlayer.Uuid] = joinPlayer
@@ -86,7 +86,7 @@ func (g *Game) CreateJoinPlayer(sessionID string) *Player {
 }
 
 func (g *Game) CreateHostPlayer(sessionID string) *Player {
-	hostPlayer := NewPlayer(g, true, true, sessionID, g.GridSize)
+	hostPlayer := NewPlayer(true, true, sessionID, g.GridSize)
 	g.HostPlayer = hostPlayer
 
 	g.Players[hostPlayer.Uuid] = hostPlayer

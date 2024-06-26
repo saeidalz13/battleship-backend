@@ -30,7 +30,7 @@ type Player struct {
 	CurrentGame *Game
 }
 
-func NewPlayer(currentGame *Game, isHost, isTurn bool, sessionID string, gridSize int) *Player {
+func NewPlayer(isHost, isTurn bool, sessionID string, gridSize int) *Player {
 	return &Player{
 		IsTurn:      isTurn,
 		IsHost:      isHost,
@@ -41,7 +41,6 @@ func NewPlayer(currentGame *Game, isHost, isTurn bool, sessionID string, gridSiz
 		AttackGrid:  NewGrid(gridSize),
 		DefenceGrid: NewGrid(gridSize),
 		Ships:       NewShipsMap(),
-		CurrentGame: currentGame,
 		SessionID:   sessionID,
 	}
 }

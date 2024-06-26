@@ -119,7 +119,7 @@ sessionLoop:
 		switch signal.Code {
 
 		case mc.CodeCreateGame:
-			req := NewRequest(s)
+			req := NewRequest(s, payload)
 			resp := req.HandleCreateGame()
 
 			switch WriteJSONWithRetry(s.Conn, resp) {
@@ -141,7 +141,7 @@ sessionLoop:
 			// response will have the IsTurn field of attacker
 			resp, defender := req.HandleAttack()
 
-			if resp.Error.ErrorDetails != "" {
+			if resp.Error != nil {
 				switch WriteJSONWithRetry(s.Conn, resp) {
 				case ConnLoopAbnormalClosureRetry:
 					switch s.handleAbnormalClosure() {
@@ -210,8 +210,15 @@ sessionLoop:
 			req := NewRequest(s, payload)
 			resp, game := req.HandleReadyPlayer()
 
-			if resp.Error.ErrorDetails != "" {
+			if resp.Error != nil {
 				switch WriteJSONWithRetry(s.Conn, resp) {
+				case ConnLoopAbnormalClosureRetry:
+					switch s.handleAbnormalClosure() {
+					case ConnLoopCodeBreak:
+						break sessionLoop
+
+					case ConnLoopCodeContinue:
+					}
 				case ConnLoopCodeBreak:
 					break sessionLoop
 				default:
@@ -235,6 +242,7 @@ sessionLoop:
 			}
 
 			if game.HostPlayer.IsReady && game.JoinPlayer.IsReady {
+				log.Println("REACHED HERE")
 				respStartGame := mc.NewMessage[mc.NoPayload](mc.CodeStartGame)
 				switch WriteJSONWithRetry(s.Conn, respStartGame) {
 				case ConnLoopAbnormalClosureRetry:
@@ -279,7 +287,7 @@ sessionLoop:
 
 			// If the second playerd joined successfully, then `CodeSelectGrid`
 			// is sent to both players as an indication of grid selection
-			if resp.Error.ErrorDetails == "" {
+			if resp.Error == nil {
 				readyResp := mc.NewMessage[mc.NoPayload](mc.CodeSelectGrid)
 
 				switch WriteJSONWithRetry(s.Conn, readyResp) {

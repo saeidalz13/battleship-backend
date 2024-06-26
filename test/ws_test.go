@@ -60,14 +60,15 @@ func TestInvalidCode(t *testing.T) {
 }
 
 func TestCreateGame(t *testing.T) {
-	tests := []Test[mc.Message[mc.NoPayload], mc.Message[mc.RespCreateGame]]{
+	tests := []Test[mc.Message[mc.ReqCreateGame], mc.Message[mc.RespCreateGame]]{
 		{
 			name:         "create game valid code",
 			expectedCode: mc.CodeCreateGame,
-			expectedErr:  "",
-			reqPayload:   mc.NewMessage[mc.NoPayload](mc.CodeCreateGame),
-			respPayload:  mc.NewMessage[mc.RespCreateGame](mc.CodeCreateGame),
-			conn:         HostConn,
+			reqPayload: mc.Message[mc.ReqCreateGame]{Code: mc.CodeCreateGame, Payload: mc.ReqCreateGame{
+				GameDifficulty: mb.GameDifficultyEasy,
+			}},
+			respPayload: mc.NewMessage[mc.RespCreateGame](mc.CodeCreateGame),
+			conn:        HostConn,
 		},
 	}
 
@@ -85,11 +86,11 @@ func TestCreateGame(t *testing.T) {
 				t.Fatalf("expected status: %d\t got: %d", test.expectedCode, test.respPayload.Code)
 			}
 
-			if test.respPayload.Error.ErrorDetails != test.expectedErr {
-				t.Fatalf("expected error: %s\t got: %s", test.reqPayload.Error.ErrorDetails, test.expectedErr)
+			if test.respPayload.Error != nil {
+				t.Fatalf("error: %s\t", test.reqPayload.Error.ErrorDetails)
 			}
 
-			if test.respPayload.Error.ErrorDetails == "" {
+			if test.respPayload.Error == nil {
 				GameUuid = test.respPayload.Payload.GameUuid
 				game, err := testServer.GameManager.FindGame(GameUuid)
 				if err != nil {
@@ -106,10 +107,10 @@ func TestJoinPlayer(t *testing.T) {
 		{
 			name:         "valid game uuid",
 			expectedCode: mc.CodeJoinGame,
-			expectedErr:  "",
-			reqPayload:   mc.Message[mc.ReqJoinGame]{Code: mc.CodeJoinGame, Payload: mc.ReqJoinGame{GameUuid: GameUuid}},
-			respPayload:  mc.NewMessage[mc.RespJoinGame](mc.CodeJoinGame),
-			conn:         JoinConn,
+			// expectedErr:  "",
+			reqPayload:  mc.Message[mc.ReqJoinGame]{Code: mc.CodeJoinGame, Payload: mc.ReqJoinGame{GameUuid: GameUuid}},
+			respPayload: mc.NewMessage[mc.RespJoinGame](mc.CodeJoinGame),
+			conn:        JoinConn,
 		},
 		{
 			name:         "invalid game uuid",
@@ -135,11 +136,13 @@ func TestJoinPlayer(t *testing.T) {
 				t.Fatalf("expected status: %d\t got: %d", test.expectedCode, test.respPayload.Code)
 			}
 
-			if test.respPayload.Error.ErrorDetails != test.expectedErr {
-				t.Fatalf("expected error: %s\t got: %s", test.reqPayload.Error.ErrorDetails, test.expectedErr)
+			if test.respPayload.Error != nil {
+				if test.respPayload.Error.ErrorDetails != test.expectedErr {
+					t.Fatalf("expected error: %s\t got: %s", test.reqPayload.Error.ErrorDetails, test.expectedErr)
+				}
 			}
 
-			if test.respPayload.Error.ErrorDetails == "" {
+			if test.respPayload.Error == nil {
 				if GameUuid != test.respPayload.Payload.GameUuid {
 					t.Fatal("incoming game uuid did not match the req uuid after join")
 				}
@@ -157,7 +160,7 @@ func TestJoinPlayer(t *testing.T) {
 				if err := HostConn.ReadJSON(&respSelectGridHost); err != nil {
 					t.Fatal(err)
 				}
-				if respSelectGridHost.Error.ErrorDetails != "" {
+				if respSelectGridHost.Error != nil {
 					t.Fatalf("failed to receive select ready message for host: %s", respSelectGridHost.Error.ErrorDetails)
 				}
 
@@ -165,7 +168,7 @@ func TestJoinPlayer(t *testing.T) {
 				if err := JoinConn.ReadJSON(&respSelectGridJoin); err != nil {
 					t.Fatal(err)
 				}
-				if respSelectGridJoin.Error.ErrorDetails != "" {
+				if respSelectGridJoin.Error != nil {
 					t.Fatalf("failed to receive select ready message for join: %s", respSelectGridJoin.Error.ErrorDetails)
 				}
 			}
@@ -175,26 +178,27 @@ func TestJoinPlayer(t *testing.T) {
 
 func TestReadyGame(t *testing.T) {
 	defenceGridHost := mb.GridInt{
-		{0, mb.PositionStateDefenceDestroyer, mb.PositionStateDefenceDestroyer, 0, 0},
-		{mb.PositionStateDefenceCruiser, 0, 0, mb.PositionStateDefenceBattleship, 0},
-		{mb.PositionStateDefenceCruiser, 0, 0, mb.PositionStateDefenceBattleship, 0},
-		{mb.PositionStateDefenceCruiser, 0, 0, mb.PositionStateDefenceBattleship, 0},
-		{0, 0, 0, mb.PositionStateDefenceBattleship, 0},
+		{0, mb.PositionStateDefenceDestroyer, mb.PositionStateDefenceDestroyer, 0, 0, 0},
+		{mb.PositionStateDefenceCruiser, 0, 0, mb.PositionStateDefenceBattleship, 0, 0},
+		{mb.PositionStateDefenceCruiser, 0, 0, mb.PositionStateDefenceBattleship, 0, 0},
+		{mb.PositionStateDefenceCruiser, 0, 0, mb.PositionStateDefenceBattleship, 0, 0},
+		{0, 0, 0, mb.PositionStateDefenceBattleship, 0, 0},
+		{0, 0, 0, 0, 0, 0},
 	}
 
 	defenceGridJoin := mb.GridInt{
-		{0, mb.PositionStateDefenceDestroyer, mb.PositionStateDefenceDestroyer, 0, 0},
-		{mb.PositionStateDefenceCruiser, 0, 0, 0, mb.PositionStateDefenceBattleship},
-		{mb.PositionStateDefenceCruiser, 0, 0, 0, mb.PositionStateDefenceBattleship},
-		{mb.PositionStateDefenceCruiser, 0, 0, 0, mb.PositionStateDefenceBattleship},
-		{0, 0, 0, 0, mb.PositionStateDefenceBattleship},
+		{0, mb.PositionStateDefenceDestroyer, mb.PositionStateDefenceDestroyer, 0, 0, 0},
+		{mb.PositionStateDefenceCruiser, 0, 0, 0, mb.PositionStateDefenceBattleship, 0},
+		{mb.PositionStateDefenceCruiser, 0, 0, 0, mb.PositionStateDefenceBattleship, 0},
+		{mb.PositionStateDefenceCruiser, 0, 0, 0, mb.PositionStateDefenceBattleship, 0},
+		{0, 0, 0, 0, mb.PositionStateDefenceBattleship, 0},
+		{0, 0, 0, 0, 0, 0},
 	}
 
 	tests := []Test[mc.Message[mc.ReqReadyPlayer], mc.Message[mc.NoPayload]]{
 		{
 			name:         "set defence grid ready host",
 			expectedCode: mc.CodeReady,
-			expectedErr:  "",
 			reqPayload: mc.Message[mc.ReqReadyPlayer]{
 				Code: mc.CodeReady,
 				Payload: mc.ReqReadyPlayer{
@@ -209,7 +213,6 @@ func TestReadyGame(t *testing.T) {
 		{
 			name:         "set defence grid ready join",
 			expectedCode: mc.CodeReady,
-			expectedErr:  "",
 			reqPayload: mc.Message[mc.ReqReadyPlayer]{
 				Code: mc.CodeReady,
 				Payload: mc.ReqReadyPlayer{
@@ -223,7 +226,7 @@ func TestReadyGame(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
+	for i, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			if err := test.conn.WriteJSON(test.reqPayload); err != nil {
 				t.Fatal(err)
@@ -237,13 +240,15 @@ func TestReadyGame(t *testing.T) {
 				t.Fatalf("expected status: %d\t got: %d", test.expectedCode, test.respPayload.Code)
 			}
 
-			if test.respPayload.Error.ErrorDetails != test.expectedErr {
-				t.Fatalf("expected error: %s\t got: %s", test.reqPayload.Error.ErrorDetails, test.expectedErr)
+			if test.respPayload.Error != nil {
+				if test.respPayload.Error.ErrorDetails != test.expectedErr {
+					t.Fatalf("expected error: %s\t got: %s", test.reqPayload.Error.ErrorDetails, test.expectedErr)
+				}
 			}
 
 			// After the success of second test
 			// start game code will be sent to both parties
-			if test.name == "set defence grid ready join" {
+			if i == 1 {
 				// Reading game ready codes
 
 				// Host
@@ -267,7 +272,7 @@ func TestAttack(t *testing.T) {
 		{
 			name:         "successful hit attack valid payload host",
 			expectedCode: mc.CodeAttack,
-			expectedErr:  "",
+			// expectedErr:  "",
 			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   GameUuid,
 				PlayerUuid: testHostPlayer.Uuid,
@@ -290,7 +295,7 @@ func TestAttack(t *testing.T) {
 		{
 			name:         "successful hit attack valid payload join",
 			expectedCode: mc.CodeAttack,
-			expectedErr:  "",
+			// expectedErr:  "",
 			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   GameUuid,
 				PlayerUuid: testJoinPlayer.Uuid,
@@ -313,7 +318,7 @@ func TestAttack(t *testing.T) {
 		{
 			name:         "another successful hit attack valid payload and sink ship",
 			expectedCode: mc.CodeAttack,
-			expectedErr:  "",
+			// expectedErr:  "",
 			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   GameUuid,
 				PlayerUuid: testHostPlayer.Uuid,
@@ -340,7 +345,7 @@ func TestAttack(t *testing.T) {
 		{
 			name:         "successful miss attack valid payload join",
 			expectedCode: mc.CodeAttack,
-			expectedErr:  "",
+			// expectedErr:  "",
 			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   GameUuid,
 				PlayerUuid: testJoinPlayer.Uuid,
@@ -439,11 +444,13 @@ func TestAttack(t *testing.T) {
 				t.Fatalf("expected status: %d\t got: %d", test.expectedCode, test.respPayload.Code)
 			}
 
-			if test.respPayload.Error.ErrorDetails != test.expectedErr {
-				t.Fatalf("expected error: %s\t got: %s", test.respPayload.Error.ErrorDetails, test.expectedErr)
+			if test.respPayload.Error != nil {
+				if test.respPayload.Error.ErrorDetails != test.expectedErr {
+					t.Fatalf("expected error: %s\t got: %s", test.reqPayload.Error.ErrorDetails, test.expectedErr)
+				}
 			}
 
-			if test.expectedErr == "" {
+			if test.respPayload.Error == nil {
 				if !reflect.DeepEqual(test.respPayload, test.expectedRespPayload) {
 					t.Fatalf("expected resp payload: %+v\n got: %+v", test.expectedRespPayload, test.respPayload)
 				}
