@@ -10,10 +10,10 @@ import (
 )
 
 type RequestHandler interface {
-	HandleCreateGame() *mc.Message[mc.RespCreateGame]
+	HandleCreateGame() mc.Message[mc.RespCreateGame]
 	HandleReadyPlayer() (mc.Message[mc.NoPayload], *mb.Game)
-	HandleJoinPlayer() (*mc.Message[mc.RespJoinGame], *mb.Game)
-	HandleAttack() (*mc.Message[mc.RespAttack], *mb.Player)
+	HandleJoinPlayer() (mc.Message[mc.RespJoinGame], *mb.Game)
+	HandleAttack() (mc.Message[mc.RespAttack], *mb.Player)
 }
 
 // Every incoming valid request will have this structure
@@ -41,19 +41,19 @@ func NewRequest(session *Session, payload ...[]byte) *Request {
 	return &wsReq
 }
 
-func (r *Request) HandleCreateGame() *mc.Message[mc.RespCreateGame] {
+func (r *Request) HandleCreateGame() mc.Message[mc.RespCreateGame] {
 	var reqCreateGame mc.Message[mc.ReqCreateGame]
 	resp := mc.NewMessage[mc.RespCreateGame](mc.CodeCreateGame)
 
 	if err := json.Unmarshal(r.Payload, &reqCreateGame); err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrInvalidPayload)
-		return &resp
+		return resp
 	}
 
 	gameDifficulty := reqCreateGame.Payload.GameDifficulty
 	if gameDifficulty != mb.GameDifficultyEasy && gameDifficulty != mb.GameDifficultyHard {
 		resp.AddError(cerr.ErrInvalidGameDifficulty().Error(), "")
-		return &resp
+		return resp
 	}
 
 	game := r.Session.GameManager.AddGame(gameDifficulty)
@@ -63,7 +63,33 @@ func (r *Request) HandleCreateGame() *mc.Message[mc.RespCreateGame] {
 	r.Session.Player = hostPlayer
 
 	resp.AddPayload(mc.RespCreateGame{GameUuid: game.Uuid, HostUuid: hostPlayer.Uuid})
-	return &resp
+	return resp
+}
+
+// Join user sends the game uuid and if this game exists,
+// a new join player is created and added to the database
+func (r *Request) HandleJoinPlayer() (mc.Message[mc.RespJoinGame], *mb.Game) {
+	var joinGameReq mc.Message[mc.ReqJoinGame]
+	resp := mc.NewMessage[mc.RespJoinGame](mc.CodeJoinGame)
+
+	if err := json.Unmarshal(r.Payload, &joinGameReq); err != nil {
+		resp.AddError(err.Error(), cerr.ConstErrInvalidPayload)
+		return resp, nil
+	}
+
+	game, err := r.Session.GameManager.FindGame(joinGameReq.Payload.GameUuid)
+	if err != nil {
+		resp.AddError(err.Error(), cerr.ConstErrJoin)
+		return resp, nil
+	}
+
+	joinPlayer := game.CreateJoinPlayer(r.Session.ID)
+
+	r.Session.GameUuid = game.Uuid
+	r.Session.Player = joinPlayer
+
+	resp.AddPayload(mc.RespJoinGame{GameUuid: game.Uuid, PlayerUuid: joinPlayer.Uuid})
+	return resp, game
 }
 
 // User will choose the configurations of ships on defence grid.
@@ -100,65 +126,39 @@ func (r *Request) HandleReadyPlayer() (mc.Message[mc.NoPayload], *mb.Game) {
 	return resp, game
 }
 
-// Join user sends the game uuid and if this game exists,
-// a new join player is created and added to the database
-func (r *Request) HandleJoinPlayer() (*mc.Message[mc.RespJoinGame], *mb.Game) {
-	var joinGameReq mc.Message[mc.ReqJoinGame]
-	resp := mc.NewMessage[mc.RespJoinGame](mc.CodeJoinGame)
-
-	if err := json.Unmarshal(r.Payload, &joinGameReq); err != nil {
-		resp.AddError(err.Error(), cerr.ConstErrInvalidPayload)
-		return &resp, nil
-	}
-
-	game, err := r.Session.GameManager.FindGame(joinGameReq.Payload.GameUuid)
-	if err != nil {
-		resp.AddError(err.Error(), cerr.ConstErrJoin)
-		return &resp, nil
-	}
-
-	joinPlayer := game.CreateJoinPlayer(r.Session.ID)
-
-	r.Session.GameUuid = game.Uuid
-	r.Session.Player = joinPlayer
-
-	resp.AddPayload(mc.RespJoinGame{GameUuid: game.Uuid, PlayerUuid: joinPlayer.Uuid})
-	return &resp, game
-}
-
 // Handle the attack logic for the incoming request
-func (r *Request) HandleAttack() (*mc.Message[mc.RespAttack], *mb.Player) {
+func (r *Request) HandleAttack() (mc.Message[mc.RespAttack], *mb.Player) {
 	var reqAttack mc.Message[mc.ReqAttack]
 	resp := mc.NewMessage[mc.RespAttack](mc.CodeAttack)
 
 	if err := json.Unmarshal(r.Payload, &reqAttack); err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrInvalidPayload)
-		return &resp, nil
+		return resp, nil
 	}
-	
+
 	game, attacker, err := r.Session.GameManager.FindGameAndPlayer(reqAttack.Payload.GameUuid, reqAttack.Payload.PlayerUuid)
 	if err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrAttack)
-		return &resp, nil
+		return resp, nil
 	}
 
 	x := reqAttack.Payload.X
 	y := reqAttack.Payload.Y
 	if x > game.ValidUpperBound || y > game.ValidUpperBound || x < game.ValidLowerBound || y < game.ValidLowerBound {
 		resp.AddError(cerr.ErrXorYOutOfGridBound(x, y).Error(), cerr.ConstErrAttack)
-		return &resp, nil
+		return resp, nil
 	}
 
 	// If attacker has the correct IsTurn Field
 	if !attacker.IsTurn {
 		resp.AddError(cerr.ErrNotTurnForAttacker(attacker.Uuid).Error(), cerr.ConstErrAttack)
-		return &resp, nil
+		return resp, nil
 	}
 
 	// Check if the attack position was already hit before (invalid position to attack)
 	if attacker.AttackGrid[x][y] != mb.PositionStateAttackGridEmpty {
 		resp.AddError(cerr.ErrAttackPositionAlreadyFilled(x, y).Error(), cerr.ConstErrAttack)
-		return &resp, nil
+		return resp, nil
 	}
 
 	// Idenitify the defender
@@ -172,7 +172,7 @@ func (r *Request) HandleAttack() (*mc.Message[mc.RespAttack], *mb.Player) {
 	if err != nil {
 		// Invalid position in defender defence grid (already hit)
 		resp.AddError(err.Error(), cerr.ConstErrAttack)
-		return &resp, defender
+		return resp, defender
 	}
 
 	// Change the status of players turn
@@ -191,7 +191,7 @@ func (r *Request) HandleAttack() (*mc.Message[mc.RespAttack], *mb.Player) {
 			SunkenShipsHost: game.HostPlayer.SunkenShips,
 			SunkenShipsJoin: game.JoinPlayer.SunkenShips,
 		})
-		return &resp, defender
+		return resp, defender
 	}
 
 	// ! Passed this line, positionCode is a ship code used to extract ship from map
@@ -220,5 +220,5 @@ func (r *Request) HandleAttack() (*mc.Message[mc.RespAttack], *mb.Player) {
 
 	resp.Payload.SunkenShipsHost = game.HostPlayer.SunkenShips
 	resp.Payload.SunkenShipsJoin = game.JoinPlayer.SunkenShips
-	return &resp, defender
+	return resp, defender
 }
