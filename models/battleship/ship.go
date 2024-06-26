@@ -11,16 +11,18 @@ const (
 )
 
 type Ship struct {
-	Code   int
-	length int
-	hits   int
+	Code           int
+	length         int
+	hits           int
+	hitCoordinates []Coordinates
 }
 
 func NewShip(code, length int) *Ship {
 	return &Ship{
-		Code:   code,
-		length: length,
-		hits:   0,
+		Code:           code,
+		length:         length,
+		hits:           0,
+		hitCoordinates: make([]Coordinates, 0, length),
 	}
 }
 
@@ -39,4 +41,8 @@ func (sh *Ship) GotHit() {
 
 func (sh *Ship) IsSunk() bool {
 	return sh.hits == sh.length
+}
+
+func (sh *Ship) GetHitCoordinates() []Coordinates {
+	return sh.hitCoordinates
 }

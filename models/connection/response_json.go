@@ -1,5 +1,9 @@
 package connection
 
+import (
+	mb "github.com/saeidalz13/battleship-backend/models/battleship"
+)
+
 type RespJoinGame struct {
 	GameUuid   string `json:"game_uuid"`
 	PlayerUuid string `json:"player_uuid"`
@@ -11,13 +15,13 @@ type RespCreateGame struct {
 }
 
 type RespAttack struct {
-	X               int  `json:"x"`
-	Y               int  `json:"y"`
-	PositionState   int  `json:"position_state"`
-	IsTurn          bool `json:"is_turn"`
-	SunkenShipsHost int  `json:"sunken_ships_host"`
-	SunkenShipsJoin int  `json:"sunken_ships_join"`
-	DidSink         bool `json:"did_sink"`
+	X                         int              `json:"x"`
+	Y                         int              `json:"y"`
+	PositionState             int              `json:"position_state"`
+	IsTurn                    bool             `json:"is_turn"`
+	SunkenShipsHost           int              `json:"sunken_ships_host"`
+	SunkenShipsJoin           int              `json:"sunken_ships_join"`
+	DefenderSunkenShipsCoords []mb.Coordinates `json:"defender_sunken_ships_coords,omitempty"`
 }
 
 type RespSessionId struct {
@@ -29,8 +33,8 @@ type RespEndGame struct {
 }
 
 type RespErr struct {
-	ErrorDetails string `json:"error_details"`
-	Message      string `json:"message"`
+	ErrorDetails string `json:"error_details,omitempty"`
+	Message      string `json:"message,omitempty"`
 }
 
 func NewRespErr(errorDetails, message string) *RespErr {

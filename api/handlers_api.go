@@ -155,7 +155,7 @@ func (r *Request) HandleAttack() (*mc.Message[mc.RespAttack], *mb.Player) {
 	}
 
 	// Check what is in the position of attack in defence grid matrix of defender
-	positionCode, err := defender.FetchDefenceGridPositionCode(x, y)
+	positionCode, err := defender.IdentifyHitCoordsEssence(x, y)
 	if err != nil {
 		// Invalid position in defender defence grid (already hit)
 		resp.AddError(err.Error(), cerr.ConstErrAttack)
@@ -181,22 +181,23 @@ func (r *Request) HandleAttack() (*mc.Message[mc.RespAttack], *mb.Player) {
 		return &resp, defender
 	}
 
+	// ! Passed this line, positionCode is a ship code used to extract ship from map
 	// Apply the attack to the position for both defender and attacker
 	defender.HitShip(positionCode, x, y)
 	attacker.AttackGrid[x][y] = mb.PositionStateAttackGridHit
 
-	// Initialize the payload
+	// Initialize the response payload
 	resp.AddPayload(mc.RespAttack{
 		X:             x,
 		Y:             y,
 		PositionState: mb.PositionStateAttackGridHit,
 	})
 
-	// Check if the attack cause the ship to sink
+	// Check if the attack caused the ship to sink
 	if defender.IsShipSunken(positionCode) {
+		resp.Payload.DefenderSunkenShipsCoords = defender.Ships[positionCode].GetHitCoordinates()
+
 		// Check if this sunken ship was the last one and the attacker is lost
-		resp.Payload.DidSink = true
-		
 		if defender.IsLoser() {
 			defender.MatchStatus = mb.PlayerMatchStatusLost
 			attacker.MatchStatus = mb.PlayerMatchStatusWon

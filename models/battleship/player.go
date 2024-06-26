@@ -61,9 +61,10 @@ func (p *Player) IsShipSunken(code int) bool {
 func (p *Player) HitShip(code, x, y int) {
 	p.DefenceGrid[x][y] = PositionStateDefenceGridHit
 	p.Ships[code].GotHit()
+	p.Ships[code].hitCoordinates = append(p.Ships[code].hitCoordinates, NewCoordinates(x, y))
 }
 
-func (p *Player) FetchDefenceGridPositionCode(x, y int) (int, error) {
+func (p *Player) IdentifyHitCoordsEssence(x, y int) (int, error) {
 	positionCode := p.DefenceGrid[x][y]
 	if positionCode == PositionStateDefenceGridHit {
 		return PositionStateAttackGridHit, cerr.ErrDefenceGridPositionAlreadyHit(x, y)
@@ -71,6 +72,9 @@ func (p *Player) FetchDefenceGridPositionCode(x, y int) (int, error) {
 	if positionCode == PositionStateDefenceGridEmpty {
 		return PositionStateAttackGridMiss, nil
 	}
+
+	// Passed this line means that positionCode is a ship code
+	// since the attacker has hit a ship
 	return positionCode, nil
 }
 
