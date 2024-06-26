@@ -27,7 +27,6 @@ type Player struct {
 	DefenceGrid GridInt
 	Ships       map[int]*Ship
 	SessionID   string
-	CurrentGame *Game
 }
 
 func NewPlayer(isHost, isTurn bool, sessionID string, gridSize int) *Player {
