@@ -328,7 +328,7 @@ func TestAttack(t *testing.T) {
 				IsTurn:          false,
 				SunkenShipsHost: 0,
 				SunkenShipsJoin: 1,
-				DefenderSunkenShipsCoords: []mb.Coords{
+				DefenderSunkenShipsCoords: []mb.Coordinates{
 					{X: 0, Y: 1},
 					{X: 0, Y: 2},
 				},

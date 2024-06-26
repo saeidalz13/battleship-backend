@@ -15,13 +15,13 @@ type RespCreateGame struct {
 }
 
 type RespAttack struct {
-	X                         int         `json:"x"`
-	Y                         int         `json:"y"`
-	PositionState             int         `json:"position_state"`
-	IsTurn                    bool        `json:"is_turn"`
-	SunkenShipsHost           int         `json:"sunken_ships_host"`
-	SunkenShipsJoin           int         `json:"sunken_ships_join"`
-	DefenderSunkenShipsCoords []mb.Coords `json:"defender_sunken_ships_coords,omitempty"`
+	X                         int              `json:"x"`
+	Y                         int              `json:"y"`
+	PositionState             int              `json:"position_state"`
+	IsTurn                    bool             `json:"is_turn"`
+	SunkenShipsHost           int              `json:"sunken_ships_host"`
+	SunkenShipsJoin           int              `json:"sunken_ships_join"`
+	DefenderSunkenShipsCoords []mb.Coordinates `json:"defender_sunken_ships_coords,omitempty"`
 }
 
 type RespSessionId struct {

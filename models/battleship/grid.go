@@ -2,13 +2,13 @@ package battleship
 
 type GridInt [][]int
 
-type Coords struct {
+type Coordinates struct {
 	X int `json:"x"`
 	Y int `json:"y"`
 }
 
-func NewCoords(x, y int) Coords {
-	return Coords{X: x, Y: y}
+func NewCoordinates(x, y int) Coordinates {
+	return Coordinates{X: x, Y: y}
 }
 
 const (

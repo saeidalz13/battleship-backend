@@ -14,7 +14,7 @@ type Ship struct {
 	Code           int
 	length         int
 	hits           int
-	hitCoordinates []Coords
+	hitCoordinates []Coordinates
 }
 
 func NewShip(code, length int) *Ship {
@@ -22,7 +22,7 @@ func NewShip(code, length int) *Ship {
 		Code:           code,
 		length:         length,
 		hits:           0,
-		hitCoordinates: make([]Coords, 0, length),
+		hitCoordinates: make([]Coordinates, 0, length),
 	}
 }
 
@@ -43,6 +43,6 @@ func (sh *Ship) IsSunk() bool {
 	return sh.hits == sh.length
 }
 
-func (sh *Ship) GetHitCoordinates() []Coords {
+func (sh *Ship) GetHitCoordinates() []Coordinates {
 	return sh.hitCoordinates
 }
