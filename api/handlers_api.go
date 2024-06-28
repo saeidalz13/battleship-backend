@@ -88,7 +88,7 @@ func (r *Request) HandleJoinPlayer() (mc.Message[mc.RespJoinGame], *mb.Game) {
 	r.Session.GameUuid = game.Uuid
 	r.Session.Player = joinPlayer
 
-	resp.AddPayload(mc.RespJoinGame{GameUuid: game.Uuid, PlayerUuid: joinPlayer.Uuid})
+	resp.AddPayload(mc.RespJoinGame{GameUuid: game.Uuid, PlayerUuid: joinPlayer.Uuid, GameDifficulty: game.Difficulty})
 	return resp, game
 }
 
