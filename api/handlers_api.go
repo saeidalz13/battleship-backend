@@ -144,7 +144,7 @@ func (r *Request) HandleAttack() (mc.Message[mc.RespAttack], *mb.Player) {
 
 	x := reqAttack.Payload.X
 	y := reqAttack.Payload.Y
-	if x > game.ValidUpperBound || y > game.ValidUpperBound || x < game.ValidLowerBound || y < game.ValidLowerBound {
+	if x > game.ValidUpperBound || y > game.ValidUpperBound || x < mb.ValidLowerBound || y < mb.ValidLowerBound {
 		resp.AddError(cerr.ErrXorYOutOfGridBound(x, y).Error(), cerr.ConstErrAttack)
 		return resp, nil
 	}

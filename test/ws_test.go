@@ -177,7 +177,7 @@ func TestJoinPlayer(t *testing.T) {
 }
 
 func TestReadyGame(t *testing.T) {
-	defenceGridHost := mb.GridInt{
+	defenceGridHost := mb.Grid{
 		{0, mb.PositionStateDefenceDestroyer, mb.PositionStateDefenceDestroyer, 0, 0, 0},
 		{mb.PositionStateDefenceCruiser, 0, 0, mb.PositionStateDefenceBattleship, 0, 0},
 		{mb.PositionStateDefenceCruiser, 0, 0, mb.PositionStateDefenceBattleship, 0, 0},
@@ -186,7 +186,7 @@ func TestReadyGame(t *testing.T) {
 		{0, 0, 0, 0, 0, 0},
 	}
 
-	defenceGridJoin := mb.GridInt{
+	defenceGridJoin := mb.Grid{
 		{0, mb.PositionStateDefenceDestroyer, mb.PositionStateDefenceDestroyer, 0, 0, 0},
 		{mb.PositionStateDefenceCruiser, 0, 0, 0, mb.PositionStateDefenceBattleship, 0},
 		{mb.PositionStateDefenceCruiser, 0, 0, 0, mb.PositionStateDefenceBattleship, 0},

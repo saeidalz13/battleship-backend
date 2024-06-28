@@ -23,8 +23,8 @@ type Player struct {
 	IsReady     bool
 	MatchStatus int
 	SunkenShips int
-	AttackGrid  GridInt
-	DefenceGrid GridInt
+	AttackGrid  Grid
+	DefenceGrid Grid
 	Ships       map[int]*Ship
 	SessionID   string
 }
@@ -76,11 +76,11 @@ func (p *Player) IdentifyHitCoordsEssence(x, y int) (int, error) {
 	return positionCode, nil
 }
 
-func (p *Player) SetAttackGrid(newGrid GridInt) {
+func (p *Player) SetAttackGrid(newGrid Grid) {
 	p.AttackGrid = newGrid
 }
 
-func (p *Player) SetDefenceGrid(newGrid GridInt) {
+func (p *Player) SetDefenceGrid(newGrid Grid) {
 	p.DefenceGrid = newGrid
 }
 

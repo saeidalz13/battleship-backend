@@ -242,7 +242,6 @@ sessionLoop:
 			}
 
 			if game.HostPlayer.IsReady && game.JoinPlayer.IsReady {
-				log.Println("REACHED HERE")
 				respStartGame := mc.NewMessage[mc.NoPayload](mc.CodeStartGame)
 				switch WriteJSONWithRetry(s.Conn, respStartGame) {
 				case ConnLoopAbnormalClosureRetry:

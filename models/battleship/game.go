@@ -21,6 +21,8 @@ const (
 	GridSizeEasy   int = 6
 	GridSizeNormal int = 7
 	GridSizeHard   int = 8
+
+	ValidLowerBound int = 0
 )
 
 type Game struct {
@@ -31,7 +33,6 @@ type Game struct {
 	Players         map[string]*Player
 	Difficulty      int
 	GridSize        int
-	ValidLowerBound int
 	ValidUpperBound int
 }
 
@@ -41,20 +42,19 @@ func NewGame(difficulty int) Game {
 		isFinished:      false,
 		Players:         make(map[string]*Player),
 		Difficulty:      difficulty,
-		ValidLowerBound: 0,
 	}
 
-	var gsize int
+	var newGridSize int
 	if difficulty == GameDifficultyEasy {
-		gsize = GridSizeEasy
+		newGridSize = GridSizeEasy
 	} else if difficulty == GameDifficultyNormal {
-		gsize = GridSizeNormal
+		newGridSize = GridSizeNormal
 	} else {
-		gsize = GridSizeHard
+		newGridSize = GridSizeHard
 	}
 
-	game.GridSize = gsize
-	game.ValidUpperBound = gsize - 1
+	game.GridSize = newGridSize
+	game.ValidUpperBound = newGridSize - 1
 
 	return game
 }

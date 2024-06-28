@@ -1,6 +1,6 @@
 package battleship
 
-type GridInt [][]int
+type Grid [][]int
 
 type Coordinates struct {
 	X int `json:"x"`
@@ -17,8 +17,8 @@ const (
 
 // Creates a new default grid
 // All indexes are zero/PositionStatusNeutral
-func NewGrid(gridSize int) GridInt {
-	grid := make(GridInt, gridSize)
+func NewGrid(gridSize int) Grid {
+	grid := make(Grid, gridSize)
 	for i := 0; i < gridSize; i++ {
 		grid[i] = make([]int, gridSize)
 	}

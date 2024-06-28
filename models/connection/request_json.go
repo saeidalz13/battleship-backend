@@ -9,9 +9,9 @@ type ReqCreateGame struct {
 }
 
 type ReqReadyPlayer struct {
-	GameUuid    string    `json:"game_uuid"`
-	PlayerUuid  string    `json:"player_uuid"`
-	DefenceGrid b.GridInt `json:"defence_grid"`
+	GameUuid    string `json:"game_uuid"`
+	PlayerUuid  string `json:"player_uuid"`
+	DefenceGrid b.Grid `json:"defence_grid"`
 }
 
 type ReqJoinGame struct {
