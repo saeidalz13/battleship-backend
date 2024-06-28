@@ -1,8 +1,6 @@
 package battleship
 
 import (
-	cerr "github.com/saeidalz13/battleship-backend/internal/error"
-
 	"github.com/google/uuid"
 )
 
@@ -56,24 +54,10 @@ func (p *Player) IsShipSunken(code int) bool {
 	return false
 }
 
-func (p *Player) HitShip(code, x, y int) {
-	p.DefenceGrid[x][y] = PositionStateDefenceGridHit
+func (p *Player) HitShip(code int, coordinates Coordinates) {
+	p.DefenceGrid[coordinates.X][coordinates.Y] = PositionStateDefenceGridHit
 	p.Ships[code].GotHit()
-	p.Ships[code].hitCoordinates = append(p.Ships[code].hitCoordinates, NewCoordinates(x, y))
-}
-
-func (p *Player) IdentifyHitCoordsEssence(x, y int) (int, error) {
-	positionCode := p.DefenceGrid[x][y]
-	if positionCode == PositionStateDefenceGridHit {
-		return PositionStateAttackGridHit, cerr.ErrDefenceGridPositionAlreadyHit(x, y)
-	}
-	if positionCode == PositionStateDefenceGridEmpty {
-		return PositionStateAttackGridMiss, nil
-	}
-
-	// Passed this line means that positionCode is a ship code
-	// since the attacker has hit a ship
-	return positionCode, nil
+	p.Ships[code].hitCoordinates = append(p.Ships[code].hitCoordinates, coordinates)
 }
 
 func (p *Player) SetAttackGrid(newGrid Grid) {
@@ -86,4 +70,16 @@ func (p *Player) SetDefenceGrid(newGrid Grid) {
 
 func (p *Player) SunkShip() {
 	p.SunkenShips++
+}
+
+func (p *Player) DidAttackThisCoordinatesBefore(coordinates Coordinates) bool {
+	return p.AttackGrid[coordinates.X][coordinates.Y] != PositionStateAttackGridEmpty
+}
+
+func (p *Player) IsIncomingAttackMiss(coordinates Coordinates) bool {
+	return p.DefenceGrid[coordinates.X][coordinates.Y] == PositionStateDefenceGridEmpty
+}
+
+func (p *Player) AreCoordinatesAlreadyHit(coordinates Coordinates) bool {
+	return p.DefenceGrid[coordinates.X][coordinates.Y] == PositionStateDefenceGridHit
 }

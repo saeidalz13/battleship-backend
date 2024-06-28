@@ -142,22 +142,19 @@ func (r *Request) HandleAttack() (mc.Message[mc.RespAttack], *mb.Player) {
 		return resp, nil
 	}
 
-	x := reqAttack.Payload.X
-	y := reqAttack.Payload.Y
-	if x > game.ValidUpperBound || y > game.ValidUpperBound || x < mb.ValidLowerBound || y < mb.ValidLowerBound {
-		resp.AddError(cerr.ErrXorYOutOfGridBound(x, y).Error(), cerr.ConstErrAttack)
+	coordinates := mb.NewCoordinates(reqAttack.Payload.X, reqAttack.Payload.Y)
+	if game.AreIncomingCoordinatesInvalid(coordinates) {
+		resp.AddError(cerr.ErrXorYOutOfGridBound(coordinates.X, coordinates.Y).Error(), cerr.ConstErrAttack)
 		return resp, nil
 	}
 
-	// If attacker has the correct IsTurn Field
+	// Attack validity check
 	if !attacker.IsTurn {
 		resp.AddError(cerr.ErrNotTurnForAttacker(attacker.Uuid).Error(), cerr.ConstErrAttack)
 		return resp, nil
 	}
-
-	// Check if the attack position was already hit before (invalid position to attack)
-	if attacker.AttackGrid[x][y] != mb.PositionStateAttackGridEmpty {
-		resp.AddError(cerr.ErrAttackPositionAlreadyFilled(x, y).Error(), cerr.ConstErrAttack)
+	if attacker.DidAttackThisCoordinatesBefore(coordinates) {
+		resp.AddError(cerr.ErrAttackPositionAlreadyFilled(coordinates.X, coordinates.Y).Error(), cerr.ConstErrAttack)
 		return resp, nil
 	}
 
@@ -167,26 +164,19 @@ func (r *Request) HandleAttack() (mc.Message[mc.RespAttack], *mb.Player) {
 		defender = game.JoinPlayer
 	}
 
-	// Check what is in the position of attack in defence grid matrix of defender
-	positionCode, err := defender.IdentifyHitCoordsEssence(x, y)
-	if err != nil {
-		// Invalid position in defender defence grid (already hit)
-		resp.AddError(err.Error(), cerr.ConstErrAttack)
+	if defender.AreCoordinatesAlreadyHit(coordinates) {
+		resp.AddError(cerr.ErrDefenceGridPositionAlreadyHit(coordinates.X, coordinates.Y).Error(), cerr.ConstErrAttack)
 		return resp, defender
 	}
 
-	// Change the status of players turn
 	attacker.IsTurn = false
 	defender.IsTurn = true
 
-	// If the attacker missed
-	if positionCode == mb.PositionStateAttackGridMiss {
-		// adjust attack grid for attacker
-		attacker.AttackGrid[x][y] = mb.PositionStateAttackGridMiss
-
+	if defender.IsIncomingAttackMiss(coordinates) {
+		attacker.AttackGrid[coordinates.X][coordinates.Y] = mb.PositionStateAttackGridMiss
 		resp.AddPayload(mc.RespAttack{
-			X:               x,
-			Y:               y,
+			X:               coordinates.X,
+			Y:               coordinates.Y,
 			PositionState:   mb.PositionStateAttackGridMiss,
 			SunkenShipsHost: game.HostPlayer.SunkenShips,
 			SunkenShipsJoin: game.JoinPlayer.SunkenShips,
@@ -194,21 +184,21 @@ func (r *Request) HandleAttack() (mc.Message[mc.RespAttack], *mb.Player) {
 		return resp, defender
 	}
 
-	// ! Passed this line, positionCode is a ship code used to extract ship from map
-	// Apply the attack to the position for both defender and attacker
-	defender.HitShip(positionCode, x, y)
-	attacker.AttackGrid[x][y] = mb.PositionStateAttackGridHit
+	shipCode := defender.DefenceGrid[coordinates.X][coordinates.Y]
+
+	defender.HitShip(shipCode, coordinates)
+	attacker.AttackGrid[coordinates.X][coordinates.Y] = mb.PositionStateAttackGridHit
 
 	// Initialize the response payload
 	resp.AddPayload(mc.RespAttack{
-		X:             x,
-		Y:             y,
+		X:             coordinates.X,
+		Y:             coordinates.Y,
 		PositionState: mb.PositionStateAttackGridHit,
 	})
 
 	// Check if the attack caused the ship to sink
-	if defender.IsShipSunken(positionCode) {
-		resp.Payload.DefenderSunkenShipsCoords = defender.Ships[positionCode].GetHitCoordinates()
+	if defender.IsShipSunken(shipCode) {
+		resp.Payload.DefenderSunkenShipsCoords = defender.Ships[shipCode].GetHitCoordinates()
 
 		// Check if this sunken ship was the last one and the attacker is lost
 		if defender.IsLoser() {

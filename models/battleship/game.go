@@ -38,10 +38,10 @@ type Game struct {
 
 func NewGame(difficulty int) Game {
 	game := Game{
-		Uuid:            uuid.NewString()[:6],
-		isFinished:      false,
-		Players:         make(map[string]*Player),
-		Difficulty:      difficulty,
+		Uuid:       uuid.NewString()[:6],
+		isFinished: false,
+		Players:    make(map[string]*Player),
+		Difficulty: difficulty,
 	}
 
 	var newGridSize int
@@ -91,4 +91,8 @@ func (g *Game) CreateHostPlayer(sessionID string) *Player {
 
 	g.Players[hostPlayer.Uuid] = hostPlayer
 	return hostPlayer
+}
+
+func (g *Game) AreIncomingCoordinatesInvalid(coordinates Coordinates) bool {
+	return coordinates.X > g.ValidUpperBound || coordinates.Y > g.ValidUpperBound || coordinates.X < ValidLowerBound || coordinates.Y < ValidLowerBound
 }

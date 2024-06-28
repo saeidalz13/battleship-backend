@@ -107,7 +107,6 @@ func TestJoinPlayer(t *testing.T) {
 		{
 			name:         "valid game uuid",
 			expectedCode: mc.CodeJoinGame,
-			// expectedErr:  "",
 			reqPayload:  mc.Message[mc.ReqJoinGame]{Code: mc.CodeJoinGame, Payload: mc.ReqJoinGame{GameUuid: GameUuid}},
 			respPayload: mc.NewMessage[mc.RespJoinGame](mc.CodeJoinGame),
 			conn:        JoinConn,
@@ -272,7 +271,6 @@ func TestAttack(t *testing.T) {
 		{
 			name:         "successful hit attack valid payload host",
 			expectedCode: mc.CodeAttack,
-			// expectedErr:  "",
 			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   GameUuid,
 				PlayerUuid: testHostPlayer.Uuid,
@@ -295,7 +293,6 @@ func TestAttack(t *testing.T) {
 		{
 			name:         "successful hit attack valid payload join",
 			expectedCode: mc.CodeAttack,
-			// expectedErr:  "",
 			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   GameUuid,
 				PlayerUuid: testJoinPlayer.Uuid,
@@ -318,7 +315,6 @@ func TestAttack(t *testing.T) {
 		{
 			name:         "another successful hit attack valid payload and sink ship",
 			expectedCode: mc.CodeAttack,
-			// expectedErr:  "",
 			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   GameUuid,
 				PlayerUuid: testHostPlayer.Uuid,
@@ -345,7 +341,6 @@ func TestAttack(t *testing.T) {
 		{
 			name:         "successful miss attack valid payload join",
 			expectedCode: mc.CodeAttack,
-			// expectedErr:  "",
 			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   GameUuid,
 				PlayerUuid: testJoinPlayer.Uuid,
@@ -448,9 +443,8 @@ func TestAttack(t *testing.T) {
 				if test.respPayload.Error.ErrorDetails != test.expectedErr {
 					t.Fatalf("expected error: %s\t got: %s", test.reqPayload.Error.ErrorDetails, test.expectedErr)
 				}
-			}
 
-			if test.respPayload.Error == nil {
+			} else {
 				if !reflect.DeepEqual(test.respPayload, test.expectedRespPayload) {
 					t.Fatalf("expected resp payload: %+v\n got: %+v", test.expectedRespPayload, test.respPayload)
 				}
