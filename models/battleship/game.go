@@ -93,6 +93,6 @@ func (g *Game) CreateHostPlayer(sessionID string) *Player {
 	return hostPlayer
 }
 
-func (g *Game) AreIncomingCoordinatesInvalid(coordinates Coordinates) bool {
-	return coordinates.X > g.ValidUpperBound || coordinates.Y > g.ValidUpperBound || coordinates.X < ValidLowerBound || coordinates.Y < ValidLowerBound
+func (g *Game) AreIncomingCoordinatesValid(coordinates Coordinates) bool {
+	return !(coordinates.X > g.ValidUpperBound || coordinates.Y > g.ValidUpperBound || coordinates.X < ValidLowerBound || coordinates.Y < ValidLowerBound)
 }

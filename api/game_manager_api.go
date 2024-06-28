@@ -81,8 +81,5 @@ func (gm *GameManager) FindGameAndPlayer(gameUuid, playerUuid string) (*mb.Game,
 }
 
 func (gm *GameManager) isDifficultyValid(difficulty int) bool {
-	if difficulty != mb.GameDifficultyEasy && difficulty != mb.GameDifficultyNormal && difficulty != mb.GameDifficultyHard {
-		return false
-	}
-	return true
+	return !(difficulty != mb.GameDifficultyEasy && difficulty != mb.GameDifficultyNormal && difficulty != mb.GameDifficultyHard)
 }

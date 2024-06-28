@@ -149,7 +149,7 @@ func (r *Request) HandleAttack() (mc.Message[mc.RespAttack], *mb.Player) {
 	}
 
 	coordinates := mb.NewCoordinates(reqAttack.Payload.X, reqAttack.Payload.Y)
-	if game.AreIncomingCoordinatesInvalid(coordinates) {
+	if !game.AreIncomingCoordinatesValid(coordinates) {
 		resp.AddError(cerr.ErrXorYOutOfGridBound(coordinates.X, coordinates.Y).Error(), cerr.ConstErrAttack)
 		return resp, nil
 	}
