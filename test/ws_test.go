@@ -107,9 +107,9 @@ func TestJoinPlayer(t *testing.T) {
 		{
 			name:         "valid game uuid",
 			expectedCode: mc.CodeJoinGame,
-			reqPayload:  mc.Message[mc.ReqJoinGame]{Code: mc.CodeJoinGame, Payload: mc.ReqJoinGame{GameUuid: GameUuid}},
-			respPayload: mc.NewMessage[mc.RespJoinGame](mc.CodeJoinGame),
-			conn:        JoinConn,
+			reqPayload:   mc.Message[mc.ReqJoinGame]{Code: mc.CodeJoinGame, Payload: mc.ReqJoinGame{GameUuid: GameUuid}},
+			respPayload:  mc.NewMessage[mc.RespJoinGame](mc.CodeJoinGame),
+			conn:         JoinConn,
 		},
 		{
 			name:         "invalid game uuid",

@@ -2,8 +2,8 @@ package connection
 
 type NoPayload bool
 type Message[T any] struct {
-	Code    int     `json:"code"`
-	Payload T       `json:"payload,omitempty"`
+	Code    int      `json:"code"`
+	Payload T        `json:"payload,omitempty"`
 	Error   *RespErr `json:"error,omitempty"`
 }
 

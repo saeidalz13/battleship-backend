@@ -5,9 +5,9 @@ import (
 )
 
 type RespJoinGame struct {
-	GameUuid   string `json:"game_uuid"`
-	PlayerUuid string `json:"player_uuid"`
-  GameDifficulty int `json:"game_difficulty"`
+	GameUuid       string `json:"game_uuid"`
+	PlayerUuid     string `json:"player_uuid"`
+	GameDifficulty int    `json:"game_difficulty"`
 }
 
 type RespCreateGame struct {
