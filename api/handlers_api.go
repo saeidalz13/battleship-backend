@@ -103,26 +103,32 @@ func (r *Request) HandleReadyPlayer() (mc.Message[mc.NoPayload], *mb.Game) {
 		return resp, nil
 	}
 
-	game, player, err := r.Session.GameManager.FindGameAndPlayer(readyPlayerReq.Payload.GameUuid, readyPlayerReq.Payload.PlayerUuid)
+	game, err := r.Session.GameManager.FindGame(readyPlayerReq.Payload.GameUuid)
+	if err != nil {
+		resp.AddError(err.Error(), cerr.ConstErrReady)
+		return resp, nil
+	}
+
+	player, err := game.FindPlayer(readyPlayerReq.Payload.PlayerUuid)
 	if err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrReady)
 		return resp, nil
 	}
 
 	// Check to see if rows and cols are equal to game's grid size
+	gameGridSize := game.GridSize
 	rows := len(readyPlayerReq.Payload.DefenceGrid)
-	if rows != game.GridSize {
+	if rows != gameGridSize {
 		resp.AddError(cerr.ErrDefenceGridRowsOutOfBounds(rows, game.GridSize).Error(), cerr.ConstErrReady)
 		return resp, nil
 	}
 	cols := len(readyPlayerReq.Payload.DefenceGrid[0])
-	if cols != game.GridSize {
+	if cols != gameGridSize {
 		resp.AddError(cerr.ErrDefenceGridColsOutOfBounds(cols, game.GridSize).Error(), cerr.ConstErrReady)
 		return resp, nil
 	}
 
-	player.SetDefenceGrid(readyPlayerReq.Payload.DefenceGrid)
-	player.IsReady = true
+	player.SetReady(readyPlayerReq.Payload.DefenceGrid)
 	return resp, game
 }
 

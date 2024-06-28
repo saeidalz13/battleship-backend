@@ -64,8 +64,9 @@ func (p *Player) SetAttackGrid(newGrid Grid) {
 	p.AttackGrid = newGrid
 }
 
-func (p *Player) SetDefenceGrid(newGrid Grid) {
+func (p *Player) SetReady(newGrid Grid) {
 	p.DefenceGrid = newGrid
+	p.IsReady = true
 }
 
 func (p *Player) SunkShip() {
