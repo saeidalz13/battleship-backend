@@ -51,7 +51,7 @@ func (r *Request) HandleCreateGame() mc.Message[mc.RespCreateGame] {
 	}
 
 	gameDifficulty := reqCreateGame.Payload.GameDifficulty
-	if gameDifficulty != mb.GameDifficultyEasy && gameDifficulty != mb.GameDifficultyHard {
+	if !r.Session.GameManager.isDifficultyValid(gameDifficulty) {
 		resp.AddError(cerr.ErrInvalidGameDifficulty().Error(), "")
 		return resp
 	}
