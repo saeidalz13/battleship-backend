@@ -11,7 +11,6 @@ func NewCoordinates(x, y int) Coordinates {
 	return Coordinates{X: x, Y: y}
 }
 
-
 const (
 	GameGridSize = 5
 )
