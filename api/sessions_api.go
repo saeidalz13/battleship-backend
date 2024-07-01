@@ -306,6 +306,57 @@ sessionLoop:
 				break sessionLoop
 			}
 
+		case mc.CodeRematchCall:
+			// 1. See if the game still exists
+			game, err := s.GameManager.FindGame(s.GameUuid)
+			if err != nil {
+				break sessionLoop
+			}
+
+			// 2. Find the other player
+			otherPlayer := game.HostPlayer
+			if s.Player.IsHost {
+				otherPlayer = game.JoinPlayer
+			}
+
+			// The other player had already quit and didn't
+			// want a rematch
+			if otherPlayer == nil {
+				break sessionLoop
+			}
+
+			msg := mc.NewMessage[mc.NoPayload](mc.CodeRematchCall)
+			s.SessionManager.CommunicationChan <- NewSessionMessage(s, otherPlayer.SessionID, s.GameUuid, msg)
+
+		case mc.CodeRematchCallAccepted:
+			// Send the rematch call acceptance to other player
+			game, err := s.GameManager.FindGame(s.GameUuid)
+			if err != nil {
+				break sessionLoop
+			}
+			msg := mc.NewMessage[mc.NoPayload](mc.CodeRematchCallAccepted)
+			otherPlayer := game.HostPlayer
+			if s.Player.IsHost {
+				otherPlayer = game.JoinPlayer
+			}
+			s.SessionManager.CommunicationChan <- NewSessionMessage(s, otherPlayer.SessionID, s.GameUuid, msg)
+
+			go game.Reset()
+
+		case mc.CodeRematchCallRejected:
+			game, err := s.GameManager.FindGame(s.GameUuid)
+			if err != nil {
+				break sessionLoop
+			}
+			msg := mc.NewMessage[mc.NoPayload](mc.CodeRematchCallRejected)
+			otherPlayer := game.HostPlayer
+			if s.Player.IsHost {
+				otherPlayer = game.JoinPlayer
+			}
+			s.SessionManager.CommunicationChan <- NewSessionMessage(s, otherPlayer.SessionID, s.GameUuid, msg)
+
+			break sessionLoop
+
 		default:
 			respInvalidSignal := mc.NewMessage[mc.NoPayload](mc.CodeInvalidSignal)
 			respInvalidSignal.AddError("", "invalid code in the incoming payload")
@@ -386,60 +437,3 @@ func (s *Session) handleAbnormalClosure() int {
 		return ConnLoopCodeContinue
 	}
 }
-
-// // Restarting the game means we play the game with
-// // the same gameUuid but the player info gets reset
-// func (s *Session) restartGame() {
-// 	s.Player.AttackGrid = mc.NewGrid()
-// 	s.Player.DefenceGrid = mc.NewGrid()
-// 	if s.Player.IsHost {
-// 		s.Player.IsTurn = true
-// 	} else {
-// 		s.Player.IsTurn = false
-// 	}
-// 	s.Player.Ships = mc.NewShipsMap()
-// 	s.Player.SunkenShips = 0
-// 	s.Player.MatchStatus = md.PlayerMatchStatusUndefined
-// }
-
-// case mc.CodeRequestRematchFromServer:
-// 	// 1. See if the game still exists
-// 	game, err := s.GameManager.FindGame(s.GameUuid)
-// 	if err != nil {
-// 		break sessionLoop
-// 	}
-
-// 	// 2. Check if the other player still exists
-// 	var otherPlayer *md.Player
-// 	for _, player := range game.Players {
-// 		if player.Uuid != s.Player.Uuid {
-// 			otherPlayer = player
-// 		}
-// 	}
-// 	// The other player had already quit and didn't
-// 	// want a rematch
-// 	if otherPlayer == nil {
-// 		break sessionLoop
-// 	}
-
-// 	msg := mc.NewMessage[mc.NoPayload](mc.CodeRequestRematchFromOtherPlayer)
-// 	s.SessionManager.CommunicationChan <- NewSessionMessage(s, otherPlayer.SessionID, s.GameUuid, msg)
-
-// case mc.CodeRematch:
-// 	s.restartGame()
-// 	readyResp := mc.NewMessage[mc.NoPayload](mc.CodeSelectGrid)
-
-// 	switch WriteJSONWithRetry(s.Conn, readyResp) {
-// 	case ConnLoopAbnormalClosureRetry:
-// 		// switch s.handleAbnormalClosure() {
-// 		// case ConnLoopCodeBreak:
-// 		// 	break sessionLoop
-
-// 		// case ConnLoopCodeContinue:
-// 		// }
-
-// 	case ConnLoopCodeBreak:
-// 		break sessionLoop
-
-// 	case ConnLoopCodePassThrough:
-// 	}

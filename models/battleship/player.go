@@ -84,3 +84,12 @@ func (p *Player) IsIncomingAttackMiss(coordinates Coordinates) bool {
 func (p *Player) AreCoordinatesAlreadyHit(coordinates Coordinates) bool {
 	return p.DefenceGrid[coordinates.X][coordinates.Y] == PositionStateDefenceGridHit
 }
+
+func (p *Player) ResetAttributesForRematch(gridSize int) {
+	p.MatchStatus = PlayerMatchStatusUndefined
+	p.IsReady = false
+	p.Ships = NewShipsMap()
+	p.SunkenShips = 0
+	p.AttackGrid = NewGrid(gridSize)
+	p.DefenceGrid = NewGrid(gridSize) 
+}

@@ -99,3 +99,11 @@ func (g *Game) CreateHostPlayer(sessionID string) *Player {
 func (g *Game) AreIncomingCoordinatesValid(coordinates Coordinates) bool {
 	return !(coordinates.X > g.ValidUpperBound || coordinates.Y > g.ValidUpperBound || coordinates.X < ValidLowerBound || coordinates.Y < ValidLowerBound)
 }
+
+func (g *Game) Reset() {
+	g.isFinished = false
+
+	for _, player := range g.Players {
+		player.ResetAttributesForRematch(g.GridSize)
+	}
+}
