@@ -313,18 +313,24 @@ sessionLoop:
 				break sessionLoop
 			}
 
+			if game.IsRematchAlreadyCalled() {
+				continue sessionLoop
+			}
+
+			game.CallRematch()
+
 			// 2. Find the other player
 			otherPlayer := game.HostPlayer
 			if s.Player.IsHost {
 				otherPlayer = game.JoinPlayer
 			}
 
-			// The other player had already quit and didn't
-			// want a rematch
+			// If the other player had already left
 			if otherPlayer == nil {
 				break sessionLoop
 			}
 
+			// Notify the other player if they want a rematch
 			msg := mc.NewMessage[mc.NoPayload](mc.CodeRematchCall)
 			s.SessionManager.CommunicationChan <- NewSessionMessage(s, otherPlayer.SessionID, s.GameUuid, msg)
 
@@ -334,6 +340,8 @@ sessionLoop:
 			if err != nil {
 				break sessionLoop
 			}
+
+			// Notify the other player that let's play again!
 			msg := mc.NewMessage[mc.NoPayload](mc.CodeRematchCallAccepted)
 			otherPlayer := game.HostPlayer
 			if s.Player.IsHost {
@@ -348,6 +356,8 @@ sessionLoop:
 			if err != nil {
 				break sessionLoop
 			}
+
+			// Notify the other player that no rematch is wanted now
 			msg := mc.NewMessage[mc.NoPayload](mc.CodeRematchCallRejected)
 			otherPlayer := game.HostPlayer
 			if s.Player.IsHost {

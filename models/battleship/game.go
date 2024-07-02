@@ -1,6 +1,8 @@
 package battleship
 
 import (
+	"sync"
+
 	cerr "github.com/saeidalz13/battleship-backend/internal/error"
 
 	"github.com/google/uuid"
@@ -26,18 +28,20 @@ const (
 )
 
 type Game struct {
-	isFinished      bool
-	Uuid            string
-	HostPlayer      *Player
-	JoinPlayer      *Player
-	Players         map[string]*Player
-	Difficulty      int
-	GridSize        int
-	ValidUpperBound int
+	isFinished              bool
+	Uuid                    string
+	HostPlayer              *Player
+	JoinPlayer              *Player
+	Players                 map[string]*Player
+	Difficulty              int
+	GridSize                int
+	ValidUpperBound         int
+	rematchAlreadyRequested bool
+	mu                      sync.Mutex
 }
 
-func NewGame(difficulty int) Game {
-	game := Game{
+func NewGame(difficulty int) *Game {
+	game := &Game{
 		Uuid:       uuid.NewString()[:6],
 		isFinished: false,
 		Players:    make(map[string]*Player),
@@ -106,4 +110,14 @@ func (g *Game) Reset() {
 	for _, player := range g.Players {
 		player.ResetAttributesForRematch(g.GridSize)
 	}
+}
+
+func (g *Game) CallRematch() {
+	g.mu.Lock()
+	g.rematchAlreadyRequested = true
+	g.mu.Unlock()
+}
+
+func (g *Game) IsRematchAlreadyCalled() bool {
+	return g.rematchAlreadyRequested
 }

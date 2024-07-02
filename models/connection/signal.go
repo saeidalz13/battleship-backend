@@ -36,20 +36,3 @@ type Signal struct {
 func NewSignal(code int) Signal {
 	return Signal{Code: code}
 }
-
-/*
-1. Player sends CodeRematchAskOtherPlayer to server
-2. Server asks the other player with CodeRematchAskOtherPlayer code
-3. Now we have 3 modes
-	- Other Player got disconnected and no longer available
-	- Other Player says YES to rematch
-	- Other Player says NO to rematch
-
-- In case of disconnection, break the loop and terminate the session
-
-- In case of YES or NO, Other player sends CodeRematchOtherPlayerResponse of which
-its payload indicates if the answer is NO or YES (0 or 1)
-to server which means reseting Game and Player attributes. IOS Client
-must clean up everything itself and go back to a mode similar to
-what Create Game has.
-*/
