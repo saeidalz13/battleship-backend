@@ -41,6 +41,12 @@ func ErrValueNotGridInt() error {
 	return fmt.Errorf("the value is not of type GridInt")
 }
 
+// Create Game
+
+func ErrInvalidGameDifficulty() error {
+	return fmt.Errorf("invalid difficulty")
+}
+
 // Attack Errors
 
 func ErrXorYOutOfGridBound(x, y int) error {

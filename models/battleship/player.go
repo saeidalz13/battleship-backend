@@ -1,8 +1,6 @@
 package battleship
 
 import (
-	cerr "github.com/saeidalz13/battleship-backend/internal/error"
-
 	"github.com/google/uuid"
 )
 
@@ -23,14 +21,13 @@ type Player struct {
 	IsReady     bool
 	MatchStatus int
 	SunkenShips int
-	AttackGrid  [][]int
-	DefenceGrid [][]int
+	AttackGrid  Grid
+	DefenceGrid Grid
 	Ships       map[int]*Ship
 	SessionID   string
-	CurrentGame *Game
 }
 
-func NewPlayer(currentGame *Game, isHost, isTurn bool, sessionID string) *Player {
+func NewPlayer(isHost, isTurn bool, sessionID string, gridSize int) *Player {
 	return &Player{
 		IsTurn:      isTurn,
 		IsHost:      isHost,
@@ -38,10 +35,9 @@ func NewPlayer(currentGame *Game, isHost, isTurn bool, sessionID string) *Player
 		MatchStatus: PlayerMatchStatusUndefined,
 		SunkenShips: 0,
 		Uuid:        uuid.NewString()[:10],
-		AttackGrid:  NewGrid(),
-		DefenceGrid: NewGrid(),
+		AttackGrid:  NewGrid(gridSize),
+		DefenceGrid: NewGrid(gridSize),
 		Ships:       NewShipsMap(),
-		CurrentGame: currentGame,
 		SessionID:   sessionID,
 	}
 }
@@ -58,34 +54,33 @@ func (p *Player) IsShipSunken(code int) bool {
 	return false
 }
 
-func (p *Player) HitShip(code, x, y int) {
-	p.DefenceGrid[x][y] = PositionStateDefenceGridHit
+func (p *Player) HitShip(code int, coordinates Coordinates) {
+	p.DefenceGrid[coordinates.X][coordinates.Y] = PositionStateDefenceGridHit
 	p.Ships[code].GotHit()
-	p.Ships[code].hitCoordinates = append(p.Ships[code].hitCoordinates, NewCoordinates(x, y))
+	p.Ships[code].hitCoordinates = append(p.Ships[code].hitCoordinates, coordinates)
 }
 
-func (p *Player) IdentifyHitCoordsEssence(x, y int) (int, error) {
-	positionCode := p.DefenceGrid[x][y]
-	if positionCode == PositionStateDefenceGridHit {
-		return PositionStateAttackGridHit, cerr.ErrDefenceGridPositionAlreadyHit(x, y)
-	}
-	if positionCode == PositionStateDefenceGridEmpty {
-		return PositionStateAttackGridMiss, nil
-	}
-
-	// Passed this line means that positionCode is a ship code
-	// since the attacker has hit a ship
-	return positionCode, nil
-}
-
-func (p *Player) SetAttackGrid(newGrid GridInt) {
+func (p *Player) SetAttackGrid(newGrid Grid) {
 	p.AttackGrid = newGrid
 }
 
-func (p *Player) SetDefenceGrid(newGrid GridInt) {
+func (p *Player) SetReady(newGrid Grid) {
 	p.DefenceGrid = newGrid
+	p.IsReady = true
 }
 
 func (p *Player) SunkShip() {
 	p.SunkenShips++
+}
+
+func (p *Player) DidAttackThisCoordinatesBefore(coordinates Coordinates) bool {
+	return p.AttackGrid[coordinates.X][coordinates.Y] != PositionStateAttackGridEmpty
+}
+
+func (p *Player) IsIncomingAttackMiss(coordinates Coordinates) bool {
+	return p.DefenceGrid[coordinates.X][coordinates.Y] == PositionStateDefenceGridEmpty
+}
+
+func (p *Player) AreCoordinatesAlreadyHit(coordinates Coordinates) bool {
+	return p.DefenceGrid[coordinates.X][coordinates.Y] == PositionStateDefenceGridHit
 }

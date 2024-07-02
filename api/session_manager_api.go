@@ -12,7 +12,7 @@ const (
 	// Assuming this capacity for the slice when
 	// we're cleaning up the sessions map.
 	assumedClosedConns               = 5
-	cleanupInterval    time.Duration = time.Minute * 20 
+	cleanupInterval    time.Duration = time.Minute * 20
 )
 
 type SessionManager struct {
@@ -33,7 +33,7 @@ func (sm *SessionManager) FindSession(sessionId string) (*Session, error) {
 	defer sm.mu.RUnlock()
 
 	session, prs := sm.Sessions[sessionId]
-	if !prs {	
+	if !prs {
 		return nil, cerr.ErrSessionNotFound(sessionId)
 	}
 
