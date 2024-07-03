@@ -288,7 +288,6 @@ sessionLoop:
 			// is sent to both players as an indication of grid selection
 			if resp.Error == nil {
 				readyResp := mc.NewMessage[mc.NoPayload](mc.CodeSelectGrid)
-
 				switch WriteJSONWithRetry(s.Conn, readyResp) {
 				case ConnLoopAbnormalClosureRetry:
 					switch s.handleAbnormalClosure() {
@@ -305,6 +304,8 @@ sessionLoop:
 				}
 
 				s.SessionManager.CommunicationChan <- NewSessionMessage(s, game.HostPlayer.SessionID, s.GameUuid, readyResp)
+			} else {
+				break sessionLoop
 			}
 
 		default:
