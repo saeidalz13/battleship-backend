@@ -23,6 +23,9 @@ var (
 	HostSessionID  string
 	JoinSessionID  string
 	testServer     *api.Server
+	dialer         = websocket.Dialer{
+		HandshakeTimeout: 10 * time.Second,
+	}
 )
 
 func TestMain(m *testing.M) {
@@ -47,10 +50,6 @@ func TestMain(m *testing.M) {
 
 	// Give the server time to start
 	time.Sleep(time.Second * 2)
-
-	dialer := websocket.Dialer{
-		HandshakeTimeout: 10 * time.Second,
-	}
 
 	log.Println("dialing...")
 	c, _, err := dialer.Dial("ws://localhost:7171/battleship", nil)

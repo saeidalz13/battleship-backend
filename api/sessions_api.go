@@ -269,6 +269,10 @@ sessionLoop:
 			req := NewRequest(s, payload)
 			resp, game := req.HandleJoinPlayer()
 
+			if resp.Error != nil {
+				break sessionLoop
+			}
+
 			switch WriteJSONWithRetry(s.Conn, resp) {
 			case ConnLoopAbnormalClosureRetry:
 				switch s.handleAbnormalClosure() {
@@ -286,26 +290,23 @@ sessionLoop:
 
 			// If the second playerd joined successfully, then `CodeSelectGrid`
 			// is sent to both players as an indication of grid selection
-			if resp.Error == nil {
-				readyResp := mc.NewMessage[mc.NoPayload](mc.CodeSelectGrid)
-
-				switch WriteJSONWithRetry(s.Conn, readyResp) {
-				case ConnLoopAbnormalClosureRetry:
-					switch s.handleAbnormalClosure() {
-					case ConnLoopCodeBreak:
-						break sessionLoop
-
-					case ConnLoopCodeContinue:
-					}
-
+			readyResp := mc.NewMessage[mc.NoPayload](mc.CodeSelectGrid)
+			switch WriteJSONWithRetry(s.Conn, readyResp) {
+			case ConnLoopAbnormalClosureRetry:
+				switch s.handleAbnormalClosure() {
 				case ConnLoopCodeBreak:
 					break sessionLoop
 
-				case ConnLoopCodePassThrough:
+				case ConnLoopCodeContinue:
 				}
 
-				s.SessionManager.CommunicationChan <- NewSessionMessage(s, game.HostPlayer.SessionID, s.GameUuid, readyResp)
+			case ConnLoopCodeBreak:
+				break sessionLoop
+
+			case ConnLoopCodePassThrough:
 			}
+
+			s.SessionManager.CommunicationChan <- NewSessionMessage(s, game.HostPlayer.SessionID, s.GameUuid, readyResp)
 
 		default:
 			respInvalidSignal := mc.NewMessage[mc.NoPayload](mc.CodeInvalidSignal)

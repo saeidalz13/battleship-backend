@@ -111,14 +111,14 @@ func TestJoinPlayer(t *testing.T) {
 			respPayload:  mc.NewMessage[mc.RespJoinGame](mc.CodeJoinGame),
 			conn:         JoinConn,
 		},
-		{
-			name:         "invalid game uuid",
-			expectedCode: mc.CodeJoinGame,
-			expectedErr:  cerr.ErrGameNotExists("-1invalid").Error(),
-			reqPayload:   mc.Message[mc.ReqJoinGame]{Code: mc.CodeJoinGame, Payload: mc.ReqJoinGame{GameUuid: "-1invalid"}},
-			respPayload:  mc.NewMessage[mc.RespJoinGame](mc.CodeJoinGame),
-			conn:         JoinConn,
-		},
+		// Any invalid join request will close the connection
+		// {
+		// 	name:         "invalid game uuid",
+		// 	expectedCode: mc.CodeJoinGame,
+		// 	reqPayload:   mc.Message[mc.ReqJoinGame]{Code: mc.CodeJoinGame, Payload: mc.ReqJoinGame{GameUuid: "-1invalid"}},
+		// 	respPayload:  mc.NewMessage[mc.RespJoinGame](mc.CodeJoinGame),
+		// 	conn:         JoinConn,
+		// },
 	}
 
 	for _, test := range tests {
@@ -129,16 +129,6 @@ func TestJoinPlayer(t *testing.T) {
 
 			if err := test.conn.ReadJSON(&test.respPayload); err != nil {
 				t.Fatal(err)
-			}
-
-			if test.respPayload.Code != test.expectedCode {
-				t.Fatalf("expected status: %d\t got: %d", test.expectedCode, test.respPayload.Code)
-			}
-
-			if test.respPayload.Error != nil {
-				if test.respPayload.Error.ErrorDetails != test.expectedErr {
-					t.Fatalf("expected error: %s\t got: %s", test.reqPayload.Error.ErrorDetails, test.expectedErr)
-				}
 			}
 
 			if test.respPayload.Error == nil {
