@@ -93,6 +93,9 @@ func (g *Game) CreateHostPlayer(sessionID string) *Player {
 	return hostPlayer
 }
 
+
+// This function checks if the coordinates
+// are in bound of game grid size
 func (g *Game) AreIncomingCoordinatesValid(coordinates Coordinates) bool {
 	return !(coordinates.X > g.ValidUpperBound || coordinates.Y > g.ValidUpperBound || coordinates.X < ValidLowerBound || coordinates.Y < ValidLowerBound)
 }

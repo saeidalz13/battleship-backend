@@ -1,6 +1,7 @@
 package test
 
 import (
+	"log"
 	"reflect"
 	"testing"
 
@@ -259,7 +260,7 @@ func TestReadyGame(t *testing.T) {
 func TestAttack(t *testing.T) {
 	tests := []Test[mc.Message[mc.ReqAttack], mc.Message[mc.RespAttack]]{
 		{
-			name:         "successful hit attack valid payload host",
+			name:         "successful hit attack destroyer valid payload host 1",
 			expectedCode: mc.CodeAttack,
 			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   GameUuid,
@@ -303,7 +304,7 @@ func TestAttack(t *testing.T) {
 		},
 
 		{
-			name:         "another successful hit attack valid payload and sink ship",
+			name:         "successful hit attack destroyer valid payload 2 and sunk destroyer",
 			expectedCode: mc.CodeAttack,
 			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   GameUuid,
@@ -413,10 +414,309 @@ func TestAttack(t *testing.T) {
 			conn:                HostConn,
 			otherConn:           JoinConn,
 		},
+
+		/*
+			Sinking Cruiser
+		*/
+		{
+			name:         "successful hit attack cruiser valid payload host 1",
+			expectedCode: mc.CodeAttack,
+			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
+				GameUuid:   GameUuid,
+				PlayerUuid: testHostPlayer.Uuid,
+				X:          1,
+				Y:          0,
+			}},
+			respPayload: mc.Message[mc.RespAttack]{},
+			expectedRespPayload: mc.Message[mc.RespAttack]{Code: mc.CodeAttack, Payload: mc.RespAttack{
+				X:               1,
+				Y:               0,
+				PositionState:   mb.PositionStateAttackGridHit,
+				IsTurn:          false,
+				SunkenShipsHost: 0,
+				SunkenShipsJoin: 1,
+			}},
+			conn:      HostConn,
+			otherConn: JoinConn,
+		},
+		{
+			name:         "successful miss attack valid payload join",
+			expectedCode: mc.CodeAttack,
+			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
+				GameUuid:   GameUuid,
+				PlayerUuid: testJoinPlayer.Uuid,
+				X:          0,
+				Y:          3,
+			}},
+			respPayload: mc.Message[mc.RespAttack]{},
+			expectedRespPayload: mc.Message[mc.RespAttack]{Code: mc.CodeAttack, Payload: mc.RespAttack{
+				X:               0,
+				Y:               3,
+				PositionState:   mb.PositionStateAttackGridMiss,
+				IsTurn:          false,
+				SunkenShipsHost: 0,
+				SunkenShipsJoin: 1,
+			}},
+			conn:      JoinConn,
+			otherConn: HostConn,
+		},
+
+		{
+			name:         "successful hit attack cruiser valid payload host 2",
+			expectedCode: mc.CodeAttack,
+			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
+				GameUuid:   GameUuid,
+				PlayerUuid: testHostPlayer.Uuid,
+				X:          2,
+				Y:          0,
+			}},
+			respPayload: mc.Message[mc.RespAttack]{},
+			expectedRespPayload: mc.Message[mc.RespAttack]{Code: mc.CodeAttack, Payload: mc.RespAttack{
+				X:               2,
+				Y:               0,
+				PositionState:   mb.PositionStateAttackGridHit,
+				IsTurn:          false,
+				SunkenShipsHost: 0,
+				SunkenShipsJoin: 1,
+			}},
+			conn:      HostConn,
+			otherConn: JoinConn,
+		},
+		{
+			name:         "successful miss attack valid payload join",
+			expectedCode: mc.CodeAttack,
+			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
+				GameUuid:   GameUuid,
+				PlayerUuid: testJoinPlayer.Uuid,
+				X:          0,
+				Y:          4,
+			}},
+			respPayload: mc.Message[mc.RespAttack]{},
+			expectedRespPayload: mc.Message[mc.RespAttack]{Code: mc.CodeAttack, Payload: mc.RespAttack{
+				X:               0,
+				Y:               4,
+				PositionState:   mb.PositionStateAttackGridMiss,
+				IsTurn:          false,
+				SunkenShipsHost: 0,
+				SunkenShipsJoin: 1,
+			}},
+			conn:      JoinConn,
+			otherConn: HostConn,
+		},
+
+		{
+			name:         "successful hit attack cruiser valid payload host 3 and sunk cruiser",
+			expectedCode: mc.CodeAttack,
+			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
+				GameUuid:   GameUuid,
+				PlayerUuid: testHostPlayer.Uuid,
+				X:          3,
+				Y:          0,
+			}},
+			respPayload: mc.Message[mc.RespAttack]{},
+			expectedRespPayload: mc.Message[mc.RespAttack]{Code: mc.CodeAttack, Payload: mc.RespAttack{
+				X:               3,
+				Y:               0,
+				PositionState:   mb.PositionStateAttackGridHit,
+				IsTurn:          false,
+				SunkenShipsHost: 0,
+				SunkenShipsJoin: 2,
+				DefenderSunkenShipsCoords: []mb.Coordinates{
+					{X: 1, Y: 0},
+					{X: 2, Y: 0},
+					{X: 3, Y: 0},
+				},
+			}},
+			conn:      HostConn,
+			otherConn: JoinConn,
+		},
+		{
+			name:         "successful miss attack valid payload join",
+			expectedCode: mc.CodeAttack,
+			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
+				GameUuid:   GameUuid,
+				PlayerUuid: testJoinPlayer.Uuid,
+				X:          0,
+				Y:          5,
+			}},
+			respPayload: mc.Message[mc.RespAttack]{},
+			expectedRespPayload: mc.Message[mc.RespAttack]{Code: mc.CodeAttack, Payload: mc.RespAttack{
+				X:               0,
+				Y:               5,
+				PositionState:   mb.PositionStateAttackGridMiss,
+				IsTurn:          false,
+				SunkenShipsHost: 0,
+				SunkenShipsJoin: 2,
+			}},
+			conn:      JoinConn,
+			otherConn: HostConn,
+		},
+
+		/*
+			Sinking Battleship
+		*/
+		{
+			name:         "successful hit attack battleship valid payload hos 1",
+			expectedCode: mc.CodeAttack,
+			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
+				GameUuid:   GameUuid,
+				PlayerUuid: testHostPlayer.Uuid,
+				X:          1,
+				Y:          4,
+			}},
+			respPayload: mc.Message[mc.RespAttack]{},
+			expectedRespPayload: mc.Message[mc.RespAttack]{Code: mc.CodeAttack, Payload: mc.RespAttack{
+				X:               1,
+				Y:               4,
+				PositionState:   mb.PositionStateAttackGridHit,
+				IsTurn:          false,
+				SunkenShipsHost: 0,
+				SunkenShipsJoin: 2,
+			}},
+			conn:      HostConn,
+			otherConn: JoinConn,
+		},
+		{
+			name:         "successful miss attack valid payload join",
+			expectedCode: mc.CodeAttack,
+			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
+				GameUuid:   GameUuid,
+				PlayerUuid: testJoinPlayer.Uuid,
+				X:          5,
+				Y:          0,
+			}},
+			respPayload: mc.Message[mc.RespAttack]{},
+			expectedRespPayload: mc.Message[mc.RespAttack]{Code: mc.CodeAttack, Payload: mc.RespAttack{
+				X:               5,
+				Y:               0,
+				PositionState:   mb.PositionStateAttackGridMiss,
+				IsTurn:          false,
+				SunkenShipsHost: 0,
+				SunkenShipsJoin: 2,
+			}},
+			conn:      JoinConn,
+			otherConn: HostConn,
+		},
+
+		{
+			name:         "successful hit attack battleship valid payload host 2",
+			expectedCode: mc.CodeAttack,
+			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
+				GameUuid:   GameUuid,
+				PlayerUuid: testHostPlayer.Uuid,
+				X:          2,
+				Y:          4,
+			}},
+			respPayload: mc.Message[mc.RespAttack]{},
+			expectedRespPayload: mc.Message[mc.RespAttack]{Code: mc.CodeAttack, Payload: mc.RespAttack{
+				X:               2,
+				Y:               4,
+				PositionState:   mb.PositionStateAttackGridHit,
+				IsTurn:          false,
+				SunkenShipsHost: 0,
+				SunkenShipsJoin: 2,
+			}},
+			conn:      HostConn,
+			otherConn: JoinConn,
+		},
+		{
+			name:         "successful miss attack valid payload join",
+			expectedCode: mc.CodeAttack,
+			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
+				GameUuid:   GameUuid,
+				PlayerUuid: testJoinPlayer.Uuid,
+				X:          5,
+				Y:          1,
+			}},
+			respPayload: mc.Message[mc.RespAttack]{},
+			expectedRespPayload: mc.Message[mc.RespAttack]{Code: mc.CodeAttack, Payload: mc.RespAttack{
+				X:               5,
+				Y:               1,
+				PositionState:   mb.PositionStateAttackGridMiss,
+				IsTurn:          false,
+				SunkenShipsHost: 0,
+				SunkenShipsJoin: 2,
+			}},
+			conn:      JoinConn,
+			otherConn: HostConn,
+		},
+
+		{
+			name:         "successful hit attack battleship valid payload host 3",
+			expectedCode: mc.CodeAttack,
+			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
+				GameUuid:   GameUuid,
+				PlayerUuid: testHostPlayer.Uuid,
+				X:          3,
+				Y:          4,
+			}},
+			respPayload: mc.Message[mc.RespAttack]{},
+			expectedRespPayload: mc.Message[mc.RespAttack]{Code: mc.CodeAttack, Payload: mc.RespAttack{
+				X:               3,
+				Y:               4,
+				PositionState:   mb.PositionStateAttackGridHit,
+				IsTurn:          false,
+				SunkenShipsHost: 0,
+				SunkenShipsJoin: 2,
+			}},
+			conn:      HostConn,
+			otherConn: JoinConn,
+		},
+		{
+			name:         "successful miss attack valid payload join",
+			expectedCode: mc.CodeAttack,
+			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
+				GameUuid:   GameUuid,
+				PlayerUuid: testJoinPlayer.Uuid,
+				X:          5,
+				Y:          2,
+			}},
+			respPayload: mc.Message[mc.RespAttack]{},
+			expectedRespPayload: mc.Message[mc.RespAttack]{Code: mc.CodeAttack, Payload: mc.RespAttack{
+				X:               5,
+				Y:               2,
+				PositionState:   mb.PositionStateAttackGridMiss,
+				IsTurn:          false,
+				SunkenShipsHost: 0,
+				SunkenShipsJoin: 2,
+			}},
+			conn:      JoinConn,
+			otherConn: HostConn,
+		},
+
+		// Final attack that sinks the last ship
+		{
+			name:         "final hit attack valid battleship payload host 4 and sunk battleship",
+			expectedCode: mc.CodeAttack,
+			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
+				GameUuid:   GameUuid,
+				PlayerUuid: testHostPlayer.Uuid,
+				X:          4,
+				Y:          4,
+			}},
+			respPayload: mc.Message[mc.RespAttack]{},
+			expectedRespPayload: mc.Message[mc.RespAttack]{Code: mc.CodeAttack, Payload: mc.RespAttack{
+				X:               4,
+				Y:               4,
+				PositionState:   mb.PositionStateAttackGridHit,
+				IsTurn:          false,
+				SunkenShipsHost: 0,
+				SunkenShipsJoin: 3,
+				DefenderSunkenShipsCoords: []mb.Coordinates{
+					{X: 1, Y: 4},
+					{X: 2, Y: 4},
+					{X: 3, Y: 4},
+					{X: 4, Y: 4},
+				},
+			}},
+			conn:      HostConn,
+			otherConn: JoinConn,
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+
 			if err := test.conn.WriteJSON(test.reqPayload); err != nil {
 				t.Fatal(err)
 			}
@@ -430,6 +730,7 @@ func TestAttack(t *testing.T) {
 			}
 
 			if test.respPayload.Error != nil {
+				log.Printf("%+v\n\n\n", test.respPayload.Error)
 				if test.respPayload.Error.ErrorDetails != test.expectedErr {
 					t.Fatalf("expected error: %s\t got: %s", test.reqPayload.Error.ErrorDetails, test.expectedErr)
 				}
@@ -445,6 +746,17 @@ func TestAttack(t *testing.T) {
 				var respJoin mc.RespAttack
 				if err := test.otherConn.ReadJSON(&respJoin); err != nil {
 					t.Fatal(err)
+				}
+
+				if test.name == "final hit attack valid payload host and sunk battleship" {
+					// When the game ends, both players receive this message
+					var endGameResp mc.Message[mc.RespEndGame]
+					if err := HostConn.ReadJSON(&endGameResp); err != nil {
+						t.Fatal(err)
+					}
+					if err := JoinConn.ReadJSON(&endGameResp); err != nil {
+						t.Fatal(err)
+					}
 				}
 			}
 		})

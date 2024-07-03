@@ -186,6 +186,7 @@ func (r *Request) HandleAttack() (mc.Message[mc.RespAttack], *mb.Player) {
 			PositionState:   mb.PositionStateAttackGridMiss,
 			SunkenShipsHost: game.HostPlayer.SunkenShips,
 			SunkenShipsJoin: game.JoinPlayer.SunkenShips,
+			IsTurn:          attacker.IsTurn,
 		})
 		return resp, defender
 	}
@@ -200,6 +201,7 @@ func (r *Request) HandleAttack() (mc.Message[mc.RespAttack], *mb.Player) {
 		X:             coordinates.X,
 		Y:             coordinates.Y,
 		PositionState: mb.PositionStateAttackGridHit,
+		IsTurn:          attacker.IsTurn,
 	})
 
 	// Check if the attack caused the ship to sink

@@ -157,8 +157,6 @@ sessionLoop:
 				}
 			}
 
-			// attacker turn is set to false
-			resp.Payload.IsTurn = false
 			switch WriteJSONWithRetry(s.Conn, resp) {
 			case ConnLoopAbnormalClosureRetry:
 				switch s.handleAbnormalClosure() {
