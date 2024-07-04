@@ -165,10 +165,7 @@ func (r *Request) HandleAttack() (mc.Message[mc.RespAttack], *mb.Player) {
 	}
 
 	// Idenitify the defender
-	defender := game.HostPlayer
-	if attacker.IsHost {
-		defender = game.JoinPlayer
-	}
+	defender := game.GetOtherPlayer(attacker)
 
 	if defender.AreCoordinatesAlreadyHit(coordinates) {
 		resp.AddError(cerr.ErrDefenceGridPositionAlreadyHit(coordinates.X, coordinates.Y).Error(), cerr.ConstErrAttack)

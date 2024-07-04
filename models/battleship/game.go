@@ -127,3 +127,10 @@ func (g *Game) ResetRematchRequested() {
 func (g *Game) IsRematchAlreadyCalled() bool {
 	return g.rematchAlreadyRequested
 }
+
+func (g *Game) GetOtherPlayer(player *Player) *Player {
+	if player.IsHost {
+		return g.JoinPlayer
+	}
+	return g.HostPlayer
+}
