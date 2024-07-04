@@ -138,7 +138,7 @@ sessionLoop:
 
 		case mc.CodeAttack:
 			req := NewRequest(s, payload)
-			// response will have the IsTurn field of attacker
+			// response will have the IsTurn as false field of attacker
 			resp, defender := req.HandleAttack()
 
 			if resp.Error != nil {
