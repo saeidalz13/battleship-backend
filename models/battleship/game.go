@@ -28,7 +28,7 @@ const (
 )
 
 type Game struct {
-	isFinished              bool
+	IsFinished              bool
 	Uuid                    string
 	HostPlayer              *Player
 	JoinPlayer              *Player
@@ -43,7 +43,7 @@ type Game struct {
 func NewGame(difficulty int) *Game {
 	game := &Game{
 		Uuid:       uuid.NewString()[:6],
-		isFinished: false,
+		IsFinished: false,
 		Players:    make(map[string]*Player),
 		Difficulty: difficulty,
 	}
@@ -64,7 +64,7 @@ func NewGame(difficulty int) *Game {
 }
 
 func (g *Game) FinishGame() {
-	g.isFinished = true
+	g.IsFinished = true
 }
 
 // returns a slice of players in the order of host then join.
@@ -105,7 +105,7 @@ func (g *Game) AreIncomingCoordinatesValid(coordinates Coordinates) bool {
 }
 
 func (g *Game) Reset() {
-	g.isFinished = false
+	g.IsFinished = false
 
 	for _, player := range g.Players {
 		player.ResetAttributesForRematch(g.GridSize)
