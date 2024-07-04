@@ -118,6 +118,12 @@ func (g *Game) CallRematch() {
 	g.mu.Unlock()
 }
 
+func (g *Game) ResetRematchRequested() {
+	g.mu.Lock()
+	g.rematchAlreadyRequested = false
+	g.mu.Unlock()
+}
+
 func (g *Game) IsRematchAlreadyCalled() bool {
 	return g.rematchAlreadyRequested
 }

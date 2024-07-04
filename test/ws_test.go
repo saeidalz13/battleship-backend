@@ -820,3 +820,41 @@ func TestRematchAcceptance(t *testing.T) {
 		t.Fatal("both players must have fresh defence grids after game reset")
 	}
 }
+
+func TestRematchRejection(t *testing.T) {
+	// Host client sends a rematch call
+	msg := mc.NewMessage[mc.NoPayload](mc.CodeRematchCall)
+	if err := HostConn.WriteJSON(msg); err != nil {
+		t.Fatal(err)
+	}
+
+	// Join client receives this call and responds with no
+	var rematchCall mc.Message[mc.NoPayload]
+	if err := JoinConn.ReadJSON(&rematchCall); err != nil {
+		t.Fatal(err)
+	}
+
+	msg = mc.NewMessage[mc.NoPayload](mc.CodeRematchCallRejected)
+	if err := JoinConn.WriteJSON(msg); err != nil {
+		t.Fatal(err)
+	}
+
+	// Host client reads this acceptance
+	var rematchCallRejected mc.Message[mc.NoPayload]
+	if err := HostConn.ReadJSON(&rematchCallRejected); err != nil {
+		t.Fatal(err)
+	}
+
+	// This line will be done by IOS client
+	testServer.SessionManager.DeleteSession(HostSessionID)
+
+	hostSession, _ := testServer.SessionManager.FindSession(HostSessionID)
+	if hostSession != nil {
+		t.Fatal("session for host player must not exist in session maps")
+	}
+
+	joinSession, _ := testServer.SessionManager.FindSession(JoinSessionID)
+	if joinSession != nil {
+		t.Fatal("session for join player must not exist in session maps")
+	}
+}

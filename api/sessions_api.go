@@ -348,7 +348,8 @@ sessionLoop:
 				otherPlayer = game.JoinPlayer
 			}
 			s.SessionManager.CommunicationChan <- NewSessionMessage(s, otherPlayer.SessionID, s.GameUuid, msg)
-
+			
+			game.ResetRematchRequested()
 			go game.Reset()
 
 		case mc.CodeRematchCallRejected:
