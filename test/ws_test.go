@@ -748,7 +748,7 @@ func TestAttack(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				if test.name == "final hit attack valid payload host and sunk battleship" {
+				if test.name == "final hit attack valid battleship payload host 4 and sunk battleship" {
 					// When the game ends, both players receive this message
 					var endGameResp mc.Message[mc.RespEndGame]
 					if err := HostConn.ReadJSON(&endGameResp); err != nil {
@@ -760,5 +760,63 @@ func TestAttack(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestRematchAcceptance(t *testing.T) {
+	// Host client sends a rematch call
+	msg := mc.NewMessage[mc.NoPayload](mc.CodeRematchCall)
+	if err := HostConn.WriteJSON(msg); err != nil {
+		t.Fatal(err)
+	}
+
+	// Join client receives this call and responds with yes
+	var rematchCall mc.Message[mc.NoPayload]
+	if err := JoinConn.ReadJSON(&rematchCall); err != nil {
+		t.Fatal(err)
+	}
+
+	msg = mc.NewMessage[mc.NoPayload](mc.CodeRematchCallAccepted)
+	if err := JoinConn.WriteJSON(msg); err != nil {
+		t.Fatal(err)
+	}
+
+	// Host client reads this acceptance
+	var rematchCallAccepted mc.Message[mc.NoPayload]
+	if err := HostConn.ReadJSON(&rematchCallAccepted); err != nil {
+		t.Fatal(err)
+	}
+
+	game, err := testServer.GameManager.FindGame(GameUuid)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if game.IsFinished {
+		t.Fatal("game IsFinished should have been false after reset game")
+	}
+
+	if testHostPlayer.MatchStatus != mb.PlayerMatchStatusUndefined || testJoinPlayer.MatchStatus != mb.PlayerMatchStatusUndefined {
+		t.Fatalf("both players match status must be undefined after reset game but\n host: %d join: %d", testHostPlayer.MatchStatus, testJoinPlayer.MatchStatus)
+	}
+
+	if testHostPlayer.IsReady || testJoinPlayer.IsReady {
+		t.Fatal("both players is ready must be false but it is still true")
+	}
+
+	if !reflect.DeepEqual(testHostPlayer.Ships, mb.NewShipsMap()) || !reflect.DeepEqual(testJoinPlayer.Ships, mb.NewShipsMap()) {
+		t.Fatal("both players ships must have fresh set of ships after game reset")
+	}
+
+	if testHostPlayer.SunkenShips != 0 || testJoinPlayer.SunkenShips != 0 {
+		t.Fatal("both players must have 0 sunken ships after game reset")
+	}
+
+	if !reflect.DeepEqual(testHostPlayer.AttackGrid, mb.NewGrid(game.GridSize)) || !reflect.DeepEqual(testJoinPlayer.AttackGrid, mb.NewGrid(game.GridSize)) {
+		t.Fatal("both players must have fresh attack grids after game reset")
+	}
+
+	if !reflect.DeepEqual(testHostPlayer.DefenceGrid, mb.NewGrid(game.GridSize)) || !reflect.DeepEqual(testJoinPlayer.DefenceGrid, mb.NewGrid(game.GridSize)) {
+		t.Fatal("both players must have fresh defence grids after game reset")
 	}
 }
