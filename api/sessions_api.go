@@ -323,7 +323,8 @@ sessionLoop:
 			if otherPlayer == nil {
 				break sessionLoop
 			}
-
+			
+			s.Player.IsTurn = true
 			// Notify the other player if they want a rematch
 			msg := mc.NewMessage[mc.NoPayload](mc.CodeRematchCall)
 			s.SessionManager.CommunicationChan <- NewSessionMessage(s, otherPlayer.SessionID, s.GameUuid, msg)
@@ -345,6 +346,7 @@ sessionLoop:
 			s.SessionManager.CommunicationChan <- NewSessionMessage(s, otherPlayer.SessionID, s.GameUuid, msg)
 			
 			game.ResetRematchRequested()
+			s.Player.IsTurn = false
 			go game.Reset()
 
 		case mc.CodeRematchCallRejected:
