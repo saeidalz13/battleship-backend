@@ -21,6 +21,10 @@ func ErrPlayerNotExist(playerUuid string) error {
 	return fmt.Errorf("player with this uuid does not exist, uuid: %s", playerUuid)
 }
 
+func ErrPlayerNotExistForRematch() error {
+	return fmt.Errorf("one of the players in nil. rematch cannot happen")
+}
+
 func ErrNilPayload() error {
 	return fmt.Errorf("the payload is nil and is not of type map")
 }

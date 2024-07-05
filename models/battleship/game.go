@@ -97,19 +97,24 @@ func (g *Game) CreateHostPlayer(sessionID string) *Player {
 	return hostPlayer
 }
 
-
 // This function checks if the coordinates
 // are in bound of game grid size
 func (g *Game) AreIncomingCoordinatesValid(coordinates Coordinates) bool {
 	return !(coordinates.X > g.ValidUpperBound || coordinates.Y > g.ValidUpperBound || coordinates.X < ValidLowerBound || coordinates.Y < ValidLowerBound)
 }
 
-func (g *Game) Reset() {
+func (g *Game) Reset() error {
+	g.ResetRematchRequested()
 	g.IsFinished = false
 
 	for _, player := range g.Players {
+		if player == nil {
+			return cerr.ErrPlayerNotExistForRematch()
+		}
 		player.ResetAttributesForRematch(g.GridSize)
 	}
+
+	return nil
 }
 
 func (g *Game) CallRematch() {

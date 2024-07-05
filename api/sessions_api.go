@@ -335,6 +335,10 @@ sessionLoop:
 			if err != nil {
 				break sessionLoop
 			}
+			
+			if err := game.Reset(); err != nil {
+				break sessionLoop
+			}
 
 			// Notify the other player that let's play again!
 			msgOtherPlayer := mc.NewMessage[mc.RespRematch](mc.CodeRematch)
@@ -363,8 +367,6 @@ sessionLoop:
 			case ConnLoopCodePassThrough:
 			}			
 
-			game.ResetRematchRequested()
-			go game.Reset()
 
 		case mc.CodeRematchCallRejected:
 			game, err := s.GameManager.FindGame(s.GameUuid)

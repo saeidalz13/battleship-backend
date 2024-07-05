@@ -770,20 +770,26 @@ func TestRematchAcceptance(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Join client receives this call and responds with yes
+	// Join client receives this rematch call
 	var rematchCall mc.Message[mc.NoPayload]
 	if err := JoinConn.ReadJSON(&rematchCall); err != nil {
 		t.Fatal(err)
 	}
 
+	// Join client sends this msg to server
 	msg = mc.NewMessage[mc.NoPayload](mc.CodeRematchCallAccepted)
 	if err := JoinConn.WriteJSON(msg); err != nil {
 		t.Fatal(err)
 	}
 
-	// Host client reads this acceptance
-	var rematchCallAccepted mc.Message[mc.NoPayload]
-	if err := HostConn.ReadJSON(&rematchCallAccepted); err != nil {
+	// Host client reads this rematch response including their turn
+	var rematchHost mc.Message[mc.RespRematch]
+	if err := HostConn.ReadJSON(&rematchHost); err != nil {
+		t.Fatal(err)
+	}
+	// Join client reads this rematch response including their turn
+	var rematchJoin mc.Message[mc.RespRematch]
+	if err := JoinConn.ReadJSON(&rematchJoin); err != nil {
 		t.Fatal(err)
 	}
 
