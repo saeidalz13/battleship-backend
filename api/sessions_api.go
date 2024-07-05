@@ -99,20 +99,7 @@ sessionLoop:
 			resp := mc.NewMessage[mc.NoPayload](mc.CodeSignalAbsent)
 			resp.AddError("incoming req payload must contain 'code' field", "")
 
-			switch WriteJSONWithRetry(s.Conn, resp) {
-			case ConnLoopAbnormalClosureRetry:
-				switch s.handleAbnormalClosure() {
-				case ConnLoopCodeBreak:
-					break sessionLoop
-				case ConnLoopCodeContinue:
-					continue sessionLoop
-				}
-
-			case ConnLoopCodeBreak:
-				break sessionLoop
-			default:
-				continue sessionLoop
-			}
+			s.writeToConn(resp)
 		}
 
 		// This is where we choose the action based on the code in incoming json
@@ -122,54 +109,16 @@ sessionLoop:
 			req := NewRequest(s, payload)
 			resp := req.HandleCreateGame()
 
-			switch WriteJSONWithRetry(s.Conn, resp) {
-			case ConnLoopAbnormalClosureRetry:
-				switch s.handleAbnormalClosure() {
-				case ConnLoopCodeBreak:
-					break sessionLoop
-				case ConnLoopCodeContinue:
-					continue sessionLoop
-				}
-			case ConnLoopCodeBreak:
-				break sessionLoop
-			default:
-				continue sessionLoop
-			}
+			s.writeToConn(resp)
 
 		case mc.CodeAttack:
 			req := NewRequest(s, payload)
 			// response will have the IsTurn as false field of attacker
 			resp, defender := req.HandleAttack()
 
+			s.writeToConn(resp)
 			if resp.Error != nil {
-				switch WriteJSONWithRetry(s.Conn, resp) {
-				case ConnLoopAbnormalClosureRetry:
-					switch s.handleAbnormalClosure() {
-					case ConnLoopCodeBreak:
-						break sessionLoop
-					case ConnLoopCodeContinue:
-						continue sessionLoop
-					}
-				case ConnLoopCodeBreak:
-					break sessionLoop
-				default:
-					continue sessionLoop
-				}
-			}
-
-			switch WriteJSONWithRetry(s.Conn, resp) {
-			case ConnLoopAbnormalClosureRetry:
-				switch s.handleAbnormalClosure() {
-				case ConnLoopCodeBreak:
-					break sessionLoop
-
-				case ConnLoopCodeContinue:
-				}
-
-			case ConnLoopCodeBreak:
-				break sessionLoop
-
-			case ConnLoopCodePassThrough:
+				continue sessionLoop
 			}
 
 			// defender turn is set to true
@@ -183,20 +132,7 @@ sessionLoop:
 				// Sending victory code to the attacker
 				respAttacker := mc.NewMessage[mc.RespEndGame](mc.CodeEndGame)
 				respAttacker.AddPayload(mc.RespEndGame{PlayerMatchStatus: mb.PlayerMatchStatusWon})
-				switch WriteJSONWithRetry(s.Conn, respAttacker) {
-				case ConnLoopAbnormalClosureRetry:
-					switch s.handleAbnormalClosure() {
-					case ConnLoopCodeBreak:
-						break sessionLoop
-
-					case ConnLoopCodeContinue:
-					}
-
-				case ConnLoopCodeBreak:
-					break sessionLoop
-
-				case ConnLoopCodePassThrough:
-				}
+				s.writeToConn(respAttacker)
 
 				// Sending failure code to the defender
 				respDefender := mc.NewMessage[mc.RespEndGame](mc.CodeEndGame)
@@ -208,103 +144,33 @@ sessionLoop:
 			req := NewRequest(s, payload)
 			resp, game := req.HandleReadyPlayer()
 
+			s.writeToConn(resp)
 			if resp.Error != nil {
-				switch WriteJSONWithRetry(s.Conn, resp) {
-				case ConnLoopAbnormalClosureRetry:
-					switch s.handleAbnormalClosure() {
-					case ConnLoopCodeBreak:
-						break sessionLoop
-
-					case ConnLoopCodeContinue:
-					}
-				case ConnLoopCodeBreak:
-					break sessionLoop
-				default:
-					continue sessionLoop
-				}
-			}
-
-			switch WriteJSONWithRetry(s.Conn, resp) {
-			case ConnLoopAbnormalClosureRetry:
-				switch s.handleAbnormalClosure() {
-				case ConnLoopCodeBreak:
-					break sessionLoop
-
-				case ConnLoopCodeContinue:
-				}
-
-			case ConnLoopCodeBreak:
-				break sessionLoop
-
-			case ConnLoopCodePassThrough:
+				continue sessionLoop
 			}
 
 			if game.HostPlayer.IsReady && game.JoinPlayer.IsReady {
 				respStartGame := mc.NewMessage[mc.NoPayload](mc.CodeStartGame)
-				switch WriteJSONWithRetry(s.Conn, respStartGame) {
-				case ConnLoopAbnormalClosureRetry:
-					switch s.handleAbnormalClosure() {
-					case ConnLoopCodeBreak:
-						break sessionLoop
+				s.writeToConn(respStartGame)
 
-					case ConnLoopCodeContinue:
-					}
-
-				case ConnLoopCodeBreak:
-					break sessionLoop
-
-				case ConnLoopCodePassThrough:
-				}
-
-				otherPlayerSessionId := game.HostPlayer.SessionID
-				if s.Player.IsHost {
-					otherPlayerSessionId = game.JoinPlayer.SessionID
-				}
-				s.SessionManager.CommunicationChan <- NewSessionMessage(s, otherPlayerSessionId, s.GameUuid, respStartGame)
+				otherPlayer := game.GetOtherPlayer(s.Player)
+				s.SessionManager.CommunicationChan <- NewSessionMessage(s, otherPlayer.SessionID, s.GameUuid, respStartGame)
 			}
 
 		case mc.CodeJoinGame:
 			req := NewRequest(s, payload)
 			resp, game := req.HandleJoinPlayer()
 
-			switch WriteJSONWithRetry(s.Conn, resp) {
-			case ConnLoopAbnormalClosureRetry:
-				switch s.handleAbnormalClosure() {
-				case ConnLoopCodeBreak:
-					break sessionLoop
-
-				case ConnLoopCodeContinue:
-				}
-
-			case ConnLoopCodeBreak:
+			s.writeToConn(resp)
+			if resp.Error != nil {
 				break sessionLoop
-
-			case ConnLoopCodePassThrough:
 			}
 
 			// If the second playerd joined successfully, then `CodeSelectGrid`
 			// is sent to both players as an indication of grid selection
-			if resp.Error == nil {
-				readyResp := mc.NewMessage[mc.NoPayload](mc.CodeSelectGrid)
-				switch WriteJSONWithRetry(s.Conn, readyResp) {
-				case ConnLoopAbnormalClosureRetry:
-					switch s.handleAbnormalClosure() {
-					case ConnLoopCodeBreak:
-						break sessionLoop
-
-					case ConnLoopCodeContinue:
-					}
-
-				case ConnLoopCodeBreak:
-					break sessionLoop
-
-				case ConnLoopCodePassThrough:
-				}
-
-				s.SessionManager.CommunicationChan <- NewSessionMessage(s, game.HostPlayer.SessionID, s.GameUuid, readyResp)
-			} else {
-				break sessionLoop
-			}
+			readyResp := mc.NewMessage[mc.NoPayload](mc.CodeSelectGrid)
+			s.writeToConn(readyResp)
+			s.SessionManager.CommunicationChan <- NewSessionMessage(s, game.HostPlayer.SessionID, s.GameUuid, readyResp)
 
 		case mc.CodeRematchCall:
 			// 1. See if the game still exists
@@ -323,7 +189,7 @@ sessionLoop:
 			if otherPlayer == nil {
 				break sessionLoop
 			}
-			
+
 			s.Player.IsTurn = true
 			// Notify the other player if they want a rematch
 			msg := mc.NewMessage[mc.NoPayload](mc.CodeRematchCall)
@@ -335,12 +201,12 @@ sessionLoop:
 			if err != nil {
 				break sessionLoop
 			}
-			
+
 			if err := game.Reset(); err != nil {
 				break sessionLoop
 			}
 
-			// Notify the other player that let's play again!
+			// Notify the other player with their turn
 			msgOtherPlayer := mc.NewMessage[mc.RespRematch](mc.CodeRematch)
 			otherPlayer := game.GetOtherPlayer(s.Player)
 			if otherPlayer == nil {
@@ -352,21 +218,9 @@ sessionLoop:
 			s.Player.IsTurn = false
 			msgPlayer := mc.NewMessage[mc.RespRematch](mc.CodeRematch)
 			msgPlayer.AddPayload(mc.RespRematch{IsTurn: s.Player.IsTurn})
-			switch WriteJSONWithRetry(s.Conn, msgPlayer) {
-			case ConnLoopAbnormalClosureRetry:
-				switch s.handleAbnormalClosure() {
-				case ConnLoopCodeBreak:
-					break sessionLoop
 
-				case ConnLoopCodeContinue:
-				}
-
-			case ConnLoopCodeBreak:
-				break sessionLoop
-
-			case ConnLoopCodePassThrough:
-			}			
-
+			// Notify the acceptor with their turn
+			s.writeToConn(msgPlayer)
 
 		case mc.CodeRematchCallRejected:
 			game, err := s.GameManager.FindGame(s.GameUuid)
@@ -387,20 +241,7 @@ sessionLoop:
 		default:
 			respInvalidSignal := mc.NewMessage[mc.NoPayload](mc.CodeInvalidSignal)
 			respInvalidSignal.AddError("", "invalid code in the incoming payload")
-			switch WriteJSONWithRetry(s.Conn, respInvalidSignal) {
-			case ConnLoopAbnormalClosureRetry:
-				switch s.handleAbnormalClosure() {
-				case ConnLoopCodeBreak:
-					break sessionLoop
-
-				case ConnLoopCodeContinue:
-					continue sessionLoop
-				}
-			case ConnLoopCodeBreak:
-				break sessionLoop
-			default:
-				continue sessionLoop
-			}
+			s.writeToConn(respInvalidSignal)
 		}
 	}
 }
@@ -414,11 +255,25 @@ func (s *Session) terminate() {
 	s.SessionManager.DeleteSession(s.ID)
 }
 
+// Writes to the connection of that session. It also
+// handles the abnormal or other types of errors of
+// writing to a websocket connection.
+func (s *Session) writeToConn(p interface{}) {
+	switch WriteJSONWithRetry(s.Conn, p) {
+	case ConnLoopAbnormalClosureRetry:
+		switch s.handleAbnormalClosure() {
+		case ConnLoopCodeBreak:
+			s.terminate()
+
+		case ConnLoopCodeContinue:
+		}
+	case ConnLoopCodeBreak:
+		s.terminate()
+	default:
+	}
+}
+
 func (s *Session) handleAbnormalClosure() int {
-	log.Printf("starting grace period for %s\n", s.ID)
-
-	timer := time.NewTimer(gracePeriod)
-
 	// This means there is no game and abnormal closure is happening
 	// which means this session is invalid and should end
 	game, err := s.GameManager.FindGame(s.GameUuid)
@@ -426,27 +281,24 @@ func (s *Session) handleAbnormalClosure() int {
 		return ConnLoopCodeBreak
 	}
 
-	otherPlayer := game.HostPlayer
-	if s.Player.IsHost {
-		otherPlayer = game.JoinPlayer
+	otherPlayer := game.GetOtherPlayer(s.Player)
+	if otherPlayer == nil {
+		return ConnLoopCodeBreak
 	}
 
-	var otherSession *Session
-	if otherPlayer != nil {
-		var err error
-		// Absence of otherPlayer session means this game is invalid
-		otherSession, err = s.SessionManager.FindSession(otherPlayer.SessionID)
-		if err != nil {
-			return ConnLoopCodeBreak
-		}
+	// Absence of otherPlayer session means this game is invalid
+	otherSession, err := s.SessionManager.FindSession(otherPlayer.SessionID)
+	if err != nil {
+		return ConnLoopCodeBreak
 	}
 
-	if otherSession != nil {
-		if err := otherSession.Conn.WriteJSON(mc.NewMessage[mc.NoPayload](mc.CodeOtherPlayerGracePeriod)); err != nil {
-			// If other player connection is disrupted as well, then end the session
-			return ConnLoopCodeBreak
-		}
+	if err := otherSession.Conn.WriteJSON(mc.NewMessage[mc.NoPayload](mc.CodeOtherPlayerGracePeriod)); err != nil {
+		// If other player connection is disrupted as well, then end the session
+		return ConnLoopCodeBreak
 	}
+
+	log.Printf("starting grace period for %s\n", s.ID)
+	timer := time.NewTimer(gracePeriod)
 
 	select {
 	case <-timer.C:
