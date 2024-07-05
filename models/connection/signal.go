@@ -27,6 +27,7 @@ const (
 	// This code is sent from both players if they want rematch
 	CodeRematchCallAccepted
 	CodeRematchCallRejected
+	CodeRematch
 )
 
 type Signal struct {

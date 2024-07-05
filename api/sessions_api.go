@@ -337,16 +337,33 @@ sessionLoop:
 			}
 
 			// Notify the other player that let's play again!
-			msg := mc.NewMessage[mc.NoPayload](mc.CodeRematchCallAccepted)
+			msgOtherPlayer := mc.NewMessage[mc.RespRematch](mc.CodeRematch)
 			otherPlayer := game.GetOtherPlayer(s.Player)
 			if otherPlayer == nil {
 				break sessionLoop
 			}
+			msgOtherPlayer.AddPayload(mc.RespRematch{IsTurn: otherPlayer.IsTurn})
+			s.SessionManager.CommunicationChan <- NewSessionMessage(s, otherPlayer.SessionID, s.GameUuid, msgOtherPlayer)
 
-			s.SessionManager.CommunicationChan <- NewSessionMessage(s, otherPlayer.SessionID, s.GameUuid, msg)
-			
-			game.ResetRematchRequested()
 			s.Player.IsTurn = false
+			msgPlayer := mc.NewMessage[mc.RespRematch](mc.CodeRematch)
+			msgPlayer.AddPayload(mc.RespRematch{IsTurn: s.Player.IsTurn})
+			switch WriteJSONWithRetry(s.Conn, msgPlayer) {
+			case ConnLoopAbnormalClosureRetry:
+				switch s.handleAbnormalClosure() {
+				case ConnLoopCodeBreak:
+					break sessionLoop
+
+				case ConnLoopCodeContinue:
+				}
+
+			case ConnLoopCodeBreak:
+				break sessionLoop
+
+			case ConnLoopCodePassThrough:
+			}			
+
+			game.ResetRematchRequested()
 			go game.Reset()
 
 		case mc.CodeRematchCallRejected:
