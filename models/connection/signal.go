@@ -11,15 +11,23 @@ const (
 	CodeAttack
 	CodeEndGame
 	CodeInvalidSignal
-	CodeSignalAbsent // if the req msg does not contain "code" field
+
+	// if the req msg does not contain "code" field
+	CodeSignalAbsent
+
 	CodeOtherPlayerDisconnected
 	CodeOtherPlayerReconnected
 	CodeOtherPlayerGracePeriod
-	// CodeRequestRematchFromServer
-	// CodeRequestRematchFromOtherPlayer
 
-	// // This code is sent from both players if they want rematch
-	// CodeRematch
+	// Ask the server to message the other player
+	// if they want a rematch too
+	CodeRematchCall
+
+	// Other player also wants a rematch
+	// This code is sent from both players if they want rematch
+	CodeRematchCallAccepted
+	CodeRematchCallRejected
+	CodeRematch
 )
 
 type Signal struct {

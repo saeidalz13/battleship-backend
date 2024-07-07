@@ -306,6 +306,84 @@ sessionLoop:
 				break sessionLoop
 			}
 
+		case mc.CodeRematchCall:
+			// 1. See if the game still exists
+			game, err := s.GameManager.FindGame(s.GameUuid)
+			if err != nil {
+				break sessionLoop
+			}
+
+			if game.IsRematchAlreadyCalled() {
+				continue sessionLoop
+			}
+
+			game.CallRematch()
+
+			otherPlayer := game.GetOtherPlayer(s.Player)
+			if otherPlayer == nil {
+				break sessionLoop
+			}
+			
+			s.Player.IsTurn = true
+			// Notify the other player if they want a rematch
+			msg := mc.NewMessage[mc.NoPayload](mc.CodeRematchCall)
+			s.SessionManager.CommunicationChan <- NewSessionMessage(s, otherPlayer.SessionID, s.GameUuid, msg)
+
+		case mc.CodeRematchCallAccepted:
+			// Send the rematch call acceptance to other player
+			game, err := s.GameManager.FindGame(s.GameUuid)
+			if err != nil {
+				break sessionLoop
+			}
+			
+			if err := game.Reset(); err != nil {
+				break sessionLoop
+			}
+
+			// Notify the other player that let's play again!
+			msgOtherPlayer := mc.NewMessage[mc.RespRematch](mc.CodeRematch)
+			otherPlayer := game.GetOtherPlayer(s.Player)
+			if otherPlayer == nil {
+				break sessionLoop
+			}
+			msgOtherPlayer.AddPayload(mc.RespRematch{IsTurn: otherPlayer.IsTurn})
+			s.SessionManager.CommunicationChan <- NewSessionMessage(s, otherPlayer.SessionID, s.GameUuid, msgOtherPlayer)
+
+			s.Player.IsTurn = false
+			msgPlayer := mc.NewMessage[mc.RespRematch](mc.CodeRematch)
+			msgPlayer.AddPayload(mc.RespRematch{IsTurn: s.Player.IsTurn})
+			switch WriteJSONWithRetry(s.Conn, msgPlayer) {
+			case ConnLoopAbnormalClosureRetry:
+				switch s.handleAbnormalClosure() {
+				case ConnLoopCodeBreak:
+					break sessionLoop
+
+				case ConnLoopCodeContinue:
+				}
+
+			case ConnLoopCodeBreak:
+				break sessionLoop
+
+			case ConnLoopCodePassThrough:
+			}			
+
+
+		case mc.CodeRematchCallRejected:
+			game, err := s.GameManager.FindGame(s.GameUuid)
+			if err != nil {
+				break sessionLoop
+			}
+
+			// Notify the other player that no rematch is wanted now
+			msg := mc.NewMessage[mc.NoPayload](mc.CodeRematchCallRejected)
+			otherPlayer := game.GetOtherPlayer(s.Player)
+			if otherPlayer == nil {
+				break sessionLoop
+			}
+			s.SessionManager.CommunicationChan <- NewSessionMessage(s, otherPlayer.SessionID, s.GameUuid, msg)
+
+			break sessionLoop
+
 		default:
 			respInvalidSignal := mc.NewMessage[mc.NoPayload](mc.CodeInvalidSignal)
 			respInvalidSignal.AddError("", "invalid code in the incoming payload")
@@ -386,60 +464,3 @@ func (s *Session) handleAbnormalClosure() int {
 		return ConnLoopCodeContinue
 	}
 }
-
-// // Restarting the game means we play the game with
-// // the same gameUuid but the player info gets reset
-// func (s *Session) restartGame() {
-// 	s.Player.AttackGrid = mc.NewGrid()
-// 	s.Player.DefenceGrid = mc.NewGrid()
-// 	if s.Player.IsHost {
-// 		s.Player.IsTurn = true
-// 	} else {
-// 		s.Player.IsTurn = false
-// 	}
-// 	s.Player.Ships = mc.NewShipsMap()
-// 	s.Player.SunkenShips = 0
-// 	s.Player.MatchStatus = md.PlayerMatchStatusUndefined
-// }
-
-// case mc.CodeRequestRematchFromServer:
-// 	// 1. See if the game still exists
-// 	game, err := s.GameManager.FindGame(s.GameUuid)
-// 	if err != nil {
-// 		break sessionLoop
-// 	}
-
-// 	// 2. Check if the other player still exists
-// 	var otherPlayer *md.Player
-// 	for _, player := range game.Players {
-// 		if player.Uuid != s.Player.Uuid {
-// 			otherPlayer = player
-// 		}
-// 	}
-// 	// The other player had already quit and didn't
-// 	// want a rematch
-// 	if otherPlayer == nil {
-// 		break sessionLoop
-// 	}
-
-// 	msg := mc.NewMessage[mc.NoPayload](mc.CodeRequestRematchFromOtherPlayer)
-// 	s.SessionManager.CommunicationChan <- NewSessionMessage(s, otherPlayer.SessionID, s.GameUuid, msg)
-
-// case mc.CodeRematch:
-// 	s.restartGame()
-// 	readyResp := mc.NewMessage[mc.NoPayload](mc.CodeSelectGrid)
-
-// 	switch WriteJSONWithRetry(s.Conn, readyResp) {
-// 	case ConnLoopAbnormalClosureRetry:
-// 		// switch s.handleAbnormalClosure() {
-// 		// case ConnLoopCodeBreak:
-// 		// 	break sessionLoop
-
-// 		// case ConnLoopCodeContinue:
-// 		// }
-
-// 	case ConnLoopCodeBreak:
-// 		break sessionLoop
-
-// 	case ConnLoopCodePassThrough:
-// 	}

@@ -38,6 +38,10 @@ type RespErr struct {
 	Message      string `json:"message,omitempty"`
 }
 
+type RespRematch struct {
+	IsTurn bool `json:"is_turn"`
+}
+
 func NewRespErr(errorDetails, message string) *RespErr {
 	return &RespErr{
 		ErrorDetails: errorDetails,

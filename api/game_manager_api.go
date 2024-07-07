@@ -26,8 +26,8 @@ func (gm *GameManager) AddGame(gameDifficulty int) *mb.Game {
 	defer gm.mu.Unlock()
 
 	newGame := mb.NewGame(gameDifficulty)
-	gm.Games[newGame.Uuid] = &newGame
-	return &newGame
+	gm.Games[newGame.Uuid] = newGame
+	return newGame
 }
 
 func (gm *GameManager) FindGame(gameUuid string) (*mb.Game, error) {

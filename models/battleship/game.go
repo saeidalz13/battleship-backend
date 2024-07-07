@@ -1,6 +1,8 @@
 package battleship
 
 import (
+	"sync"
+
 	cerr "github.com/saeidalz13/battleship-backend/internal/error"
 
 	"github.com/google/uuid"
@@ -26,20 +28,22 @@ const (
 )
 
 type Game struct {
-	isFinished      bool
-	Uuid            string
-	HostPlayer      *Player
-	JoinPlayer      *Player
-	Players         map[string]*Player
-	Difficulty      int
-	GridSize        int
-	ValidUpperBound int
+	IsFinished              bool
+	Uuid                    string
+	HostPlayer              *Player
+	JoinPlayer              *Player
+	Players                 map[string]*Player
+	Difficulty              int
+	GridSize                int
+	ValidUpperBound         int
+	rematchAlreadyRequested bool
+	mu                      sync.Mutex
 }
 
-func NewGame(difficulty int) Game {
-	game := Game{
+func NewGame(difficulty int) *Game {
+	game := &Game{
 		Uuid:       uuid.NewString()[:6],
-		isFinished: false,
+		IsFinished: false,
 		Players:    make(map[string]*Player),
 		Difficulty: difficulty,
 	}
@@ -60,7 +64,7 @@ func NewGame(difficulty int) Game {
 }
 
 func (g *Game) FinishGame() {
-	g.isFinished = true
+	g.IsFinished = true
 }
 
 // returns a slice of players in the order of host then join.
@@ -93,9 +97,45 @@ func (g *Game) CreateHostPlayer(sessionID string) *Player {
 	return hostPlayer
 }
 
-
 // This function checks if the coordinates
 // are in bound of game grid size
 func (g *Game) AreIncomingCoordinatesValid(coordinates Coordinates) bool {
 	return !(coordinates.X > g.ValidUpperBound || coordinates.Y > g.ValidUpperBound || coordinates.X < ValidLowerBound || coordinates.Y < ValidLowerBound)
+}
+
+func (g *Game) Reset() error {
+	g.ResetRematchRequested()
+	g.IsFinished = false
+
+	for _, player := range g.Players {
+		if player == nil {
+			return cerr.ErrPlayerNotExistForRematch()
+		}
+		player.ResetAttributesForRematch(g.GridSize)
+	}
+
+	return nil
+}
+
+func (g *Game) CallRematch() {
+	g.mu.Lock()
+	g.rematchAlreadyRequested = true
+	g.mu.Unlock()
+}
+
+func (g *Game) ResetRematchRequested() {
+	g.mu.Lock()
+	g.rematchAlreadyRequested = false
+	g.mu.Unlock()
+}
+
+func (g *Game) IsRematchAlreadyCalled() bool {
+	return g.rematchAlreadyRequested
+}
+
+func (g *Game) GetOtherPlayer(player *Player) *Player {
+	if player.IsHost {
+		return g.JoinPlayer
+	}
+	return g.HostPlayer
 }
