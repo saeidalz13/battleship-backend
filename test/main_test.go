@@ -31,7 +31,7 @@ var (
 func TestMain(m *testing.M) {
 	go func() {
 		stage := "dev"
-		server := api.NewServer(api.WithPort(7171), api.WithStage(stage))
+		server := api.NewServer(api.WithPort("7171"), api.WithStage(stage))
 		testServer = server
 
 		go server.SessionManager.ManageCommunication()
