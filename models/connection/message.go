@@ -18,3 +18,7 @@ func (m *Message[T]) AddPayload(payload T) {
 func (m *Message[T]) AddError(errorDetails, message string) {
 	m.Error = NewRespErr(errorDetails, message)
 }
+
+type PlayerInteraction struct {
+	Content string `json:"content"`
+}
