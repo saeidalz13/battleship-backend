@@ -84,7 +84,7 @@ sessionLoop:
 
 			// defender turn is set to true
 			resp.Payload.IsTurn = true
-			s.notifyOtherSession(defender.SessionID, resp)
+			s.notifyOtherSession(defender.SessionID, resp, TypeSessionMessageJSON)
 
 			if defender.MatchStatus == mb.PlayerMatchStatusLost {
 				respAttacker := mc.NewMessage[mc.RespEndGame](mc.CodeEndGame)
@@ -95,7 +95,7 @@ sessionLoop:
 
 				respDefender := mc.NewMessage[mc.RespEndGame](mc.CodeEndGame)
 				respDefender.AddPayload(mc.RespEndGame{PlayerMatchStatus: mb.PlayerMatchStatusLost})
-				s.notifyOtherSession(defender.SessionID, respDefender)
+				s.notifyOtherSession(defender.SessionID, respDefender, TypeSessionMessageJSON)
 			}
 
 		case mc.CodeReady:
@@ -116,7 +116,7 @@ sessionLoop:
 				}
 
 				otherPlayer := game.GetOtherPlayer(s.Player)
-				s.notifyOtherSession(otherPlayer.SessionID, respStartGame)
+				s.notifyOtherSession(otherPlayer.SessionID, respStartGame, TypeSessionMessageJSON)
 			}
 
 		case mc.CodeJoinGame:
@@ -134,7 +134,7 @@ sessionLoop:
 			if s.writeToConn(readyResp) == ConnLoopCodeBreak {
 				break sessionLoop
 			}
-			s.notifyOtherSession(game.HostPlayer.SessionID, readyResp)
+			s.notifyOtherSession(game.HostPlayer.SessionID, readyResp, TypeSessionMessageJSON)
 
 		case mc.CodeRematchCall:
 			// 1. See if the game still exists
@@ -157,7 +157,7 @@ sessionLoop:
 			s.Player.IsTurn = true
 			// Notify the other player if they want a rematch
 			msg := mc.NewMessage[mc.NoPayload](mc.CodeRematchCall)
-			s.notifyOtherSession(otherPlayer.SessionID, msg)
+			s.notifyOtherSession(otherPlayer.SessionID, msg, TypeSessionMessageJSON)
 
 		case mc.CodeRematchCallAccepted:
 			// Send the rematch call acceptance to other player
@@ -177,7 +177,7 @@ sessionLoop:
 				break sessionLoop
 			}
 			msgOtherPlayer.AddPayload(mc.RespRematch{IsTurn: otherPlayer.IsTurn})
-			s.notifyOtherSession(otherPlayer.SessionID, msgOtherPlayer)
+			s.notifyOtherSession(otherPlayer.SessionID, msgOtherPlayer, TypeSessionMessageJSON)
 
 			s.Player.IsTurn = false
 			msgPlayer := mc.NewMessage[mc.RespRematch](mc.CodeRematch)
@@ -198,7 +198,7 @@ sessionLoop:
 			msg := mc.NewMessage[mc.NoPayload](mc.CodeRematchCallRejected)
 			otherPlayer := game.GetOtherPlayer(s.Player)
 			if otherPlayer != nil {
-				s.notifyOtherSession(otherPlayer.SessionID, msg)
+				s.notifyOtherSession(otherPlayer.SessionID, msg, TypeSessionMessageJSON)
 			}
 
 			break sessionLoop
@@ -209,9 +209,12 @@ sessionLoop:
 				break sessionLoop
 			}
 			otherPlayer := game.GetOtherPlayer(s.Player)
-			if otherPlayer != nil {
-				s.notifyOtherSession(otherPlayer.SessionID, payload)
+			if otherPlayer == nil {
+				break sessionLoop
 			}
+
+			s.notifyOtherSession(otherPlayer.SessionID, payload, TypeSessionMessageBytes)
+			continue sessionLoop
 
 		default:
 			respInvalidSignal := mc.NewMessage[mc.NoPayload](mc.CodeInvalidSignal)
@@ -224,8 +227,13 @@ sessionLoop:
 }
 
 // This is to send a message to the other session.
-func (s *Session) notifyOtherSession(otherSessionId string, msg interface{}) {
-	s.SessionManager.CommunicationChan <- NewSessionMessage(s, otherSessionId, s.GameUuid, msg)
+func (s *Session) notifyOtherSession(otherSessionId string, msg interface{}, payloadType int8) {
+	switch payloadType {
+	case TypeSessionMessageJSON:
+		s.SessionManager.CommunicationChan <- NewSessionMessageJSON(otherSessionId, s.GameUuid, msg)
+	case TypeSessionMessageBytes:
+		s.SessionManager.CommunicationChan <- NewSessionMessageBytes(otherSessionId, s.GameUuid, msg)
+	}
 }
 
 // This will delete player from the game players map
