@@ -854,13 +854,13 @@ func TestRematchRejection(t *testing.T) {
 	// This line will be done by IOS client
 	testServer.SessionManager.DeleteSession(HostSessionID)
 
-	hostSession, _ := testServer.SessionManager.FindSession(HostSessionID)
-	if hostSession != nil {
+	_, err := testServer.SessionManager.FindSession(HostSessionID)
+	if err.Error() != cerr.ErrSessionNotFound(HostSessionID).Error() {
 		t.Fatal("session for host player must not exist in session maps")
 	}
 
-	joinSession, _ := testServer.SessionManager.FindSession(JoinSessionID)
-	if joinSession != nil {
+	_, err = testServer.SessionManager.FindSession(JoinSessionID)
+	if err.Error() != cerr.ErrSessionNotFound(JoinSessionID).Error() {
 		t.Fatal("session for join player must not exist in session maps")
 	}
 }

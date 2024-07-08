@@ -37,6 +37,10 @@ func (sm *SessionManager) FindSession(sessionId string) (*Session, error) {
 		return nil, cerr.ErrSessionNotFound(sessionId)
 	}
 
+	if session == nil {
+		return nil, cerr.ErrSessionIsNil(sessionId)
+	}
+
 	return session, nil
 }
 

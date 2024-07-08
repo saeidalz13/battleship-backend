@@ -83,6 +83,13 @@ func ErrDefenceGridColsOutOfBounds(cols, gameGridSize int) error {
 	return fmt.Errorf("cols of defence grid must be %d \tcols: %d", gameGridSize, cols)
 }
 
+/*
+Session Errors
+*/
 func ErrSessionNotFound(sessionId string) error {
 	return fmt.Errorf("session not found\tID: %s", sessionId)
+}
+
+func ErrSessionIsNil(sessionId string) error {
+	return fmt.Errorf("session is nil\tID: %s", sessionId)
 }

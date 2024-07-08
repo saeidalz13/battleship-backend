@@ -27,7 +27,7 @@ const (
 )
 
 var (
-	defaultPort int = 8000
+	defaultPort string = "8000"
 	// allowedOrigins     = map[string]bool{
 	// 	"https://www.allowed_url.com": true,
 	// }
@@ -44,7 +44,7 @@ var (
 )
 
 type Server struct {
-	port           *int
+	port           string
 	stage          string
 	GameManager    *GameManager
 	SessionManager *SessionManager
@@ -59,8 +59,8 @@ func NewServer(optFuncs ...Option) *Server {
 			panic(err)
 		}
 	}
-	if server.port == nil {
-		server.port = &defaultPort
+	if server.port == "" {
+		server.port = defaultPort
 	}
 
 	server.SessionManager = NewSessionManager()
@@ -69,13 +69,9 @@ func NewServer(optFuncs ...Option) *Server {
 	return &server
 }
 
-func WithPort(port int) Option {
+func WithPort(port string) Option {
 	return func(s *Server) error {
-		if port > 10000 {
-			panic("choose a port less than 10000")
-		}
-
-		s.port = &port
+		s.port = port
 		return nil
 	}
 }
