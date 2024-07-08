@@ -281,6 +281,51 @@ func TestReadyGame(t *testing.T) {
 	}
 }
 
+func TestPlayerInteraction(t *testing.T) {
+	msg := mc.NewMessage[mc.PlayerInteraction](mc.CodePlayerInteraction)
+
+	tests := []Test[mc.Message[mc.PlayerInteraction], mc.Message[mc.PlayerInteraction]]{
+		{
+			name:         "successful msg host to join",
+			expectedCode: mc.CodePlayerInteraction,
+			reqPayload:   msg,
+			respPayload:  mc.Message[mc.PlayerInteraction]{},
+			conn:         HostConn,
+			otherConn:    JoinConn,
+		},
+		{
+			name:         "successful msg join to host",
+			expectedCode: mc.CodePlayerInteraction,
+			reqPayload:   msg,
+			respPayload:  mc.Message[mc.PlayerInteraction]{},
+			conn:         JoinConn,
+			otherConn:    HostConn,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// Client writes to its own connection
+			if err := test.conn.WriteJSON(test.reqPayload); err != nil {
+				t.Fatal(err)
+			}
+
+			// Server writes it to ther other connection
+			if err := test.otherConn.ReadJSON(&test.respPayload); err != nil {
+				t.Fatal(err)
+			}
+
+			if test.respPayload.Code != test.expectedCode {
+				t.Fatalf("expected status: %d\t got: %d", test.expectedCode, test.respPayload.Code)
+			}
+
+			if !reflect.DeepEqual(test.reqPayload, test.respPayload) {
+				t.Fatalf("expected resp payload: %+v\n got: %+v", test.expectedRespPayload, test.respPayload)
+			}
+		})
+	}
+}
+
 func TestAttack(t *testing.T) {
 	tests := []Test[mc.Message[mc.ReqAttack], mc.Message[mc.RespAttack]]{
 		{
@@ -754,6 +799,7 @@ func TestAttack(t *testing.T) {
 			}
 
 			if test.respPayload.Error != nil {
+				log.Printf("%+v\n", test.respPayload.Error)
 				if test.respPayload.Error.ErrorDetails != test.expectedErr {
 					t.Fatalf("expected error: %s\t got: %s", test.expectedErr, test.respPayload.Error.ErrorDetails)
 				}
