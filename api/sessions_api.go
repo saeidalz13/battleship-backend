@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"log"
@@ -8,8 +9,10 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/saeidalz13/battleship-backend/db/sqlc"
 	mb "github.com/saeidalz13/battleship-backend/models/battleship"
 	mc "github.com/saeidalz13/battleship-backend/models/connection"
+	"github.com/sqlc-dev/pqtype"
 )
 
 const (
@@ -200,6 +203,14 @@ sessionLoop:
 			// Notify the acceptor with their turn
 			if s.writeToConn(msgPlayer) == ConnLoopCodeBreak {
 				break sessionLoop
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), dbCtxTimeoutPeriod)
+			defer cancel()
+			q := sqlc.New(s.Db)
+			if err := q.UpdateRematchCalled(ctx, pqtype.Inet{IPNet: s.ServerIPNet, Valid: true}); err != nil {
+				// For now, just log the error, don't interrupt the game
+				log.Println(err)
 			}
 
 		case mc.CodeRematchCallRejected:
