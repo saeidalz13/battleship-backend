@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"time"
 
@@ -95,6 +96,22 @@ func WithDb(db *sql.DB) Option {
 	}
 }
 
+func (s *Server) getServerIpNet(localAddr string) (net.IPNet, error) {
+	host, _, err := net.SplitHostPort(localAddr)
+	if err != nil {
+		log.Println("failed to extract host from local addr")
+		return net.IPNet{}, err
+	}
+
+	parsedIP := net.ParseIP(host)
+	log.Println(parsedIP)
+
+	return net.IPNet{
+		IP:   parsedIP,
+		Mask: net.CIDRMask(32, 32),
+	}, nil
+}
+
 func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
 	// use Upgrade method to make a websocket connection
 	conn, err := upgrader.Upgrade(w, r, nil)
@@ -104,7 +121,10 @@ func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// q := sqlc.New()
+	serverIpNet, err := s.getServerIpNet(conn.LocalAddr().String())
+	if err != nil {
+		panic(err)
+	}
 
 	sessionIdQuery := r.URL.Query().Get(URLQuerySessionIDKeyword)
 	switch sessionIdQuery {
@@ -113,7 +133,7 @@ func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
 		newSessionIdRaw := uuid.New().String()
 		sessionIdUrlCompatible := base64.RawURLEncoding.EncodeToString([]byte(newSessionIdRaw))
 
-		session := NewSession(conn, sessionIdUrlCompatible, s.GameManager, s.SessionManager)
+		session := NewSession(conn, sessionIdUrlCompatible, s.GameManager, s.SessionManager, serverIpNet, s.Db)
 		s.SessionManager.Sessions[sessionIdUrlCompatible] = session
 
 		resp := mc.NewMessage[mc.RespSessionId](mc.CodeSessionID)

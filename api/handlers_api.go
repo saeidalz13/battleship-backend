@@ -1,12 +1,15 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 
+	"github.com/saeidalz13/battleship-backend/db/sqlc"
 	cerr "github.com/saeidalz13/battleship-backend/internal/error"
 	mb "github.com/saeidalz13/battleship-backend/models/battleship"
 	mc "github.com/saeidalz13/battleship-backend/models/connection"
+	"github.com/sqlc-dev/pqtype"
 )
 
 type RequestHandler interface {
@@ -61,6 +64,14 @@ func (r *Request) HandleCreateGame() mc.Message[mc.RespCreateGame] {
 
 	hostPlayer := game.CreateHostPlayer(r.Session.ID)
 	r.Session.Player = hostPlayer
+
+	ctx, cancel := context.WithTimeout(context.Background(), dbCtxTimeoutPeriod)
+	defer cancel()
+	q := sqlc.New(r.Session.Db)
+	if err := q.UpdateGameCreated(ctx, pqtype.Inet{IPNet: r.Session.ServerIPNet, Valid: true}); err != nil {
+		// For now, just log the error, don't interrupt the game
+		log.Println(err)	
+	}
 
 	resp.AddPayload(mc.RespCreateGame{GameUuid: game.Uuid, HostUuid: hostPlayer.Uuid})
 	return resp
@@ -198,7 +209,7 @@ func (r *Request) HandleAttack() (mc.Message[mc.RespAttack], *mb.Player) {
 		X:             coordinates.X,
 		Y:             coordinates.Y,
 		PositionState: mb.PositionStateAttackGridHit,
-		IsTurn:          attacker.IsTurn,
+		IsTurn:        attacker.IsTurn,
 	})
 
 	// Check if the attack caused the ship to sink

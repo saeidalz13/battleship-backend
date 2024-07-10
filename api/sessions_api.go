@@ -1,8 +1,10 @@
 package api
 
 import (
+	"database/sql"
 	"encoding/json"
 	"log"
+	"net"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -11,7 +13,8 @@ import (
 )
 
 const (
-	gracePeriod time.Duration = time.Minute * 2
+	gracePeriod        time.Duration = time.Minute * 2
+	dbCtxTimeoutPeriod time.Duration = time.Second * 10
 )
 
 type Session struct {
@@ -22,10 +25,19 @@ type Session struct {
 	StopRetry      chan struct{}
 	GameManager    *GameManager
 	SessionManager *SessionManager
+	Db             *sql.DB
+	ServerIPNet    net.IPNet
 	CreatedAt      time.Time
 }
 
-func NewSession(conn *websocket.Conn, sessionID string, gameManager *GameManager, sessionManager *SessionManager) *Session {
+func NewSession(
+	conn *websocket.Conn,
+	sessionID string,
+	gameManager *GameManager,
+	sessionManager *SessionManager,
+	serverIpNet net.IPNet,
+	db *sql.DB,
+) *Session {
 	return &Session{
 		ID:             sessionID,
 		Conn:           conn,
@@ -33,6 +45,8 @@ func NewSession(conn *websocket.Conn, sessionID string, gameManager *GameManager
 		GameManager:    gameManager,
 		SessionManager: sessionManager,
 		CreatedAt:      time.Now(),
+		ServerIPNet:    serverIpNet,
+		Db:             db,
 	}
 }
 
@@ -60,7 +74,6 @@ sessionLoop:
 			}
 			continue sessionLoop
 		}
-
 
 		switch signal.Code {
 		case mc.CodeCreateGame:
