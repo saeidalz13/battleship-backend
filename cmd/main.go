@@ -6,8 +6,8 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
-	// "github.com/saeidalz13/battleship-backend/db"
 	"github.com/saeidalz13/battleship-backend/api"
+	"github.com/saeidalz13/battleship-backend/db"
 )
 
 func main() {
@@ -21,10 +21,11 @@ func main() {
 		panic("stage must be either dev or prod")
 	}
 	port := os.Getenv("PORT")
-	// psqlUrl := os.Getenv("DATABASE_URL")
-	// DB = db.MustConnectToDb(psqlUrl)
+	psqlUrl := os.Getenv("DATABASE_URL")
+	psqlDb := db.MustConnectToDb(psqlUrl)
 
-	server := api.NewServer(api.WithPort(port), api.WithStage(stage))
+
+	server := api.NewServer(api.WithPort(port), api.WithStage(stage), api.WithDb(psqlDb))
 
 	go server.SessionManager.ManageCommunication()
 	go server.SessionManager.CleanUpPeriodically()

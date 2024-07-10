@@ -1,6 +1,7 @@
 package api
 
 import (
+	"database/sql"
 	"encoding/base64"
 	"fmt"
 	"log"
@@ -46,6 +47,7 @@ var (
 type Server struct {
 	port           string
 	stage          string
+	Db             *sql.DB
 	GameManager    *GameManager
 	SessionManager *SessionManager
 }
@@ -86,6 +88,13 @@ func WithStage(stage string) Option {
 	}
 }
 
+func WithDb(db *sql.DB) Option {
+	return func(s *Server) error {
+		s.Db = db
+		return nil
+	}
+}
+
 func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
 	// use Upgrade method to make a websocket connection
 	conn, err := upgrader.Upgrade(w, r, nil)
@@ -94,6 +103,8 @@ func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "could not open websocket connection", http.StatusBadRequest)
 		return
 	}
+
+	// q := sqlc.New()
 
 	sessionIdQuery := r.URL.Query().Get(URLQuerySessionIDKeyword)
 	switch sessionIdQuery {
