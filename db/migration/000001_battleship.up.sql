@@ -1,5 +1,6 @@
-CREATE TABLE IF NOT EXISTS server_hit_counts (
+CREATE TABLE IF NOT EXISTS game_server_analytics (
     server_ip inet PRIMARY KEY,
-    hit_count bigint NOT NULL,
+    games_created bigint NOT NULL,
+    rematch_called bigint NOT NULL,
     last_updated timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
 )
