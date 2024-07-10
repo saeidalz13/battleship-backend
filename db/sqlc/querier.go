@@ -11,10 +11,10 @@ import (
 )
 
 type Querier interface {
-	SelectGamesCreated(ctx context.Context, serverIp pqtype.Inet) (int64, error)
-	SelectRematchCalled(ctx context.Context, serverIp pqtype.Inet) (int64, error)
-	UpdateGamesCreated(ctx context.Context, serverIp pqtype.Inet) error
-	UpdateRematchCalled(ctx context.Context, serverIp pqtype.Inet) error
+	GetGamesCreatedCount(ctx context.Context, serverIp pqtype.Inet) (int64, error)
+	GetRematchCalledCount(ctx context.Context, serverIp pqtype.Inet) (int64, error)
+	IncrementGamesCreatedCount(ctx context.Context, serverIp pqtype.Inet) error
+	IncrementRematchCalledCount(ctx context.Context, serverIp pqtype.Inet) error
 }
 
 var _ Querier = (*Queries)(nil)

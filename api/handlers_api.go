@@ -68,7 +68,7 @@ func (r *Request) HandleCreateGame() mc.Message[mc.RespCreateGame] {
 	ctx, cancel := context.WithTimeout(context.Background(), dbCtxTimeoutPeriod)
 	defer cancel()
 	q := sqlc.New(r.Session.Db)
-	if err := q.UpdateGamesCreated(ctx, pqtype.Inet{IPNet: r.Session.ServerIPNet, Valid: true}); err != nil {
+	if err := q.IncrementGamesCreatedCount(ctx, pqtype.Inet{IPNet: r.Session.ServerIPNet, Valid: true}); err != nil {
 		// For now, just log the error, don't interrupt the game
 		log.Println(err)	
 	}

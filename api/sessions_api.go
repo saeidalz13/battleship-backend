@@ -208,7 +208,7 @@ sessionLoop:
 			ctx, cancel := context.WithTimeout(context.Background(), dbCtxTimeoutPeriod)
 			defer cancel()
 			q := sqlc.New(s.Db)
-			if err := q.UpdateRematchCalled(ctx, pqtype.Inet{IPNet: s.ServerIPNet, Valid: true}); err != nil {
+			if err := q.IncrementRematchCalledCount(ctx, pqtype.Inet{IPNet: s.ServerIPNet, Valid: true}); err != nil {
 				// For now, just log the error, don't interrupt the game
 				log.Println(err)
 			}

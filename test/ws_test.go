@@ -115,7 +115,7 @@ func TestCreateGame(t *testing.T) {
 				q := sqlc.New(testServer.Db)
 				ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 				defer cancel()
-				gamesCreated, err := q.SelectGamesCreated(ctx, pqtype.Inet{IPNet: hostSession.ServerIPNet, Valid: true})
+				gamesCreated, err := q.GetGamesCreatedCount(ctx, pqtype.Inet{IPNet: hostSession.ServerIPNet, Valid: true})
 				if err != nil {
 					t.Fatalf("failed to fetch created games: %v", err)
 				}
