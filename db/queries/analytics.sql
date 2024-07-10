@@ -1,4 +1,4 @@
--- name: UpdateGameCreated :exec
+-- name: UpdateGamesCreated :exec
 INSERT INTO game_server_analytics (server_ip, games_created, last_updated)
 VALUES ($1, 1, CURRENT_TIMESTAMP) ON CONFLICT (server_ip) DO
 UPDATE
@@ -10,3 +10,7 @@ VALUES ($1, 1, CURRENT_TIMESTAMP) ON CONFLICT (server_ip) DO
 UPDATE
 SET rematch_called = game_server_analytics.rematch_called + 1,
     last_updated = CURRENT_TIMESTAMP;
+-- name: SelectGamesCreated :one
+SELECT games_created FROM game_server_analytics WHERE server_ip = $1;
+-- name: SelectRematchCalled :one
+SELECT rematch_called FROM game_server_analytics WHERE server_ip = $1;

@@ -24,7 +24,7 @@ func main() {
 	psqlUrl := os.Getenv("DATABASE_URL")
 	psqlDb := db.MustConnectToDb(psqlUrl)
 
-	server := api.NewServer(api.WithPort(port), api.WithStage(stage), api.WithDb(psqlDb))
+	server := api.NewServer(psqlDb, api.WithPort(port), api.WithStage(stage))
 
 	go server.SessionManager.ManageCommunication()
 	go server.SessionManager.CleanUpPeriodically()

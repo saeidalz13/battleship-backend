@@ -55,7 +55,7 @@ type Server struct {
 
 type Option func(*Server) error
 
-func NewServer(optFuncs ...Option) *Server {
+func NewServer(db *sql.DB, optFuncs ...Option) *Server {
 	var server Server
 	for _, opt := range optFuncs {
 		if err := opt(&server); err != nil {
@@ -68,6 +68,8 @@ func NewServer(optFuncs ...Option) *Server {
 
 	server.SessionManager = NewSessionManager()
 	server.GameManager = NewGameManager()
+
+	server.Db = db
 
 	return &server
 }
@@ -85,13 +87,6 @@ func WithStage(stage string) Option {
 			return fmt.Errorf("invalid type of development stage: %s", stage)
 		}
 		s.stage = stage
-		return nil
-	}
-}
-
-func WithDb(db *sql.DB) Option {
-	return func(s *Server) error {
-		s.Db = db
 		return nil
 	}
 }

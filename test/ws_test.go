@@ -1,14 +1,18 @@
 package test
 
 import (
-	"log"
+	"context"
 	"reflect"
 	"testing"
+	"time"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/gorilla/websocket"
+	"github.com/saeidalz13/battleship-backend/db/sqlc"
 	cerr "github.com/saeidalz13/battleship-backend/internal/error"
 	mb "github.com/saeidalz13/battleship-backend/models/battleship"
 	mc "github.com/saeidalz13/battleship-backend/models/connection"
+	"github.com/sqlc-dev/pqtype"
 )
 
 type Test[T, K any] struct {
@@ -98,6 +102,31 @@ func TestCreateGame(t *testing.T) {
 					t.Fatal(err)
 				}
 				testHostPlayer = game.HostPlayer
+
+				hostSession, err := testServer.SessionManager.FindSession(HostSessionID)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				testMock.ExpectQuery(`SELECT games_created FROM game_server_analytics WHERE server_ip = \$1`).
+					WithArgs(pqtype.Inet{IPNet: hostSession.ServerIPNet, Valid: true}).
+					WillReturnRows(sqlmock.NewRows([]string{"games_created"}).AddRow(1))
+
+				q := sqlc.New(testServer.Db)
+				ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+				defer cancel()
+				gamesCreated, err := q.SelectGamesCreated(ctx, pqtype.Inet{IPNet: hostSession.ServerIPNet, Valid: true})
+				if err != nil {
+					t.Fatalf("failed to fetch created games: %v", err)
+				}
+
+				if gamesCreated != 1 {
+					t.Fatalf("expected number of created games: %d\tgot: %d", 1, gamesCreated)
+				}
+
+				if err = testMock.ExpectationsWereMet(); err != nil {
+					t.Fatalf("expectations were not met: %v", err)
+				}
 			}
 		})
 	}
@@ -730,7 +759,6 @@ func TestAttack(t *testing.T) {
 			}
 
 			if test.respPayload.Error != nil {
-				log.Printf("%+v\n\n\n", test.respPayload.Error)
 				if test.respPayload.Error.ErrorDetails != test.expectedErr {
 					t.Fatalf("expected error: %s\t got: %s", test.reqPayload.Error.ErrorDetails, test.expectedErr)
 				}

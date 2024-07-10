@@ -11,7 +11,9 @@ import (
 )
 
 type Querier interface {
-	UpdateGameCreated(ctx context.Context, serverIp pqtype.Inet) error
+	SelectGamesCreated(ctx context.Context, serverIp pqtype.Inet) (int64, error)
+	SelectRematchCalled(ctx context.Context, serverIp pqtype.Inet) (int64, error)
+	UpdateGamesCreated(ctx context.Context, serverIp pqtype.Inet) error
 	UpdateRematchCalled(ctx context.Context, serverIp pqtype.Inet) error
 }
 

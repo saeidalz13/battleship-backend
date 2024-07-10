@@ -12,6 +12,13 @@ import (
 
 	mb "github.com/saeidalz13/battleship-backend/models/battleship"
 	mc "github.com/saeidalz13/battleship-backend/models/connection"
+
+	"github.com/DATA-DOG/go-sqlmock"
+)
+
+const (
+	testPort = "127.0.0.1"
+	testWsUrl = "ws://127.0.0.1:7171/battleship"
 )
 
 var (
@@ -26,12 +33,20 @@ var (
 	dialer         = websocket.Dialer{
 		HandshakeTimeout: 10 * time.Second,
 	}
+	testMock sqlmock.Sqlmock
 )
 
 func TestMain(m *testing.M) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+	testMock = mock
+
 	go func() {
 		stage := "dev"
-		server := api.NewServer(api.WithPort("7171"), api.WithStage(stage))
+		server := api.NewServer(db, api.WithPort("7171"), api.WithStage(stage))
 		testServer = server
 
 		go server.SessionManager.ManageCommunication()
@@ -52,7 +67,7 @@ func TestMain(m *testing.M) {
 	time.Sleep(time.Second * 2)
 
 	log.Println("dialing...")
-	c, _, err := dialer.Dial("ws://localhost:7171/battleship", nil)
+	c, _, err := dialer.Dial(testWsUrl, nil)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
@@ -64,7 +79,7 @@ func TestMain(m *testing.M) {
 	_ = HostConn.ReadJSON(&respSessionId)
 	HostSessionID = respSessionId.Payload.SessionID
 
-	c2, _, err := dialer.Dial("ws://localhost:7171/battleship", nil)
+	c2, _, err := dialer.Dial(testWsUrl, nil)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
