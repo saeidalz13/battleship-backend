@@ -10,8 +10,9 @@ import (
 	"github.com/sqlc-dev/pqtype"
 )
 
-type ServerHitCount struct {
-	ServerIp    pqtype.Inet `json:"server_ip"`
-	HitCount    int64       `json:"hit_count"`
-	LastUpdated time.Time   `json:"last_updated"`
+type GameServerAnalytic struct {
+	ServerIp      pqtype.Inet `json:"server_ip"`
+	GamesCreated  int64       `json:"games_created"`
+	RematchCalled int64       `json:"rematch_called"`
+	LastUpdated   time.Time   `json:"last_updated"`
 }

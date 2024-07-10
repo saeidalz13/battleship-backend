@@ -11,15 +11,28 @@ import (
 	"github.com/sqlc-dev/pqtype"
 )
 
-const updateServerHit = `-- name: UpdateServerHit :exec
-INSERT INTO server_hit_counts (server_ip, hit_count, last_updated)
+const updateGameCreated = `-- name: UpdateGameCreated :exec
+INSERT INTO game_server_analytics (server_ip, games_created, last_updated)
 VALUES ($1, 1, CURRENT_TIMESTAMP) ON CONFLICT (server_ip) DO
 UPDATE
-SET server_hit_counts.hit_count = server_hit_counts.hit_count + 1,
+SET game_server_analytics.games_created = game_server_analytics.games_created + 1,
     last_updated = CURRENT_TIMESTAMP
 `
 
-func (q *Queries) UpdateServerHit(ctx context.Context, serverIp pqtype.Inet) error {
-	_, err := q.db.ExecContext(ctx, updateServerHit, serverIp)
+func (q *Queries) UpdateGameCreated(ctx context.Context, serverIp pqtype.Inet) error {
+	_, err := q.db.ExecContext(ctx, updateGameCreated, serverIp)
+	return err
+}
+
+const updateRematchCalled = `-- name: UpdateRematchCalled :exec
+INSERT INTO game_server_analytics (server_ip, rematch_called, last_updated)
+VALUES ($1, 1, CURRENT_TIMESTAMP) ON CONFLICT (server_ip) DO
+UPDATE
+SET game_server_analytics.rematch_called = game_server_analytics.rematch_called + 1,
+    last_updated = CURRENT_TIMESTAMP
+`
+
+func (q *Queries) UpdateRematchCalled(ctx context.Context, serverIp pqtype.Inet) error {
+	_, err := q.db.ExecContext(ctx, updateRematchCalled, serverIp)
 	return err
 }

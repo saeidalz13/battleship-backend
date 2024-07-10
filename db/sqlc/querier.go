@@ -11,7 +11,8 @@ import (
 )
 
 type Querier interface {
-	UpdateServerHit(ctx context.Context, serverIp pqtype.Inet) error
+	UpdateGameCreated(ctx context.Context, serverIp pqtype.Inet) error
+	UpdateRematchCalled(ctx context.Context, serverIp pqtype.Inet) error
 }
 
 var _ Querier = (*Queries)(nil)
