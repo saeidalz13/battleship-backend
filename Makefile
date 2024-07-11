@@ -31,5 +31,6 @@ flylogs:
 depstage:
 	fly deploy --app battleship-go-ios-staging --dockerfile Dockerfile.staging
 
-
+flyconsole:
+	fly console --app $(APP)
 ## With games with titles -> like 10 wins => captain

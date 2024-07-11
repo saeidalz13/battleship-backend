@@ -60,7 +60,8 @@ func MustMigrate(db *sql.DB, migrationDir string) {
 	log.Println("migration successful...")
 }
 
-func MustConnectToDb(psqlUrl string) *sql.DB {
+func MustConnectToDb(psqlUrl, stage string) *sql.DB {
+
 	// open a database driver or instance
 	// Open may just validate its arguments without creating a connection to the database
 	db, err := sql.Open("postgres", psqlUrl)
@@ -79,7 +80,16 @@ func MustConnectToDb(psqlUrl string) *sql.DB {
 	db.SetConnMaxLifetime(connMaxLife)
 
 	// there is a 'SchemeFromURL' function that splits the migrationDir by ':', so db/migration will be the URL
-	MustMigrate(db, "file:db/migration")
+	var migrationDir string
+	switch stage {
+	case "prod":
+		migrationDir = "file:migration"
+	case "dev":
+		migrationDir = "file:db/migration"
+	default:
+		panic("invalid stage of development for STAGE")
+	}
+	MustMigrate(db, migrationDir)
 	log.Println("connected to database...")
 	return db
 }

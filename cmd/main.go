@@ -22,7 +22,7 @@ func main() {
 	}
 	port := os.Getenv("PORT")
 	psqlUrl := os.Getenv("DATABASE_URL")
-	psqlDb := db.MustConnectToDb(psqlUrl)
+	psqlDb := db.MustConnectToDb(psqlUrl, stage)
 
 	server := api.NewServer(psqlDb, api.WithPort(port), api.WithStage(stage))
 
