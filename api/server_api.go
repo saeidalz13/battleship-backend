@@ -257,7 +257,7 @@ sessionLoop:
 			sessionGame = game
 
 			if otherSessionPlayer == nil {
-				otherSessionPlayer = s.gameManager.FindOtherPlayerForGame(sessionGame, sessionPlayer)
+				otherSessionPlayer = s.gameManager.GetOtherPlayerForGame(sessionGame, sessionPlayer)
 				receiverSessionId = otherSessionPlayer.GetSessionId()
 			}
 
@@ -285,7 +285,7 @@ sessionLoop:
 			}
 
 			if otherSessionPlayer == nil {
-				otherSessionPlayer = s.gameManager.FindOtherPlayerForGame(sessionGame, sessionPlayer)
+				otherSessionPlayer = s.gameManager.GetOtherPlayerForGame(sessionGame, sessionPlayer)
 				receiverSessionId = otherSessionPlayer.GetSessionId()
 			}
 

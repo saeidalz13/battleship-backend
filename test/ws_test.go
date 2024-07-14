@@ -96,14 +96,14 @@ func TestCreateGame(t *testing.T) {
 
 			if test.respPayload.Error == nil {
 				gameUuid := test.respPayload.Payload.GameUuid
-				game, err := testGameManager.FindGame(gameUuid)
+				game, err := testGameManager.GetGame(gameUuid)
 				if err != nil {
 					t.Fatal(err)
 				}
 				testGame = game
 				testGameUuid = gameUuid
 
-				hostPlayer := testGameManager.FindPlayer(game, true)
+				hostPlayer := testGameManager.GetPlayer(game, true)
 				testHostPlayer = hostPlayer
 
 				testMock.ExpectQuery(`SELECT games_created FROM game_server_analytics WHERE server_ip = \$1`).
@@ -163,7 +163,7 @@ func TestJoinPlayer(t *testing.T) {
 					t.Fatal("incoming game uuid did not match the req uuid after join")
 				}
 				// if it was successful, join player id is set to the response
-				joinPlayer := testGameManager.FindPlayer(testGame, false)
+				joinPlayer := testGameManager.GetPlayer(testGame, false)
 				testJoinPlayer = joinPlayer
 
 				// Read extra message of success to host
@@ -795,8 +795,8 @@ func TestRematchAcceptance(t *testing.T) {
 
 	// Test database
 	testMock.ExpectQuery(`SELECT rematch_called FROM game_server_analytics WHERE server_ip = \$1`).
-	WithArgs(pqtype.Inet{IPNet: testServer.GetIpNet(), Valid: true}).
-	WillReturnRows(sqlmock.NewRows([]string{"games_created"}).AddRow(1))
+		WithArgs(pqtype.Inet{IPNet: testServer.GetIpNet(), Valid: true}).
+		WillReturnRows(sqlmock.NewRows([]string{"games_created"}).AddRow(1))
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()

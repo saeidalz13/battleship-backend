@@ -70,7 +70,7 @@ func (r Request) HandleJoinPlayer(bgm *mb.BattleshipGameManager, sessionId strin
 		return nil, nil, respMsg
 	}
 
-	game, err := bgm.FindGame(joinGameReq.Payload.GameUuid)
+	game, err := bgm.GetGame(joinGameReq.Payload.GameUuid)
 	if err != nil {
 		respMsg.AddError(err.Error(), cerr.ConstErrJoin)
 		return nil, nil, respMsg

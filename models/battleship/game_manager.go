@@ -9,9 +9,9 @@ import (
 
 type GameManager interface {
 	CreateGame(difficulty uint8) (*Game, error)
-	FindGame(gameUuid string) (*Game, error)
-	FindPlayer(game *Game, isHost bool) *BattleshipPlayer
-	FindOtherPlayerForGame(game *Game, player *BattleshipPlayer) *BattleshipPlayer
+	GetGame(gameUuid string) (*Game, error)
+	GetPlayer(game *Game, isHost bool) *BattleshipPlayer
+	GetOtherPlayerForGame(game *Game, player *BattleshipPlayer) *BattleshipPlayer
 	GetGameUuid(game *Game) string
 	GetGameDifficulty(game *Game) uint8
 	CreateHostPlayerForGame(game *Game, sessionId string) *BattleshipPlayer
@@ -49,7 +49,7 @@ func (bgm *BattleshipGameManager) CreateGame(difficulty uint8) (*Game, error) {
 	return bgm.games[gameUuid], nil
 }
 
-func (bgm *BattleshipGameManager) FindGame(gameUuid string) (*Game, error) {
+func (bgm *BattleshipGameManager) GetGame(gameUuid string) (*Game, error) {
 	bgm.mu.RLock()
 	game, prs := bgm.games[gameUuid]
 	bgm.mu.RUnlock()
@@ -67,7 +67,7 @@ func (bgm *BattleshipGameManager) FindGame(gameUuid string) (*Game, error) {
 	return game, nil
 }
 
-func (bgm *BattleshipGameManager) FindPlayer(game *Game, isHost bool) *BattleshipPlayer {
+func (bgm *BattleshipGameManager) GetPlayer(game *Game, isHost bool) *BattleshipPlayer {
 	if isHost {
 		return game.hostPlayer
 	}
@@ -75,7 +75,7 @@ func (bgm *BattleshipGameManager) FindPlayer(game *Game, isHost bool) *Battleshi
 	return game.joinPlayer
 }
 
-func (bgm *BattleshipGameManager) FindOtherPlayerForGame(game *Game, player *BattleshipPlayer) *BattleshipPlayer {
+func (bgm *BattleshipGameManager) GetOtherPlayerForGame(game *Game, player *BattleshipPlayer) *BattleshipPlayer {
 	if player.isHost {
 		return game.joinPlayer
 	}
