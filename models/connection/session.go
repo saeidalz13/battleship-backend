@@ -96,29 +96,6 @@ func (s *Session) onConnErr(err error) uint8 {
 	return ConnLoopBreak
 }
 
-func (s *Session) readWithRetry() (int, []byte, uint8) {
-	var retries uint8
-
-	for {
-		messageType, payload, err := s.conn.ReadMessage()
-		if err == nil {
-			return messageType, payload, ConnLoopPassThrough
-		}
-
-		switch s.handleReadFromConnErr(err, retries) {
-		case ConnLoopAbnormalClosureRetry:
-			return -1, []byte{}, ConnLoopAbnormalClosureRetry
-
-		case ConnLoopContinue:
-			retries++
-			continue
-
-		default:
-			return -1, []byte{}, ConnLoopBreak
-		}
-	}
-}
-
 // Writes to the connection of that session. It also
 // handles the abnormal or other types of errors of
 // writing to a websocket connection.
