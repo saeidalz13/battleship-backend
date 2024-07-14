@@ -9,6 +9,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/saeidalz13/battleship-backend/api"
+	"github.com/saeidalz13/battleship-backend/db/sqlc"
 
 	mb "github.com/saeidalz13/battleship-backend/models/battleship"
 	mc "github.com/saeidalz13/battleship-backend/models/connection"
@@ -17,23 +18,28 @@ import (
 )
 
 const (
-	testPort = "127.0.0.1"
-	testWsUrl = "ws://127.0.0.1:7171/battleship"
+	testPort                = "127.0.0.1"
+	testWsUrl               = "ws://127.0.0.1:7171/battleship"
+	outOfGridBoundNum uint8 = 255
 )
 
 var (
 	HostConn       *websocket.Conn
 	JoinConn       *websocket.Conn
-	GameUuid       string
-	testHostPlayer *mb.Player
-	testJoinPlayer *mb.Player
+	testGame       *mb.Game
+	testGameUuid   string
+	testHostPlayer *mb.BattleshipPlayer
+	testJoinPlayer *mb.BattleshipPlayer
 	HostSessionID  string
 	JoinSessionID  string
 	testServer     *api.Server
 	dialer         = websocket.Dialer{
 		HandshakeTimeout: 10 * time.Second,
 	}
-	testMock sqlmock.Sqlmock
+	testMock           sqlmock.Sqlmock
+	testGameManager    *mb.BattleshipGameManager
+	testSessionManager *mc.BattleshipSessionManager
+	testDbManager      sqlc.DbManager
 )
 
 func TestMain(m *testing.M) {
@@ -45,12 +51,23 @@ func TestMain(m *testing.M) {
 	testMock = mock
 
 	go func() {
-		stage := "dev"
-		server := api.NewServer(db, api.WithPort("7171"), api.WithStage(stage))
-		testServer = server
+		// test db manager
+		queries := sqlc.New(db)
+		dbManager := sqlc.NewDbManager(queries)
+		testDbManager = dbManager
 
-		go server.SessionManager.ManageCommunication()
-		go server.SessionManager.CleanUpPeriodically()
+		// test session manager
+		bsm := mc.NewBattleshipSessionManager()
+		testSessionManager = bsm
+		go bsm.CleanupPeriodically()
+
+		// test game manager
+		bgm := mb.NewBattleshipGameManager()
+		testGameManager = bgm
+
+		// test server
+		server := api.NewServer(dbManager, bsm, bgm, api.WithPort("7171"), api.WithStage(api.DevStageCode))
+		testServer = server
 
 		mux := http.NewServeMux()
 		mux.HandleFunc("GET /battleship", server.HandleWs)
@@ -92,7 +109,6 @@ func TestMain(m *testing.M) {
 
 	log.Println("Host session ID:", HostSessionID)
 	log.Println("Join session ID:", JoinSessionID)
-
 	log.Printf("host: %s\tjoin: %s", HostConn.LocalAddr().String(), JoinConn.LocalAddr().String())
 	os.Exit(m.Run())
 }
