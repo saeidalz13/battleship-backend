@@ -188,10 +188,11 @@ func (s *Server) processSessionRequests(session *mc.Session) {
 		return
 	}
 
-	var sessionGame *mb.Game
-	var sessionPlayer *mb.BattleshipPlayer
 	var otherSessionPlayer *mb.BattleshipPlayer
 	var receiverSessionId string
+	var sessionGame *mb.Game
+	var sessionPlayer *mb.BattleshipPlayer
+
 	serverPqtypeInet := pqtype.Inet{IPNet: s.ipnet, Valid: true}
 
 sessionLoop:
@@ -228,10 +229,10 @@ sessionLoop:
 			}
 
 			game, hostPlayer, respMsg := NewRequest(payload).HandleCreateGame(s.gameManager, s.sessionManager.GetSessionId(session))
-
-			// Cache this information for later use in the logic
-			sessionGame = game
-			sessionPlayer = hostPlayer
+			s.sessionManager.SetSessionGame(session, game)
+			s.sessionManager.SetSessionPlayer(session, hostPlayer)
+			sessionPlayer = s.sessionManager.GetSessionPlayer(session)
+			sessionGame = s.sessionManager.GetSessionGame(session)
 
 			if err := s.sessionManager.WriteToSessionConn(session, respMsg, mc.MessageTypeJSON); err != nil {
 				break sessionLoop
@@ -251,8 +252,11 @@ sessionLoop:
 			}
 
 			// Cache this information for later use in the logic
-			sessionGame = game
-			sessionPlayer = joinPlayer
+			s.sessionManager.SetSessionGame(session, game)
+			s.sessionManager.SetSessionPlayer(session, joinPlayer)
+			sessionPlayer = s.sessionManager.GetSessionPlayer(session)
+			sessionGame = s.sessionManager.GetSessionGame(session)
+
 			if otherSessionPlayer == nil {
 				otherSessionPlayer = sessionGame.GetOtherPlayer(sessionPlayer)
 				receiverSessionId = otherSessionPlayer.GetSessionId()
