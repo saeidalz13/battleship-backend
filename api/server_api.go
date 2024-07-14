@@ -184,10 +184,10 @@ func (s *Server) processSessionRequests(session *mc.Session) {
 
 	var (
 		otherSessionPlayer *mb.BattleshipPlayer
-		receiverSessionId string
-		sessionGame *mb.Game
-		sessionPlayer *mb.BattleshipPlayer
-		sessionId = s.sessionManager.GetSessionId(session)
+		receiverSessionId  string
+		sessionGame        *mb.Game
+		sessionPlayer      *mb.BattleshipPlayer
+		sessionId          = s.sessionManager.GetSessionId(session)
 	)
 
 	resp := mc.NewMessage[mc.RespSessionId](mc.CodeSessionID)
@@ -257,7 +257,7 @@ sessionLoop:
 			sessionGame = game
 
 			if otherSessionPlayer == nil {
-				otherSessionPlayer = sessionGame.GetOtherPlayer(sessionPlayer)
+				otherSessionPlayer = s.gameManager.FindOtherPlayerForGame(sessionGame, sessionPlayer)
 				receiverSessionId = otherSessionPlayer.GetSessionId()
 			}
 
@@ -285,7 +285,7 @@ sessionLoop:
 			}
 
 			if otherSessionPlayer == nil {
-				otherSessionPlayer = sessionGame.GetOtherPlayer(sessionPlayer)
+				otherSessionPlayer = s.gameManager.FindOtherPlayerForGame(sessionGame, sessionPlayer)
 				receiverSessionId = otherSessionPlayer.GetSessionId()
 			}
 

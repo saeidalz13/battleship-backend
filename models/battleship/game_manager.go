@@ -9,23 +9,24 @@ import (
 
 type GameManager interface {
 	CreateGame(uint8) (*Game, error)
-	FindGame(gameUuid string) (*Game, error)
-	FindPlayer(game *Game, isHost bool) *BattleshipPlayer
+	FindGame(string) (*Game, error)
+	FindPlayer(*Game, bool) *BattleshipPlayer
+	FindOtherPlayerForGame(*Game, *BattleshipPlayer) *BattleshipPlayer
 
-	GetGameUuid(game *Game) string
-	GetGameDifficulty(game *Game) uint8
+	GetGameUuid(*Game) string
+	GetGameDifficulty(*Game) uint8
 
-	CreateJoinPlayerForGame(game *Game, sessionId string) *BattleshipPlayer
-	CreateHostPlayerForGame(game *Game, sessionId string) *BattleshipPlayer
+	CreateJoinPlayerForGame(*Game, string) *BattleshipPlayer
+	CreateHostPlayerForGame(*Game, string) *BattleshipPlayer
 
-	AreAttackCoordinatesValid(game *Game, coordinates Coordinates) bool
-	CallRematchForGame(game *Game)
-	ResetRematchForGame(game *Game) error
-	IsRematchAlreadyCalled(game *Game) bool
+	AreAttackCoordinatesValid(*Game, Coordinates) bool
+	CallRematchForGame(*Game)
+	ResetRematchForGame(*Game) error
+	IsRematchAlreadyCalled(*Game) bool
 	SetPlayerReadyForGame(*Game, *BattleshipPlayer, Grid) error
-	IsGameReadyToStart(game *Game) bool
+	IsGameReadyToStart(*Game) bool
 
-	isDifficultyValid(difficulty uint8) bool
+	isDifficultyValid(uint8) bool
 }
 
 type BattleshipGameManager struct {
@@ -41,6 +42,9 @@ func NewBattleshipGameManager() *BattleshipGameManager {
 	}
 }
 
+func (bgm *BattleshipGameManager) GetGameUuid(game *Game) string {
+	return game.uuid
+}
 func (bgm *BattleshipGameManager) FindGame(gameUuid string) (*Game, error) {
 	bgm.mu.RLock()
 	game, prs := bgm.games[gameUuid]
@@ -59,6 +63,21 @@ func (bgm *BattleshipGameManager) FindGame(gameUuid string) (*Game, error) {
 	return game, nil
 }
 
+func (bgm *BattleshipGameManager) FindPlayer(game *Game, isHost bool) *BattleshipPlayer {
+	if isHost {
+		return game.hostPlayer
+	}
+
+	return game.joinPlayer
+}
+
+func (bgm *BattleshipGameManager) FindOtherPlayerForGame(game *Game, player *BattleshipPlayer) *BattleshipPlayer {
+	if player.isHost {
+		return game.joinPlayer
+	}
+	return game.hostPlayer
+}
+
 func (bgm *BattleshipGameManager) GetHostPlayerSunkenShips(game *Game) uint8 {
 	return game.hostPlayer.sunkenShips
 }
@@ -72,7 +91,7 @@ func (bgm *BattleshipGameManager) CreateGame(difficulty uint8) (*Game, error) {
 		return nil, cerr.ErrInvalidGameDifficulty()
 	}
 
-	gameUuid :=uuid.NewString()[:6]
+	gameUuid := uuid.NewString()[:6]
 	bgm.games[gameUuid] = newGame(difficulty, gameUuid)
 
 	return bgm.games[gameUuid], nil
@@ -142,16 +161,4 @@ func (bgm *BattleshipGameManager) ResetRematchForGame(game *Game) error {
 	}
 
 	return nil
-}
-
-func (bgm *BattleshipGameManager) GetGameUuid(game *Game) string {
-	return game.uuid
-}
-
-func (bgm *BattleshipGameManager) FindPlayer(game *Game, isHost bool) *BattleshipPlayer {
-	if isHost {
-		return game.hostPlayer
-	}
-
-	return game.joinPlayer
 }

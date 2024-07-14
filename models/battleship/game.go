@@ -49,10 +49,3 @@ func newGame(difficulty uint8, uuid string) *Game {
 
 	return game
 }
-
-func (g *Game) GetOtherPlayer(player *BattleshipPlayer) *BattleshipPlayer {
-	if player.isHost {
-		return g.joinPlayer
-	}
-	return g.hostPlayer
-}
