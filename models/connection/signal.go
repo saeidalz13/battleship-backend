@@ -1,7 +1,7 @@
 package connection
 
 const (
-	CodeSessionID int = iota
+	CodeSessionID uint8 = iota
 	CodeReceivedInvalidSessionID
 	CodeCreateGame
 	CodeJoinGame
@@ -31,9 +31,9 @@ const (
 )
 
 type Signal struct {
-	Code int `json:"code"`
+	Code uint8 `json:"code"`
 }
 
-func NewSignal(code int) Signal {
+func NewSignal(code uint8) Signal {
 	return Signal{Code: code}
 }
