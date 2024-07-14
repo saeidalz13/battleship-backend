@@ -5,7 +5,7 @@ import (
 )
 
 type ReqCreateGame struct {
-	GameDifficulty int `json:"game_difficulty"`
+	GameDifficulty uint8 `json:"game_difficulty"`
 }
 
 type ReqReadyPlayer struct {
@@ -21,6 +21,6 @@ type ReqJoinGame struct {
 type ReqAttack struct {
 	GameUuid   string `json:"game_uuid"`
 	PlayerUuid string `json:"player_uuid"`
-	X          int    `json:"x"`
-	Y          int    `json:"y"`
+	X          uint8    `json:"x"`
+	Y          uint8    `json:"y"`
 }
