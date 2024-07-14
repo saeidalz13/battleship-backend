@@ -4,10 +4,14 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 	"github.com/saeidalz13/battleship-backend/api"
 	"github.com/saeidalz13/battleship-backend/db"
+	"github.com/saeidalz13/battleship-backend/db/sqlc"
+	mb "github.com/saeidalz13/battleship-backend/models/battleship"
+	mc "github.com/saeidalz13/battleship-backend/models/connection"
 )
 
 func main() {
@@ -17,17 +21,26 @@ func main() {
 		}
 	}
 	stage := os.Getenv("STAGE")
-	if stage != "dev" && stage != "prod" {
+	stageCode, err := strconv.ParseInt(stage, 10, 8)
+	if err != nil {
+		panic(err)
+	}
+	stageCodeInt8 := uint8(stageCode)
+	if stageCodeInt8 != api.DevStageCode && stageCodeInt8 != api.ProdStageCode {
 		panic("stage must be either dev or prod")
 	}
 	port := os.Getenv("PORT")
 	psqlUrl := os.Getenv("DATABASE_URL")
 	psqlDb := db.MustConnectToDb(psqlUrl, stage)
 
-	server := api.NewServer(psqlDb, api.WithPort(port), api.WithStage(stage))
+	queries := sqlc.New(psqlDb)
+	dbManager := sqlc.NewDbManager(queries)
 
-	go server.SessionManager.ManageCommunication()
-	go server.SessionManager.CleanUpPeriodically()
+	bsm := mc.NewBattleshipSessionManager()
+	go bsm.CleanupPeriodically()
+
+	bgm := mb.NewBattleshipGameManager()
+	server := api.NewServer(dbManager, bsm, bgm, api.WithPort(port), api.WithStage(stageCodeInt8))
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /battleship", server.HandleWs)
