@@ -182,16 +182,19 @@ func (s *Server) HandleWs(w http.ResponseWriter, r *http.Request) {
 func (s *Server) processSessionRequests(session *mc.Session) {
 	defer s.sessionManager.TerminateSession(session)
 
+	var (
+		otherSessionPlayer *mb.BattleshipPlayer
+		receiverSessionId string
+		sessionGame *mb.Game
+		sessionPlayer *mb.BattleshipPlayer
+		sessionId = s.sessionManager.GetSessionId(session)
+	)
+
 	resp := mc.NewMessage[mc.RespSessionId](mc.CodeSessionID)
 	resp.AddPayload(mc.RespSessionId{SessionID: s.sessionManager.GetSessionId(session)})
-	if err := s.sessionManager.WriteToSessionConn(session, resp, mc.MessageTypeJSON); err != nil {
+	if err := s.sessionManager.WriteToSessionConn(session, resp, mc.MessageTypeJSON, receiverSessionId); err != nil {
 		return
 	}
-
-	var otherSessionPlayer *mb.BattleshipPlayer
-	var receiverSessionId string
-	var sessionGame *mb.Game
-	var sessionPlayer *mb.BattleshipPlayer
 
 	serverPqtypeInet := pqtype.Inet{IPNet: s.ipnet, Valid: true}
 
@@ -199,7 +202,7 @@ sessionLoop:
 	for {
 		// A WebSocket frame can be one of 6 types: text=1, binary=2, ping=9, pong=10, close=8 and continuation=0
 		// https://www.rfc-editor.org/rfc/rfc6455.html#section-11.8
-		_, payload, err := s.sessionManager.ReadFromSessionConn(session)
+		_, payload, err := s.sessionManager.ReadFromSessionConn(session, receiverSessionId)
 		if err != nil {
 			// This error happens after retries. If it's not nil,
 			// then something was wrong with the session connection
@@ -211,7 +214,7 @@ sessionLoop:
 		if err != nil {
 			msg := mc.NewMessage[mc.NoPayload](mc.CodeSignalAbsent)
 			msg.AddError("incoming req payload must contain 'code' field", "")
-			if err = s.sessionManager.WriteToSessionConn(session, msg, mc.MessageTypeJSON); err != nil {
+			if err = s.sessionManager.WriteToSessionConn(session, msg, mc.MessageTypeJSON, receiverSessionId); err != nil {
 				break sessionLoop
 			}
 			continue sessionLoop
@@ -229,12 +232,10 @@ sessionLoop:
 			}
 
 			game, hostPlayer, respMsg := NewRequest(payload).HandleCreateGame(s.gameManager, s.sessionManager.GetSessionId(session))
-			s.sessionManager.SetSessionGame(session, game)
-			s.sessionManager.SetSessionPlayer(session, hostPlayer)
-			sessionPlayer = s.sessionManager.GetSessionPlayer(session)
-			sessionGame = s.sessionManager.GetSessionGame(session)
+			sessionPlayer = hostPlayer
+			sessionGame = game
 
-			if err := s.sessionManager.WriteToSessionConn(session, respMsg, mc.MessageTypeJSON); err != nil {
+			if err := s.sessionManager.WriteToSessionConn(session, respMsg, mc.MessageTypeJSON, receiverSessionId); err != nil {
 				break sessionLoop
 			}
 
@@ -244,7 +245,7 @@ sessionLoop:
 			req := NewRequest(payload)
 			game, joinPlayer, respMsg := req.HandleJoinPlayer(s.gameManager, s.sessionManager.GetSessionId(session))
 
-			if err := s.sessionManager.WriteToSessionConn(session, respMsg, mc.MessageTypeJSON); err != nil {
+			if err := s.sessionManager.WriteToSessionConn(session, respMsg, mc.MessageTypeJSON, receiverSessionId); err != nil {
 				break sessionLoop
 			}
 			if respMsg.Error != nil {
@@ -252,10 +253,8 @@ sessionLoop:
 			}
 
 			// Cache this information for later use in the logic
-			s.sessionManager.SetSessionGame(session, game)
-			s.sessionManager.SetSessionPlayer(session, joinPlayer)
-			sessionPlayer = s.sessionManager.GetSessionPlayer(session)
-			sessionGame = s.sessionManager.GetSessionGame(session)
+			sessionPlayer = joinPlayer
+			sessionGame = game
 
 			if otherSessionPlayer == nil {
 				otherSessionPlayer = sessionGame.GetOtherPlayer(sessionPlayer)
@@ -263,11 +262,11 @@ sessionLoop:
 			}
 
 			readyRespMsg := mc.NewMessage[mc.NoPayload](mc.CodeSelectGrid)
-			if err := s.sessionManager.WriteToSessionConn(session, readyRespMsg, mc.MessageTypeJSON); err != nil {
+			if err := s.sessionManager.WriteToSessionConn(session, readyRespMsg, mc.MessageTypeJSON, receiverSessionId); err != nil {
 				break sessionLoop
 			}
 
-			if err := s.sessionManager.Communicate(receiverSessionId, readyRespMsg, mc.MessageTypeJSON); err != nil {
+			if err := s.sessionManager.Communicate(sessionId, receiverSessionId, readyRespMsg, mc.MessageTypeJSON); err != nil {
 				break sessionLoop
 			}
 
@@ -277,7 +276,7 @@ sessionLoop:
 			req := NewRequest(payload)
 			respMsg := req.HandleReadyPlayer(s.gameManager, sessionGame, sessionPlayer)
 
-			if err := s.sessionManager.WriteToSessionConn(session, respMsg, mc.MessageTypeJSON); err != nil {
+			if err := s.sessionManager.WriteToSessionConn(session, respMsg, mc.MessageTypeJSON, receiverSessionId); err != nil {
 				break sessionLoop
 			}
 
@@ -292,11 +291,11 @@ sessionLoop:
 
 			if s.gameManager.IsGameReadyToStart(sessionGame) {
 				respStartGame := mc.NewMessage[mc.NoPayload](mc.CodeStartGame)
-				if err := s.sessionManager.WriteToSessionConn(session, respStartGame, mc.MessageTypeJSON); err != nil {
+				if err := s.sessionManager.WriteToSessionConn(session, respStartGame, mc.MessageTypeJSON, receiverSessionId); err != nil {
 					break sessionLoop
 				}
 
-				if err := s.sessionManager.Communicate(receiverSessionId, respStartGame, mc.MessageTypeJSON); err != nil {
+				if err := s.sessionManager.Communicate(sessionId, receiverSessionId, respStartGame, mc.MessageTypeJSON); err != nil {
 					break sessionLoop
 				}
 			}
@@ -308,7 +307,7 @@ sessionLoop:
 			req := NewRequest(payload)
 			respMsg := req.HandleAttack(sessionGame, sessionPlayer, otherSessionPlayer, s.gameManager)
 
-			if err := s.sessionManager.WriteToSessionConn(session, respMsg, mc.MessageTypeJSON); err != nil {
+			if err := s.sessionManager.WriteToSessionConn(session, respMsg, mc.MessageTypeJSON, receiverSessionId); err != nil {
 				break sessionLoop
 			}
 
@@ -319,7 +318,7 @@ sessionLoop:
 
 			// defender turn is set to true
 			respMsg.Payload.IsTurn = true
-			if err := s.sessionManager.Communicate(receiverSessionId, respMsg, mc.MessageTypeJSON); err != nil {
+			if err := s.sessionManager.Communicate(sessionId, receiverSessionId, respMsg, mc.MessageTypeJSON); err != nil {
 				break sessionLoop
 			}
 			log.Println("attack resp sent to other")
@@ -327,13 +326,13 @@ sessionLoop:
 			if sessionPlayer.IsWinner() {
 				respAttacker := mc.NewMessage[mc.RespEndGame](mc.CodeEndGame)
 				respAttacker.AddPayload(mc.RespEndGame{PlayerMatchStatus: mb.PlayerMatchStatusWon})
-				if err := s.sessionManager.WriteToSessionConn(session, respAttacker, mc.MessageTypeJSON); err != nil {
+				if err := s.sessionManager.WriteToSessionConn(session, respAttacker, mc.MessageTypeJSON, receiverSessionId); err != nil {
 					break sessionLoop
 				}
 
 				respDefender := mc.NewMessage[mc.RespEndGame](mc.CodeEndGame)
 				respDefender.AddPayload(mc.RespEndGame{PlayerMatchStatus: mb.PlayerMatchStatusLost})
-				if err := s.sessionManager.Communicate(receiverSessionId, respDefender, mc.MessageTypeJSON); err != nil {
+				if err := s.sessionManager.Communicate(sessionId, receiverSessionId, respDefender, mc.MessageTypeJSON); err != nil {
 					break sessionLoop
 				}
 			}
@@ -351,7 +350,7 @@ sessionLoop:
 				continue sessionLoop
 			}
 
-			if err := s.sessionManager.Communicate(receiverSessionId, respMsg, mc.MessageTypeJSON); err != nil {
+			if err := s.sessionManager.Communicate(sessionId, receiverSessionId, respMsg, mc.MessageTypeJSON); err != nil {
 				break sessionLoop
 			}
 
@@ -362,23 +361,23 @@ sessionLoop:
 				break sessionLoop
 			}
 
-			if err := s.sessionManager.Communicate(receiverSessionId, msgOtherPlayer, mc.MessageTypeJSON); err != nil {
+			if err := s.sessionManager.Communicate(sessionId, receiverSessionId, msgOtherPlayer, mc.MessageTypeJSON); err != nil {
 				break sessionLoop
 			}
-			if err := s.sessionManager.WriteToSessionConn(session, msgPlayer, mc.MessageTypeJSON); err != nil {
+			if err := s.sessionManager.WriteToSessionConn(session, msgPlayer, mc.MessageTypeJSON, receiverSessionId); err != nil {
 				break sessionLoop
 			}
 
 		// Notify the other player that no rematch is wanted now
 		case mc.CodeRematchCallRejected:
 			msg := mc.NewMessage[mc.NoPayload](mc.CodeRematchCallRejected)
-			s.sessionManager.Communicate(receiverSessionId, msg, mc.MessageTypeJSON)
+			s.sessionManager.Communicate(sessionId, receiverSessionId, msg, mc.MessageTypeJSON)
 			break sessionLoop
 
 		default:
 			respInvalidSignal := mc.NewMessage[mc.NoPayload](mc.CodeInvalidSignal)
 			respInvalidSignal.AddError("", "invalid code in the incoming payload")
-			if err := s.sessionManager.WriteToSessionConn(session, respInvalidSignal, mc.MessageTypeJSON); err != nil {
+			if err := s.sessionManager.WriteToSessionConn(session, respInvalidSignal, mc.MessageTypeJSON, receiverSessionId); err != nil {
 				break sessionLoop
 			}
 		}

@@ -63,8 +63,6 @@ type BattleshipPlayer struct {
 	ships       map[uint8]*Ship
 }
 
-var _ Player = (*BattleshipPlayer)(nil)
-
 func newPlayer(isHost, isTurn bool, sessionID string, gridSize uint8) *BattleshipPlayer {
 	return &BattleshipPlayer{
 		isTurn:      isTurn,
@@ -187,3 +185,5 @@ func (bp *BattleshipPlayer) GetMatchStatus() uint8 {
 func (bp *BattleshipPlayer) IsReady() bool {
 	return bp.isReady
 }
+
+var _ Player = (*BattleshipPlayer)(nil)

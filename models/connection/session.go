@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	mb "github.com/saeidalz13/battleship-backend/models/battleship"
 )
 
 const (
@@ -31,12 +30,8 @@ type Session struct {
 	id                     string
 	conn                   *websocket.Conn
 	reconnectionSignalChan chan bool
-	player                 *mb.BattleshipPlayer
-	game                   *mb.Game
 	createdAt              time.Time
 }
-
-var _ ConnectionHandler = (*Session)(nil)
 
 func NewSession(id string, conn *websocket.Conn) *Session {
 	return &Session{
@@ -183,3 +178,5 @@ func (s *Session) reconnectionAfterAbnormalClosure(conn *websocket.Conn) {
 	s.conn = conn
 	s.reconnectionSignalChan = make(chan bool)
 }
+
+var _ ConnectionHandler = (*Session)(nil)

@@ -11,25 +11,20 @@ import (
 	"github.com/gorilla/websocket"
 
 	cerr "github.com/saeidalz13/battleship-backend/internal/error"
-	mb "github.com/saeidalz13/battleship-backend/models/battleship"
 )
 
 type SessionManager interface {
 	GenerateNewSession(conn *websocket.Conn) *Session
 	CleanupPeriodically()
-
 	FindSession(sessionId string) (*Session, error)
 	TerminateSession(session *Session)
 	ReconnectSession(session *Session, conn *websocket.Conn)
-	Communicate(receiverSessionId string, msg interface{}, msgType uint8) error
-	HandleAbnormalClosureSession(session *Session) error
+	Communicate(senderSessionId, receiverSessionId string, msg interface{}, msgType uint8) error
+	HandleAbnormalClosureSession(session *Session, otherSessionId string) error
 	GetSessionId(session *Session) string
-
-	GetSessionGame(session *Session) *mb.Game
-	GetSessionPlayer(session *Session) *mb.BattleshipPlayer
-
-	SetSessionGame(session *Session, game *mb.Game)
-	SetSessionPlayer(session *Session, player *mb.BattleshipPlayer)
+	WriteToSessionConn(session *Session, msg interface{}, msgType uint8, otherSessonId string) error
+	FetchCodeFromMsg(session *Session, payload []byte) (uint8, error)
+	ReadFromSessionConn(session *Session, otherSessionId string) (int, []byte, error)
 }
 
 type BattleshipSessionManager struct {
@@ -47,22 +42,8 @@ func NewBattleshipSessionManager() *BattleshipSessionManager {
 	}
 }
 
-var _ SessionManager = (*BattleshipSessionManager)(nil)
-
-func (bsm *BattleshipSessionManager) GetSessionGame(session *Session) *mb.Game {
-	return session.game
-}
-
-func (bsm *BattleshipSessionManager) SetSessionGame(session *Session, game *mb.Game) {
-	session.game = game
-}
-
-func (bsm *BattleshipSessionManager) GetSessionPlayer(session *Session) *mb.BattleshipPlayer {
-	return session.player
-}
-
-func (bsm *BattleshipSessionManager) SetSessionPlayer(session *Session, player *mb.BattleshipPlayer) {
-	session.player = player
+func (bsm *BattleshipSessionManager) GetSessionId(session *Session) string {
+	return session.id
 }
 
 func (bsm *BattleshipSessionManager) GenerateNewSession(conn *websocket.Conn) *Session {
@@ -98,12 +79,12 @@ func (bsm *BattleshipSessionManager) ReconnectSession(session *Session, conn *we
 }
 
 // This method sends the msg from one session to another
-func (bsm *BattleshipSessionManager) Communicate(receiverSessionId string, msg interface{}, msgType uint8) error {
+func (bsm *BattleshipSessionManager) Communicate(senderSessionId, receiverSessionId string, msg interface{}, msgType uint8) error {
 	receiverSession, err := bsm.FindSession(receiverSessionId)
 	if err != nil {
 		return err
 	}
-	return bsm.WriteToSessionConn(receiverSession, msg, msgType)
+	return bsm.WriteToSessionConn(receiverSession, msg, msgType, senderSessionId)
 }
 
 // To ensure that there is no dangling connections,
@@ -136,20 +117,9 @@ func (bsm *BattleshipSessionManager) CleanupPeriodically() {
 // This function takes care of abnormal closures happening
 // to either of the clients. This happens due to backgrounding
 // in IOS clients or any other unexpected reasons for web apps.
-func (bsm *BattleshipSessionManager) HandleAbnormalClosureSession(s *Session) error {
-	// This means there is no game and abnormal closure is happening
-	// which means this session is invalid and should end
-	if s.game == nil || s.player == nil {
-		return NewConnErr(ConnLoopBreak).AddDesc("game or player is nil")
-	}
-
-	otherPlayer := s.game.GetOtherPlayer(s.player)
-	if otherPlayer == nil {
-		return NewConnErr(ConnLoopBreak).AddDesc("othre player is nil; invalid session")
-	}
-
+func (bsm *BattleshipSessionManager) HandleAbnormalClosureSession(s *Session, otherSessionId string) error {
 	// Absence of otherPlayer session means this game is invalid
-	otherSession, err := bsm.FindSession(otherPlayer.GetSessionId())
+	otherSession, err := bsm.FindSession(otherSessionId)
 	if err != nil {
 		return NewConnErr(ConnLoopBreak).AddDesc("other session is nil; invalid session")
 	}
@@ -182,7 +152,7 @@ func (bsm *BattleshipSessionManager) HandleAbnormalClosureSession(s *Session) er
 	}
 }
 
-func (bsm *BattleshipSessionManager) WriteToSessionConn(session *Session, msg interface{}, msgType uint8) error {
+func (bsm *BattleshipSessionManager) WriteToSessionConn(session *Session, msg interface{}, msgType uint8, otherSessonId string) error {
 	err := session.writeToConnWithRetry(msg, msgType)
 
 	if err != nil {
@@ -196,7 +166,10 @@ func (bsm *BattleshipSessionManager) WriteToSessionConn(session *Session, msg in
 			return connErr
 
 		case ConnLoopAbnormalClosureRetry:
-			if err := bsm.HandleAbnormalClosureSession(session); err != nil {
+			if otherSessonId == "" {
+				return connErr
+			}
+			if err := bsm.HandleAbnormalClosureSession(session, otherSessonId); err != nil {
 				return connErr
 			}
 		}
@@ -205,7 +178,7 @@ func (bsm *BattleshipSessionManager) WriteToSessionConn(session *Session, msg in
 	return nil
 }
 
-func (bsm *BattleshipSessionManager) ReadFromSessionConn(session *Session) (int, []byte, error) {
+func (bsm *BattleshipSessionManager) ReadFromSessionConn(session *Session, otherSessionId string) (int, []byte, error) {
 	var retries uint8
 
 	for {
@@ -220,7 +193,7 @@ func (bsm *BattleshipSessionManager) ReadFromSessionConn(session *Session) (int,
 			continue
 
 		case ConnLoopAbnormalClosureRetry:
-			if err := bsm.HandleAbnormalClosureSession(session); err != nil {
+			if err := bsm.HandleAbnormalClosureSession(session, otherSessionId); err != nil {
 				return -1, []byte{}, err
 			}
 
@@ -228,10 +201,6 @@ func (bsm *BattleshipSessionManager) ReadFromSessionConn(session *Session) (int,
 			return -1, []byte{}, err
 		}
 	}
-}
-
-func (bsm *BattleshipSessionManager) GetSessionId(session *Session) string {
-	return session.id
 }
 
 func (bsm *BattleshipSessionManager) FetchCodeFromMsg(session *Session, payload []byte) (uint8, error) {
@@ -244,3 +213,5 @@ func (bsm *BattleshipSessionManager) FetchCodeFromMsg(session *Session, payload 
 
 	return signal.Code, nil
 }
+
+var _ SessionManager = (*BattleshipSessionManager)(nil)
