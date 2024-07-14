@@ -8,23 +8,20 @@ import (
 )
 
 type GameManager interface {
-	CreateGame(uint8) (*Game, error)
-	FindGame(string) (*Game, error)
-	FindPlayer(*Game, bool) *BattleshipPlayer
-	FindOtherPlayerForGame(*Game, *BattleshipPlayer) *BattleshipPlayer
-
-	GetGameUuid(*Game) string
-	GetGameDifficulty(*Game) uint8
-
-	CreateJoinPlayerForGame(*Game, string) *BattleshipPlayer
-	CreateHostPlayerForGame(*Game, string) *BattleshipPlayer
-
-	AreAttackCoordinatesValid(*Game, Coordinates) bool
-	CallRematchForGame(*Game)
-	ResetRematchForGame(*Game) error
-	IsRematchAlreadyCalled(*Game) bool
-	SetPlayerReadyForGame(*Game, *BattleshipPlayer, Grid) error
-	IsGameReadyToStart(*Game) bool
+	CreateGame(difficulty uint8) (*Game, error)
+	FindGame(gameUuid string) (*Game, error)
+	FindPlayer(game *Game, isHost bool) *BattleshipPlayer
+	FindOtherPlayerForGame(game *Game, player *BattleshipPlayer) *BattleshipPlayer
+	GetGameUuid(game *Game) string
+	GetGameDifficulty(game *Game) uint8
+	CreateHostPlayerForGame(game *Game, sessionId string) *BattleshipPlayer
+	CreateJoinPlayerForGame(game *Game, sessionId string) *BattleshipPlayer
+	SetPlayerReadyForGame(game *Game, player *BattleshipPlayer, selectedGrid Grid) error
+	AreAttackCoordinatesValid(game *Game, coordinates Coordinates) bool
+	CallRematchForGame(game *Game)
+	ResetRematchForGame(game *Game) error
+	IsRematchAlreadyCalled(game *Game) bool
+	IsGameReadyToStart(game *Game) bool
 
 	isDifficultyValid(uint8) bool
 }
@@ -41,10 +38,17 @@ func NewBattleshipGameManager() *BattleshipGameManager {
 		games: make(map[string]*Game, 10),
 	}
 }
+func (bgm *BattleshipGameManager) CreateGame(difficulty uint8) (*Game, error) {
+	if !bgm.isDifficultyValid(difficulty) {
+		return nil, cerr.ErrInvalidGameDifficulty()
+	}
 
-func (bgm *BattleshipGameManager) GetGameUuid(game *Game) string {
-	return game.uuid
+	gameUuid := uuid.NewString()[:6]
+	bgm.games[gameUuid] = newGame(difficulty, gameUuid)
+
+	return bgm.games[gameUuid], nil
 }
+
 func (bgm *BattleshipGameManager) FindGame(gameUuid string) (*Game, error) {
 	bgm.mu.RLock()
 	game, prs := bgm.games[gameUuid]
@@ -78,27 +82,12 @@ func (bgm *BattleshipGameManager) FindOtherPlayerForGame(game *Game, player *Bat
 	return game.hostPlayer
 }
 
-func (bgm *BattleshipGameManager) GetHostPlayerSunkenShips(game *Game) uint8 {
-	return game.hostPlayer.sunkenShips
+func (bgm *BattleshipGameManager) GetGameUuid(game *Game) string {
+	return game.uuid
 }
 
-func (bgm *BattleshipGameManager) GetJoinPlayerSunkenShips(game *Game) uint8 {
-	return game.joinPlayer.sunkenShips
-}
-
-func (bgm *BattleshipGameManager) CreateGame(difficulty uint8) (*Game, error) {
-	if !bgm.isDifficultyValid(difficulty) {
-		return nil, cerr.ErrInvalidGameDifficulty()
-	}
-
-	gameUuid := uuid.NewString()[:6]
-	bgm.games[gameUuid] = newGame(difficulty, gameUuid)
-
-	return bgm.games[gameUuid], nil
-}
-
-func (bgm *BattleshipGameManager) isDifficultyValid(difficulty uint8) bool {
-	return !(difficulty != GameDifficultyEasy && difficulty != GameDifficultyNormal && difficulty != GameDifficultyHard)
+func (bgm *BattleshipGameManager) GetGameDifficulty(game *Game) uint8 {
+	return game.difficulty
 }
 
 func (bgm *BattleshipGameManager) CreateHostPlayerForGame(game *Game, sessionId string) *BattleshipPlayer {
@@ -111,12 +100,12 @@ func (bgm *BattleshipGameManager) CreateJoinPlayerForGame(game *Game, sessionId 
 	return game.joinPlayer
 }
 
-func (bgm *BattleshipGameManager) GetGameDifficulty(game *Game) uint8 {
-	return game.difficulty
+func (bgm *BattleshipGameManager) GetHostPlayerSunkenShips(game *Game) uint8 {
+	return game.hostPlayer.sunkenShips
 }
 
-func (bgm *BattleshipGameManager) AreAttackCoordinatesValid(game *Game, coordinates Coordinates) bool {
-	return !(coordinates.X > game.validUpperBound || coordinates.Y > game.validUpperBound || coordinates.X < ValidLowerBound || coordinates.Y < ValidLowerBound)
+func (bgm *BattleshipGameManager) GetJoinPlayerSunkenShips(game *Game) uint8 {
+	return game.joinPlayer.sunkenShips
 }
 
 func (bgm *BattleshipGameManager) SetPlayerReadyForGame(game *Game, player *BattleshipPlayer, selectedGrid Grid) error {
@@ -134,12 +123,8 @@ func (bgm *BattleshipGameManager) SetPlayerReadyForGame(game *Game, player *Batt
 	return nil
 }
 
-func (bgm *BattleshipGameManager) IsGameReadyToStart(game *Game) bool {
-	return game.joinPlayer.IsReady() && game.hostPlayer.IsReady()
-}
-
-func (bgm *BattleshipGameManager) IsRematchAlreadyCalled(game *Game) bool {
-	return game.rematchAlreadyRequested
+func (bgm *BattleshipGameManager) AreAttackCoordinatesValid(game *Game, coordinates Coordinates) bool {
+	return !(coordinates.X > game.validUpperBound || coordinates.Y > game.validUpperBound || coordinates.X < ValidLowerBound || coordinates.Y < ValidLowerBound)
 }
 
 func (bgm *BattleshipGameManager) CallRematchForGame(game *Game) {
@@ -161,4 +146,15 @@ func (bgm *BattleshipGameManager) ResetRematchForGame(game *Game) error {
 	}
 
 	return nil
+}
+func (bgm *BattleshipGameManager) IsRematchAlreadyCalled(game *Game) bool {
+	return game.rematchAlreadyRequested
+}
+
+func (bgm *BattleshipGameManager) IsGameReadyToStart(game *Game) bool {
+	return game.joinPlayer.IsReady() && game.hostPlayer.IsReady()
+}
+
+func (bgm *BattleshipGameManager) isDifficultyValid(difficulty uint8) bool {
+	return !(difficulty != GameDifficultyEasy && difficulty != GameDifficultyNormal && difficulty != GameDifficultyHard)
 }
