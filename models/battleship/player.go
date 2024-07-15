@@ -48,6 +48,7 @@ type Player interface {
 	GetMatchStatus() uint8
 
 	IsReady() bool
+	IsTurn() bool
 }
 
 type BattleshipPlayer struct {

@@ -11,17 +11,19 @@ type GameManager interface {
 	CreateGame(difficulty uint8) (*Game, error)
 	GetGame(gameUuid string) (*Game, error)
 	GetPlayer(game *Game, isHost bool) *BattleshipPlayer
-	GetOtherPlayerForGame(game *Game, player *BattleshipPlayer) *BattleshipPlayer
+	GetOtherPlayerForGame(game *Game, player Player) *BattleshipPlayer
 	GetGameUuid(game *Game) string
 	GetGameDifficulty(game *Game) uint8
 	CreateHostPlayerForGame(game *Game, sessionId string) *BattleshipPlayer
 	CreateJoinPlayerForGame(game *Game, sessionId string) *BattleshipPlayer
-	SetPlayerReadyForGame(game *Game, player *BattleshipPlayer, selectedGrid Grid) error
+	SetPlayerReadyForGame(game *Game, player Player, selectedGrid Grid) error
 	AreAttackCoordinatesValid(game *Game, coordinates Coordinates) bool
 	CallRematchForGame(game *Game)
 	ResetRematchForGame(game *Game) error
 	IsRematchAlreadyCalled(game *Game) bool
 	IsGameReadyToStart(game *Game) bool
+	GetJoinPlayerSunkenShips(game *Game) uint8
+	GetHostPlayerSunkenShips(game *Game) uint8
 
 	isDifficultyValid(uint8) bool
 }
@@ -75,8 +77,8 @@ func (bgm *BattleshipGameManager) GetPlayer(game *Game, isHost bool) *Battleship
 	return game.joinPlayer
 }
 
-func (bgm *BattleshipGameManager) GetOtherPlayerForGame(game *Game, player *BattleshipPlayer) *BattleshipPlayer {
-	if player.isHost {
+func (bgm *BattleshipGameManager) GetOtherPlayerForGame(game *Game, player Player) *BattleshipPlayer {
+	if player.IsHost() {
 		return game.joinPlayer
 	}
 	return game.hostPlayer
@@ -108,7 +110,7 @@ func (bgm *BattleshipGameManager) GetJoinPlayerSunkenShips(game *Game) uint8 {
 	return game.joinPlayer.sunkenShips
 }
 
-func (bgm *BattleshipGameManager) SetPlayerReadyForGame(game *Game, player *BattleshipPlayer, selectedGrid Grid) error {
+func (bgm *BattleshipGameManager) SetPlayerReadyForGame(game *Game, player Player, selectedGrid Grid) error {
 	rows := uint8(len(selectedGrid))
 	if rows != game.gridSize {
 		return cerr.ErrDefenceGridRowsOutOfBounds(rows, game.gridSize)
