@@ -9,6 +9,7 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"
+	ms "github.com/saeidalz13/battleship-backend/models/server"
 )
 
 const (
@@ -82,9 +83,9 @@ func MustConnectToDb(psqlUrl, stage string) *sql.DB {
 	// there is a 'SchemeFromURL' function that splits the migrationDir by ':', so db/migration will be the URL
 	var migrationDir string
 	switch stage {
-	case "prod":
+	case ms.ProdStageCode:
 		migrationDir = "file:migration"
-	case "dev":
+	case ms.DevStageCode:
 		migrationDir = "file:db/migration"
 	default:
 		panic("invalid stage of development for STAGE")
