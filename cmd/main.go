@@ -30,15 +30,14 @@ func main() {
 
 	psqlDb := db.MustConnectToDb(psqlUrl, stage)
 
-	queries := sqlc.New(psqlDb)
-	dbManager := sqlc.NewDbManager(queries)
+	querier := sqlc.New(psqlDb)
 
 	bsm := mc.NewBattleshipSessionManager()
 	go bsm.CleanupPeriodically()
 
 	bgm := mb.NewBattleshipGameManager()
 
-	requestProcessor := api.NewRequestProcessor(bsm, bgm, dbManager)
+	requestProcessor := api.NewRequestProcessor(bsm, bgm, querier)
 
 	mux := http.NewServeMux()
 	mux.Handle("GET /battleship", requestProcessor)

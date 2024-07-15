@@ -38,19 +38,19 @@ var (
 type RequestProcessor struct {
 	sessionManager mc.SessionManager
 	gameManager    mb.GameManager
-	dbManager      sqlc.DbManager
+	q              sqlc.Querier
 	ipnet          net.IPNet
 }
 
 func NewRequestProcessor(
 	sessionManager mc.SessionManager,
 	gameManager mb.GameManager,
-	dbManager sqlc.DbManager,
+	q sqlc.Querier,
 ) RequestProcessor {
 	rp := RequestProcessor{
 		sessionManager: sessionManager,
 		gameManager:    gameManager,
-		dbManager:      dbManager,
+		q:              q,
 	}
 
 	rp = rp.mustGetServerIpNet()
@@ -159,7 +159,6 @@ sessionLoop:
 		}
 
 		var signal mc.Signal
-		const randomInvalidCode uint8 = 255
 
 		if err := json.Unmarshal(payload, &signal); err != nil {
 			msg := mc.NewMessage[mc.NoPayload](mc.CodeSignalAbsent)
@@ -175,7 +174,7 @@ sessionLoop:
 		// In this branch we initialize the game and hence create a host player
 		case mc.CodeCreateGame:
 			ctx, cancel := context.WithTimeout(context.Background(), sqlc.QuerierCtxTimeout)
-			if err := sp.dbManager.Analytics.IncrementGamesCreatedCount(ctx, serverPqtypeInet); err != nil {
+			if err := sp.q.AnalyticsIncrementGamesCreatedCount(ctx, serverPqtypeInet); err != nil {
 				// for now not killing the game for it
 				log.Println(err)
 			}
@@ -290,7 +289,7 @@ sessionLoop:
 
 		case mc.CodeRematchCall:
 			ctx, cancel := context.WithTimeout(context.Background(), sqlc.QuerierCtxTimeout)
-			if err := sp.dbManager.Analytics.IncrementRematchCalledCount(ctx, serverPqtypeInet); err != nil {
+			if err := sp.q.AnalyticsIncrementRematchCalledCount(ctx, serverPqtypeInet); err != nil {
 				// for now not killing the game for it
 				log.Println(err)
 			}

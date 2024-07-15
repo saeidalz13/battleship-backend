@@ -39,7 +39,7 @@ var (
 	testMock           sqlmock.Sqlmock
 	testGameManager    *mb.BattleshipGameManager
 	testSessionManager *mc.BattleshipSessionManager
-	testDbManager      sqlc.DbManager
+	testQuerier        sqlc.Querier
 )
 
 func TestMain(m *testing.M) {
@@ -52,9 +52,8 @@ func TestMain(m *testing.M) {
 
 	go func() {
 		// test db manager
-		queries := sqlc.New(db)
-		dbManager := sqlc.NewDbManager(queries)
-		testDbManager = dbManager
+		querier := sqlc.New(db)
+		testQuerier = querier
 
 		// test session manager
 		bsm := mc.NewBattleshipSessionManager()
@@ -65,7 +64,7 @@ func TestMain(m *testing.M) {
 		bgm := mb.NewBattleshipGameManager()
 		testGameManager = bgm
 
-		rp := api.NewRequestProcessor(bsm, bgm, dbManager)
+		rp := api.NewRequestProcessor(bsm, bgm, querier)
 		testRp = rp
 
 		mux := http.NewServeMux()

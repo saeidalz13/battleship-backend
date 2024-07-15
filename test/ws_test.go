@@ -112,7 +112,7 @@ func TestCreateGame(t *testing.T) {
 
 				ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 				defer cancel()
-				gamesCreated, err := testDbManager.Analytics.GetGamesCreatedCount(ctx, pqtype.Inet{IPNet: testRp.GetIpNet(), Valid: true})
+				gamesCreated, err := testQuerier.AnalyticsGetGamesCreatedCount(ctx, pqtype.Inet{IPNet: testRp.GetIpNet(), Valid: true})
 				if err != nil {
 					t.Fatalf("failed to fetch created games: %v", err)
 				}
@@ -800,7 +800,7 @@ func TestRematchAcceptance(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
-	rematchCalls, err := testDbManager.Analytics.GetRematchCalledCount(ctx, pqtype.Inet{IPNet: testRp.GetIpNet(), Valid: true})
+	rematchCalls, err := testQuerier.AnalyticsGetRematchCalledCount(ctx, pqtype.Inet{IPNet: testRp.GetIpNet(), Valid: true})
 	if err != nil {
 		t.Fatalf("failed to fetch created games: %v", err)
 	}

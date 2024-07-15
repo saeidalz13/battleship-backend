@@ -11,29 +11,29 @@ import (
 	"github.com/sqlc-dev/pqtype"
 )
 
-const getGamesCreatedCount = `-- name: GetGamesCreatedCount :one
+const analyticsGetGamesCreatedCount = `-- name: AnalyticsGetGamesCreatedCount :one
 SELECT games_created FROM game_server_analytics WHERE server_ip = $1
 `
 
-func (q *Queries) GetGamesCreatedCount(ctx context.Context, serverIp pqtype.Inet) (int64, error) {
-	row := q.db.QueryRowContext(ctx, getGamesCreatedCount, serverIp)
+func (q *Queries) AnalyticsGetGamesCreatedCount(ctx context.Context, serverIp pqtype.Inet) (int64, error) {
+	row := q.db.QueryRowContext(ctx, analyticsGetGamesCreatedCount, serverIp)
 	var games_created int64
 	err := row.Scan(&games_created)
 	return games_created, err
 }
 
-const getRematchCalledCount = `-- name: GetRematchCalledCount :one
+const analyticsGetRematchCalledCount = `-- name: AnalyticsGetRematchCalledCount :one
 SELECT rematch_called FROM game_server_analytics WHERE server_ip = $1
 `
 
-func (q *Queries) GetRematchCalledCount(ctx context.Context, serverIp pqtype.Inet) (int64, error) {
-	row := q.db.QueryRowContext(ctx, getRematchCalledCount, serverIp)
+func (q *Queries) AnalyticsGetRematchCalledCount(ctx context.Context, serverIp pqtype.Inet) (int64, error) {
+	row := q.db.QueryRowContext(ctx, analyticsGetRematchCalledCount, serverIp)
 	var rematch_called int64
 	err := row.Scan(&rematch_called)
 	return rematch_called, err
 }
 
-const incrementGamesCreatedCount = `-- name: IncrementGamesCreatedCount :exec
+const analyticsIncrementGamesCreatedCount = `-- name: AnalyticsIncrementGamesCreatedCount :exec
 INSERT INTO game_server_analytics (server_ip, games_created, last_updated)
 VALUES ($1, 1, CURRENT_TIMESTAMP) ON CONFLICT (server_ip) DO
 UPDATE
@@ -41,12 +41,12 @@ SET games_created = game_server_analytics.games_created + 1,
     last_updated = CURRENT_TIMESTAMP
 `
 
-func (q *Queries) IncrementGamesCreatedCount(ctx context.Context, serverIp pqtype.Inet) error {
-	_, err := q.db.ExecContext(ctx, incrementGamesCreatedCount, serverIp)
+func (q *Queries) AnalyticsIncrementGamesCreatedCount(ctx context.Context, serverIp pqtype.Inet) error {
+	_, err := q.db.ExecContext(ctx, analyticsIncrementGamesCreatedCount, serverIp)
 	return err
 }
 
-const incrementRematchCalledCount = `-- name: IncrementRematchCalledCount :exec
+const analyticsIncrementRematchCalledCount = `-- name: AnalyticsIncrementRematchCalledCount :exec
 INSERT INTO game_server_analytics (server_ip, rematch_called, last_updated)
 VALUES ($1, 1, CURRENT_TIMESTAMP) ON CONFLICT (server_ip) DO
 UPDATE
@@ -54,7 +54,7 @@ SET rematch_called = game_server_analytics.rematch_called + 1,
     last_updated = CURRENT_TIMESTAMP
 `
 
-func (q *Queries) IncrementRematchCalledCount(ctx context.Context, serverIp pqtype.Inet) error {
-	_, err := q.db.ExecContext(ctx, incrementRematchCalledCount, serverIp)
+func (q *Queries) AnalyticsIncrementRematchCalledCount(ctx context.Context, serverIp pqtype.Inet) error {
+	_, err := q.db.ExecContext(ctx, analyticsIncrementRematchCalledCount, serverIp)
 	return err
 }
