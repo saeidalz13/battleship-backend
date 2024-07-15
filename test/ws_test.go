@@ -107,12 +107,12 @@ func TestCreateGame(t *testing.T) {
 				testHostPlayer = hostPlayer
 
 				testMock.ExpectQuery(`SELECT games_created FROM game_server_analytics WHERE server_ip = \$1`).
-					WithArgs(pqtype.Inet{IPNet: testServer.GetIpNet(), Valid: true}).
+					WithArgs(pqtype.Inet{IPNet: testRp.GetIpNet(), Valid: true}).
 					WillReturnRows(sqlmock.NewRows([]string{"games_created"}).AddRow(1))
 
 				ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 				defer cancel()
-				gamesCreated, err := testDbManager.Analytics.GetGamesCreatedCount(ctx, pqtype.Inet{IPNet: testServer.GetIpNet(), Valid: true})
+				gamesCreated, err := testDbManager.Analytics.GetGamesCreatedCount(ctx, pqtype.Inet{IPNet: testRp.GetIpNet(), Valid: true})
 				if err != nil {
 					t.Fatalf("failed to fetch created games: %v", err)
 				}
@@ -795,12 +795,12 @@ func TestRematchAcceptance(t *testing.T) {
 
 	// Test database
 	testMock.ExpectQuery(`SELECT rematch_called FROM game_server_analytics WHERE server_ip = \$1`).
-		WithArgs(pqtype.Inet{IPNet: testServer.GetIpNet(), Valid: true}).
+		WithArgs(pqtype.Inet{IPNet: testRp.GetIpNet(), Valid: true}).
 		WillReturnRows(sqlmock.NewRows([]string{"games_created"}).AddRow(1))
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
-	rematchCalls, err := testDbManager.Analytics.GetRematchCalledCount(ctx, pqtype.Inet{IPNet: testServer.GetIpNet(), Valid: true})
+	rematchCalls, err := testDbManager.Analytics.GetRematchCalledCount(ctx, pqtype.Inet{IPNet: testRp.GetIpNet(), Valid: true})
 	if err != nil {
 		t.Fatalf("failed to fetch created games: %v", err)
 	}

@@ -32,7 +32,7 @@ var (
 	testJoinPlayer *mb.BattleshipPlayer
 	HostSessionID  string
 	JoinSessionID  string
-	testServer     *api.Server
+	testRp         api.RequestProcessor
 	dialer         = websocket.Dialer{
 		HandshakeTimeout: 10 * time.Second,
 	}
@@ -65,12 +65,11 @@ func TestMain(m *testing.M) {
 		bgm := mb.NewBattleshipGameManager()
 		testGameManager = bgm
 
-		// test server
-		server := api.NewServer(dbManager, bsm, bgm, api.WithPort("7171"), api.WithStage(api.DevStageCode))
-		testServer = server
+		rp := api.NewRequestProcessor(bsm, bgm, dbManager)
+		testRp = rp
 
 		mux := http.NewServeMux()
-		mux.HandleFunc("GET /battleship", server.HandleWs)
+		mux.Handle("GET /battleship", rp)
 
 		log.Println("Listening to port 7171...")
 		if err := http.ListenAndServe(":7171", mux); err != nil {
