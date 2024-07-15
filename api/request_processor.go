@@ -187,7 +187,6 @@ sessionLoop:
 		// In this branch we initialize the game and hence create a host player
 		case mc.CodeCreateGame:
 			ctx, cancel := context.WithTimeout(context.Background(), sqlc.QuerierCtxTimeout)
-			defer cancel()
 			if err := sp.dbManager.Analytics.IncrementGamesCreatedCount(ctx, serverPqtypeInet); err != nil {
 				// for now not killing the game for it
 				log.Println(err)
@@ -198,8 +197,10 @@ sessionLoop:
 			sessionGame = game
 
 			if err := sp.sessionManager.WriteToSessionConn(session, respMsg, mc.MessageTypeJSON, receiverSessionId); err != nil {
+				cancel()
 				break sessionLoop
 			}
+			cancel()
 
 		// This branch handles joining a new player to an existing
 		// game.
@@ -301,7 +302,6 @@ sessionLoop:
 
 		case mc.CodeRematchCall:
 			ctx, cancel := context.WithTimeout(context.Background(), sqlc.QuerierCtxTimeout)
-			defer cancel()
 			if err := sp.dbManager.Analytics.IncrementRematchCalledCount(ctx, serverPqtypeInet); err != nil {
 				// for now not killing the game for it
 				log.Println(err)
@@ -309,12 +309,15 @@ sessionLoop:
 
 			respMsg, err := NewRequest().HandleCallRematch(sp.gameManager, sessionGame)
 			if err != nil {
+				cancel()
 				continue sessionLoop
 			}
 
 			if err := sp.sessionManager.Communicate(sessionId, receiverSessionId, respMsg, mc.MessageTypeJSON); err != nil {
+				cancel()
 				break sessionLoop
 			}
+			cancel()
 
 		case mc.CodeRematchCallAccepted:
 			msgPlayer, msgOtherPlayer, err := NewRequest().HandleAcceptRematchCall(sp.gameManager, sessionGame, sessionPlayer, otherSessionPlayer)
