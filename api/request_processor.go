@@ -220,7 +220,7 @@ sessionLoop:
 			sessionGame = game
 
 			if otherSessionPlayer == nil {
-				otherSessionPlayer = sp.gameManager.GetOtherPlayerForGame(sessionGame, sessionPlayer)
+				otherSessionPlayer = sessionGame.GetPlayer(!sessionPlayer.IsHost())
 				receiverSessionId = otherSessionPlayer.GetSessionId()
 			}
 
@@ -248,11 +248,11 @@ sessionLoop:
 			}
 
 			if otherSessionPlayer == nil {
-				otherSessionPlayer = sp.gameManager.GetOtherPlayerForGame(sessionGame, sessionPlayer)
+				otherSessionPlayer = sessionGame.GetPlayer(!sessionPlayer.IsHost())
 				receiverSessionId = otherSessionPlayer.GetSessionId()
 			}
 
-			if sp.gameManager.IsGameReadyToStart(sessionGame) {
+			if sessionGame.IsReadyToStart() {
 				respStartGame := mc.NewMessage[mc.NoPayload](mc.CodeStartGame)
 				if err := sp.sessionManager.WriteToSessionConn(session, respStartGame, mc.MessageTypeJSON, receiverSessionId); err != nil {
 					break sessionLoop

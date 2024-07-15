@@ -47,6 +47,8 @@ type Player interface {
 
 	GetMatchStatus() uint8
 
+	GetSunkenShips() uint8
+
 	IsReady() bool
 	IsTurn() bool
 }
@@ -185,6 +187,10 @@ func (bp *BattleshipPlayer) GetMatchStatus() uint8 {
 
 func (bp *BattleshipPlayer) IsReady() bool {
 	return bp.isReady
+}
+
+func (bp *BattleshipPlayer) GetSunkenShips() uint8 {
+	return bp.sunkenShips
 }
 
 var _ Player = (*BattleshipPlayer)(nil)

@@ -103,7 +103,7 @@ func TestCreateGame(t *testing.T) {
 				testGame = game
 				testGameUuid = gameUuid
 
-				hostPlayer := testGameManager.GetPlayer(game, true)
+				hostPlayer := testGame.GetPlayer(true)
 				testHostPlayer = hostPlayer
 
 				testMock.ExpectQuery(`SELECT games_created FROM game_server_analytics WHERE server_ip = \$1`).
@@ -163,7 +163,7 @@ func TestJoinPlayer(t *testing.T) {
 					t.Fatal("incoming game uuid did not match the req uuid after join")
 				}
 				// if it was successful, join player id is set to the response
-				joinPlayer := testGameManager.GetPlayer(testGame, false)
+				joinPlayer := testGame.GetPlayer(false)
 				testJoinPlayer = joinPlayer
 
 				// Read extra message of success to host

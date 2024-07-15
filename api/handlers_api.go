@@ -53,9 +53,9 @@ func (r Request) HandleCreateGame(gm mb.GameManager, sessionId string) (*mb.Game
 		return nil, nil, respMsg
 	}
 
-	hostPlayer := gm.CreateHostPlayerForGame(game, sessionId)
+	hostPlayer := game.CreateHostPlayer(sessionId)
 
-	respMsg.AddPayload(mc.RespCreateGame{GameUuid: gm.GetGameUuid(game), HostUuid: hostPlayer.GetUuid()})
+	respMsg.AddPayload(mc.RespCreateGame{GameUuid: game.GetUuid(), HostUuid: hostPlayer.GetUuid()})
 	return game, hostPlayer, respMsg
 }
 
@@ -76,15 +76,15 @@ func (r Request) HandleJoinPlayer(gm mb.GameManager, sessionId string) (*mb.Game
 		return nil, nil, respMsg
 	}
 
-	joinPlayer := gm.CreateJoinPlayerForGame(game, sessionId)
+	joinPlayer := game.CreateJoinPlayer(sessionId)
 
-	respMsg.AddPayload(mc.RespJoinGame{GameUuid: gm.GetGameUuid(game), PlayerUuid: joinPlayer.GetUuid(), GameDifficulty: gm.GetGameDifficulty(game)})
+	respMsg.AddPayload(mc.RespJoinGame{GameUuid: game.GetUuid(), PlayerUuid: joinPlayer.GetUuid(), GameDifficulty: game.GetDifficulty()})
 	return game, joinPlayer, respMsg
 }
 
 // User will choose the configurations of ships on defence grid.
 // Then the grid is sent to backend and adjustment happens accordingly.
-func (r Request) HandleReadyPlayer(bgm mb.GameManager, sessionGame *mb.Game, sessionPlayer mb.Player) mc.Message[mc.NoPayload] {
+func (r Request) HandleReadyPlayer(bgm mb.GameManager, game *mb.Game, sessionPlayer mb.Player) mc.Message[mc.NoPayload] {
 	var readyPlayerReq mc.Message[mc.ReqReadyPlayer]
 	resp := mc.NewMessage[mc.NoPayload](mc.CodeReady)
 
@@ -94,7 +94,7 @@ func (r Request) HandleReadyPlayer(bgm mb.GameManager, sessionGame *mb.Game, ses
 	}
 
 	// Check to see if rows and cols are equal to game's grid size
-	if err := bgm.SetPlayerReadyForGame(sessionGame, sessionPlayer, readyPlayerReq.Payload.DefenceGrid); err != nil {
+	if err := game.SetPlayerReadyForGame(sessionPlayer, readyPlayerReq.Payload.DefenceGrid); err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrReady)
 		return resp
 	}
@@ -113,7 +113,7 @@ func (r Request) HandleAttack(game *mb.Game, attacker mb.Player, defender mb.Pla
 	}
 
 	coordinates := mb.NewCoordinates(reqAttack.Payload.X, reqAttack.Payload.Y)
-	if !gm.AreAttackCoordinatesValid(game, coordinates) {
+	if !game.AreAttackCoordinatesValid(coordinates) {
 		resp.AddError(cerr.ErrXorYOutOfGridBound(coordinates.X, coordinates.Y).Error(), cerr.ConstErrAttack)
 		return resp
 	}
@@ -137,6 +137,9 @@ func (r Request) HandleAttack(game *mb.Game, attacker mb.Player, defender mb.Pla
 	attacker.SetTurnFalse()
 	defender.SetTurnTrue()
 
+	hostPlayer := game.GetHostPlayer()
+	joinPlayer := game.GetJoinPlayer()
+
 	if defender.IsAttackMiss(coordinates) {
 		attacker.SetAttackGridToMiss(coordinates)
 
@@ -144,8 +147,8 @@ func (r Request) HandleAttack(game *mb.Game, attacker mb.Player, defender mb.Pla
 			X:               coordinates.X,
 			Y:               coordinates.Y,
 			PositionState:   mb.PositionStateAttackGridMiss,
-			SunkenShipsHost: gm.GetHostPlayerSunkenShips(game),
-			SunkenShipsJoin: gm.GetJoinPlayerSunkenShips(game),
+			SunkenShipsHost: hostPlayer.GetSunkenShips(),
+			SunkenShipsJoin: joinPlayer.GetSunkenShips(),
 			IsTurn:          attacker.IsTurn(),
 		})
 		return resp
@@ -176,29 +179,29 @@ func (r Request) HandleAttack(game *mb.Game, attacker mb.Player, defender mb.Pla
 	}
 
 	log.Println("attack complete")
-	resp.Payload.SunkenShipsHost = gm.GetHostPlayerSunkenShips(game)
-	resp.Payload.SunkenShipsJoin = gm.GetJoinPlayerSunkenShips(game)
+	resp.Payload.SunkenShipsHost = hostPlayer.GetSunkenShips()
+	resp.Payload.SunkenShipsJoin = joinPlayer.GetSunkenShips()
 	return resp
 }
 
-func (r Request) HandleCallRematch(bgm mb.GameManager, sessionGame *mb.Game) (mc.Message[mc.NoPayload], error) {
+func (r Request) HandleCallRematch(bgm mb.GameManager, game *mb.Game) (mc.Message[mc.NoPayload], error) {
 	respMsg := mc.NewMessage[mc.NoPayload](mc.CodeRematchCall)
 
-	if bgm.IsRematchAlreadyCalled(sessionGame) {
+	if game.IsRematchAlreadyCalled() {
 		return respMsg, cerr.ErrGameAleardyRecalled()
 	}
 
-	bgm.CallRematchForGame(sessionGame)
+	game.CallRematchForGame()
 	return respMsg, nil
 }
 
 func (r Request) HandleAcceptRematchCall(
 	bgm mb.GameManager,
-	sessionGame *mb.Game,
+	game *mb.Game,
 	sessionPlayer, otherSessionPlayer mb.Player,
 ) (mc.Message[mc.RespRematch], mc.Message[mc.RespRematch], error) {
 
-	if err := bgm.ResetRematchForGame(sessionGame); err != nil {
+	if err := game.ResetRematchForGame(); err != nil {
 		return mc.NewMessage[mc.RespRematch](mc.CodeRematch), mc.NewMessage[mc.RespRematch](mc.CodeRematch), err
 	}
 
