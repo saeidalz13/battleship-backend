@@ -888,7 +888,7 @@ func TestRematchRejection(t *testing.T) {
 	hostSession, err := testSessionManager.FindSession(HostSessionID)
 	if err == nil {
 		// This line will be done by IOS client
-		testSessionManager.TerminateSession(hostSession)
+		testSessionManager.TerminateSession(hostSession.GetId())
 	}
 
 	_, err = testSessionManager.FindSession(HostSessionID)

@@ -2,7 +2,6 @@ package connection
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"log"
 	"sync"
 	"time"
@@ -17,13 +16,13 @@ type SessionManager interface {
 	GenerateNewSession(conn *websocket.Conn) *Session
 	CleanupPeriodically()
 	FindSession(sessionId string) (*Session, error)
-	TerminateSession(session *Session)
-	ReconnectSession(session *Session, conn *websocket.Conn)
+
+	TerminateSession(sessionId string)
+	ReconnectSession(sessionId string, conn *websocket.Conn)
 	Communicate(senderSessionId, receiverSessionId string, msg interface{}, msgType uint8) error
+
 	HandleAbnormalClosureSession(session *Session, otherSessionId string) error
-	GetSessionId(session *Session) string
 	WriteToSessionConn(session *Session, msg interface{}, msgType uint8, otherSessonId string) error
-	FetchCodeFromMsg(session *Session, payload []byte) (uint8, error)
 	ReadFromSessionConn(session *Session, otherSessionId string) (int, []byte, error)
 }
 
@@ -40,10 +39,6 @@ func NewBattleshipSessionManager() *BattleshipSessionManager {
 		sessions:        make(map[string]*Session, initMapSize),
 		cleanupInterval: time.Minute * 20,
 	}
-}
-
-func (bsm *BattleshipSessionManager) GetSessionId(session *Session) string {
-	return session.id
 }
 
 func (bsm *BattleshipSessionManager) GenerateNewSession(conn *websocket.Conn) *Session {
@@ -69,12 +64,19 @@ func (bsm *BattleshipSessionManager) FindSession(sessionId string) (*Session, er
 	return session, nil
 }
 
-func (bsm *BattleshipSessionManager) TerminateSession(session *Session) {
+func (bsm *BattleshipSessionManager) TerminateSession(sessionId string) {
 	// _ = session.conn.Close()
-	delete(bsm.sessions, session.id)
+	delete(bsm.sessions, sessionId)
 }
 
-func (bsm *BattleshipSessionManager) ReconnectSession(session *Session, conn *websocket.Conn) {
+func (bsm *BattleshipSessionManager) ReconnectSession(sessionId string, conn *websocket.Conn) {
+	session, err := bsm.FindSession(sessionId)
+	if err != nil {
+		// This either means an expired session or invalid session ID
+		_ = conn.WriteJSON(NewMessage[NoPayload](CodeReceivedInvalidSessionID))
+		conn.Close()
+		return
+	}
 	session.reconnectionAfterAbnormalClosure(conn)
 }
 
@@ -201,17 +203,6 @@ func (bsm *BattleshipSessionManager) ReadFromSessionConn(session *Session, other
 			return -1, []byte{}, err
 		}
 	}
-}
-
-func (bsm *BattleshipSessionManager) FetchCodeFromMsg(session *Session, payload []byte) (uint8, error) {
-	var signal Signal
-	const randomInvalidCode uint8 = 255
-
-	if err := json.Unmarshal(payload, &signal); err != nil {
-		return randomInvalidCode, err
-	}
-
-	return signal.Code, nil
 }
 
 var _ SessionManager = (*BattleshipSessionManager)(nil)

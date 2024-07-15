@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"net"
 	"net/http"
@@ -105,7 +106,6 @@ func (rp RequestProcessor) GetIpNet() net.IPNet {
 	return rp.ipnet
 }
 
-
 func (rp RequestProcessor) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// use Upgrade method to make a websocket connection
 	conn, err := upgrader.Upgrade(w, r, nil)
@@ -122,26 +122,12 @@ func (rp RequestProcessor) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		rp.processSessionRequests(rp.sessionManager.GenerateNewSession(conn))
 
 	default:
-		session, err := rp.sessionManager.FindSession(sessionIdQuery)
-		if err != nil {
-			// This either means an expired session or invalid session ID
-			conn.WriteJSON(mc.NewMessage[mc.NoPayload](mc.CodeReceivedInvalidSessionID))
-			conn.Close()
-			return
-		}
-
-		rp.sessionManager.ReconnectSession(session, conn)
-		/*
-			we discussed that if app total closure or crash happens
-			it is not the server's fault. Hence, the server doesn not need
-			to provide the session information upon reconnection
-			Send the session data to update client information
-		*/
+		rp.sessionManager.ReconnectSession(sessionIdQuery, conn)
 	}
 }
 
 func (sp *RequestProcessor) processSessionRequests(session *mc.Session) {
-	defer sp.sessionManager.TerminateSession(session)
+	defer sp.sessionManager.TerminateSession(session.GetId())
 
 	var (
 		otherSessionPlayer mb.Player
@@ -149,11 +135,11 @@ func (sp *RequestProcessor) processSessionRequests(session *mc.Session) {
 		sessionGame        *mb.Game
 
 		receiverSessionId string
-		sessionId         = sp.sessionManager.GetSessionId(session)
+		sessionId         = session.GetId()
 	)
 
 	resp := mc.NewMessage[mc.RespSessionId](mc.CodeSessionID)
-	resp.AddPayload(mc.RespSessionId{SessionID: sp.sessionManager.GetSessionId(session)})
+	resp.AddPayload(mc.RespSessionId{SessionID: sessionId})
 	if err := sp.sessionManager.WriteToSessionConn(session, resp, mc.MessageTypeJSON, receiverSessionId); err != nil {
 		return
 	}
@@ -172,8 +158,10 @@ sessionLoop:
 			break sessionLoop
 		}
 
-		code, err := sp.sessionManager.FetchCodeFromMsg(session, payload)
-		if err != nil {
+		var signal mc.Signal
+		const randomInvalidCode uint8 = 255
+
+		if err := json.Unmarshal(payload, &signal); err != nil {
 			msg := mc.NewMessage[mc.NoPayload](mc.CodeSignalAbsent)
 			msg.AddError("incoming req payload must contain 'code' field", "")
 			if err = sp.sessionManager.WriteToSessionConn(session, msg, mc.MessageTypeJSON, receiverSessionId); err != nil {
@@ -182,7 +170,7 @@ sessionLoop:
 			continue sessionLoop
 		}
 
-		switch code {
+		switch signal.Code {
 
 		// In this branch we initialize the game and hence create a host player
 		case mc.CodeCreateGame:
@@ -192,7 +180,7 @@ sessionLoop:
 				log.Println(err)
 			}
 
-			game, hostPlayer, respMsg := NewRequest(payload).HandleCreateGame(sp.gameManager, sp.sessionManager.GetSessionId(session))
+			game, hostPlayer, respMsg := NewRequest(payload).HandleCreateGame(sp.gameManager, sessionId)
 			sessionPlayer = hostPlayer
 			sessionGame = game
 
@@ -206,7 +194,7 @@ sessionLoop:
 		// game.
 		case mc.CodeJoinGame:
 			req := NewRequest(payload)
-			game, joinPlayer, respMsg := req.HandleJoinPlayer(sp.gameManager, sp.sessionManager.GetSessionId(session))
+			game, joinPlayer, respMsg := req.HandleJoinPlayer(sp.gameManager, sessionId)
 
 			if err := sp.sessionManager.WriteToSessionConn(session, respMsg, mc.MessageTypeJSON, receiverSessionId); err != nil {
 				break sessionLoop

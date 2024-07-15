@@ -42,6 +42,10 @@ func NewSession(id string, conn *websocket.Conn) *Session {
 	}
 }
 
+func (s *Session) GetId() string {
+	return s.id
+}
+
 func (s *Session) onConnErr(err error) uint8 {
 	if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 		log.Println("timeout error:", err)
