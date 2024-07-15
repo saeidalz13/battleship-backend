@@ -12,7 +12,7 @@ FROM alpine:3.18 AS runtime
 WORKDIR /app
 
 COPY --from=builder /app/battleship /app
-COPY --from=builder /app/db/migration /app/migration
+COPY --from=builder /app/db/migration /app/db/migration
 # COPY .env /app 
 
 EXPOSE 1313

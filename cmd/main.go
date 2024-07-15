@@ -28,7 +28,7 @@ func main() {
 	port := os.Getenv("PORT")
 	psqlUrl := os.Getenv("DATABASE_URL")
 
-	psqlDb := db.MustConnectToDb(psqlUrl, stage)
+	psqlDb := db.MustConnectToDb(psqlUrl)
 
 	querier := sqlc.New(psqlDb)
 

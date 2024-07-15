@@ -9,7 +9,6 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"
-	ms "github.com/saeidalz13/battleship-backend/models/server"
 )
 
 const (
@@ -17,13 +16,16 @@ const (
 	maxIdleConns = 100
 	connMaxLife  = time.Minute * 15
 
+	// there is a 'SchemeFromURL' function that splits the migrationDir by ':', so db/migration will be the URL
+	migrationDir = "file:db/migration"
+
 	ErrFileNotExists     = "first .: file does not exist"
 	ErrMigrationNoChange = "no change"
 	ErrDirtyDatabase     = "database is dirty"
 	ErrNoMigration       = "no migration"
 )
 
-func MustMigrate(db *sql.DB, migrationDir string) {
+func MustMigrate(db *sql.DB) {
 	driver, err := postgres.WithInstance(db, &postgres.Config{
 		DatabaseName: "battleship",
 	})
@@ -61,7 +63,7 @@ func MustMigrate(db *sql.DB, migrationDir string) {
 	log.Println("migration successful...")
 }
 
-func MustConnectToDb(psqlUrl, stage string) *sql.DB {
+func MustConnectToDb(psqlUrl string) *sql.DB {
 
 	// open a database driver or instance
 	// Open may just validate its arguments without creating a connection to the database
@@ -80,17 +82,7 @@ func MustConnectToDb(psqlUrl, stage string) *sql.DB {
 	db.SetMaxIdleConns(maxIdleConns)
 	db.SetConnMaxLifetime(connMaxLife)
 
-	// there is a 'SchemeFromURL' function that splits the migrationDir by ':', so db/migration will be the URL
-	var migrationDir string
-	switch stage {
-	case ms.ProdStageCode:
-		migrationDir = "file:migration"
-	case ms.DevStageCode:
-		migrationDir = "file:db/migration"
-	default:
-		panic("invalid stage of development for STAGE")
-	}
-	MustMigrate(db, migrationDir)
+	MustMigrate(db)
 	log.Println("connected to database...")
 	return db
 }
