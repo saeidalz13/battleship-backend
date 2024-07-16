@@ -96,14 +96,14 @@ func TestCreateGame(t *testing.T) {
 
 			if test.respPayload.Error == nil {
 				gameUuid := test.respPayload.Payload.GameUuid
-				game, err := testGameManager.GetGame(gameUuid)
+				game, err := testGameManager.FetchGame(gameUuid)
 				if err != nil {
 					t.Fatal(err)
 				}
 				testGame = game
 				testGameUuid = gameUuid
 
-				hostPlayer := testGame.GetPlayer(true)
+				hostPlayer := testGame.FetchPlayer(true)
 				testHostPlayer = hostPlayer
 
 				testMock.ExpectQuery(`SELECT games_created FROM game_server_analytics WHERE server_ip = \$1`).
@@ -163,7 +163,7 @@ func TestJoinPlayer(t *testing.T) {
 					t.Fatal("incoming game uuid did not match the req uuid after join")
 				}
 				// if it was successful, join player id is set to the response
-				joinPlayer := testGame.GetPlayer(false)
+				joinPlayer := testGame.FetchPlayer(false)
 				testJoinPlayer = joinPlayer
 
 				// Read extra message of success to host
@@ -218,7 +218,7 @@ func TestReadyGame(t *testing.T) {
 				Payload: mc.ReqReadyPlayer{
 					DefenceGrid: defenceGridHost,
 					GameUuid:    testGameUuid,
-					PlayerUuid:  testHostPlayer.GetUuid(),
+					PlayerUuid:  testHostPlayer.Uuid(),
 				},
 			},
 			respPayload: mc.Message[mc.NoPayload]{},
@@ -232,7 +232,7 @@ func TestReadyGame(t *testing.T) {
 				Payload: mc.ReqReadyPlayer{
 					DefenceGrid: defenceGridJoin,
 					GameUuid:    testGameUuid,
-					PlayerUuid:  testJoinPlayer.GetUuid(),
+					PlayerUuid:  testJoinPlayer.Uuid(),
 				},
 			},
 			respPayload: mc.Message[mc.NoPayload]{},
@@ -288,7 +288,7 @@ func TestAttack(t *testing.T) {
 			expectedCode: mc.CodeAttack,
 			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   testGameUuid,
-				PlayerUuid: testHostPlayer.GetUuid(),
+				PlayerUuid: testHostPlayer.Uuid(),
 				X:          0,
 				Y:          1,
 			}},
@@ -310,7 +310,7 @@ func TestAttack(t *testing.T) {
 			expectedCode: mc.CodeAttack,
 			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   testGameUuid,
-				PlayerUuid: testJoinPlayer.GetUuid(),
+				PlayerUuid: testJoinPlayer.Uuid(),
 				X:          0,
 				Y:          1,
 			}},
@@ -332,7 +332,7 @@ func TestAttack(t *testing.T) {
 			expectedCode: mc.CodeAttack,
 			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   testGameUuid,
-				PlayerUuid: testHostPlayer.GetUuid(),
+				PlayerUuid: testHostPlayer.Uuid(),
 				X:          0,
 				Y:          2,
 			}},
@@ -358,7 +358,7 @@ func TestAttack(t *testing.T) {
 			expectedCode: mc.CodeAttack,
 			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   testGameUuid,
-				PlayerUuid: testJoinPlayer.GetUuid(),
+				PlayerUuid: testJoinPlayer.Uuid(),
 				X:          0,
 				Y:          0,
 			}},
@@ -378,10 +378,10 @@ func TestAttack(t *testing.T) {
 		{
 			name:         "wrong turn of player join",
 			expectedCode: mc.CodeAttack,
-			expectedErr:  cerr.ErrNotTurnForAttacker(testJoinPlayer.GetUuid()).Error(),
+			expectedErr:  cerr.ErrNotTurnForAttacker(testJoinPlayer.Uuid()).Error(),
 			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   testGameUuid,
-				PlayerUuid: testJoinPlayer.GetUuid(),
+				PlayerUuid: testJoinPlayer.Uuid(),
 				X:          0,
 				Y:          0,
 			}},
@@ -397,7 +397,7 @@ func TestAttack(t *testing.T) {
 			expectedErr:  cerr.ErrXorYOutOfGridBound(outOfGridBoundNum, 0).Error(),
 			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   testGameUuid,
-				PlayerUuid: testHostPlayer.GetUuid(),
+				PlayerUuid: testHostPlayer.Uuid(),
 				X:          outOfGridBoundNum,
 				Y:          0,
 			}},
@@ -413,7 +413,7 @@ func TestAttack(t *testing.T) {
 			expectedErr:  cerr.ErrXorYOutOfGridBound(0, outOfGridBoundNum).Error(),
 			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   testGameUuid,
-				PlayerUuid: testHostPlayer.GetUuid(),
+				PlayerUuid: testHostPlayer.Uuid(),
 				X:          0,
 				Y:          outOfGridBoundNum,
 			}},
@@ -429,7 +429,7 @@ func TestAttack(t *testing.T) {
 			expectedErr:  cerr.ErrAttackPositionAlreadyFilled(0, 1).Error(),
 			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   testGameUuid,
-				PlayerUuid: testHostPlayer.GetUuid(),
+				PlayerUuid: testHostPlayer.Uuid(),
 				X:          0,
 				Y:          1,
 			}},
@@ -447,7 +447,7 @@ func TestAttack(t *testing.T) {
 			expectedCode: mc.CodeAttack,
 			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   testGameUuid,
-				PlayerUuid: testHostPlayer.GetUuid(),
+				PlayerUuid: testHostPlayer.Uuid(),
 				X:          1,
 				Y:          0,
 			}},
@@ -468,7 +468,7 @@ func TestAttack(t *testing.T) {
 			expectedCode: mc.CodeAttack,
 			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   testGameUuid,
-				PlayerUuid: testJoinPlayer.GetUuid(),
+				PlayerUuid: testJoinPlayer.Uuid(),
 				X:          0,
 				Y:          3,
 			}},
@@ -490,7 +490,7 @@ func TestAttack(t *testing.T) {
 			expectedCode: mc.CodeAttack,
 			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   testGameUuid,
-				PlayerUuid: testHostPlayer.GetUuid(),
+				PlayerUuid: testHostPlayer.Uuid(),
 				X:          2,
 				Y:          0,
 			}},
@@ -511,7 +511,7 @@ func TestAttack(t *testing.T) {
 			expectedCode: mc.CodeAttack,
 			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   testGameUuid,
-				PlayerUuid: testJoinPlayer.GetUuid(),
+				PlayerUuid: testJoinPlayer.Uuid(),
 				X:          0,
 				Y:          4,
 			}},
@@ -533,7 +533,7 @@ func TestAttack(t *testing.T) {
 			expectedCode: mc.CodeAttack,
 			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   testGameUuid,
-				PlayerUuid: testHostPlayer.GetUuid(),
+				PlayerUuid: testHostPlayer.Uuid(),
 				X:          3,
 				Y:          0,
 			}},
@@ -559,7 +559,7 @@ func TestAttack(t *testing.T) {
 			expectedCode: mc.CodeAttack,
 			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   testGameUuid,
-				PlayerUuid: testJoinPlayer.GetUuid(),
+				PlayerUuid: testJoinPlayer.Uuid(),
 				X:          0,
 				Y:          5,
 			}},
@@ -584,7 +584,7 @@ func TestAttack(t *testing.T) {
 			expectedCode: mc.CodeAttack,
 			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   testGameUuid,
-				PlayerUuid: testHostPlayer.GetUuid(),
+				PlayerUuid: testHostPlayer.Uuid(),
 				X:          1,
 				Y:          4,
 			}},
@@ -605,7 +605,7 @@ func TestAttack(t *testing.T) {
 			expectedCode: mc.CodeAttack,
 			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   testGameUuid,
-				PlayerUuid: testJoinPlayer.GetUuid(),
+				PlayerUuid: testJoinPlayer.Uuid(),
 				X:          5,
 				Y:          0,
 			}},
@@ -627,7 +627,7 @@ func TestAttack(t *testing.T) {
 			expectedCode: mc.CodeAttack,
 			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   testGameUuid,
-				PlayerUuid: testHostPlayer.GetUuid(),
+				PlayerUuid: testHostPlayer.Uuid(),
 				X:          2,
 				Y:          4,
 			}},
@@ -648,7 +648,7 @@ func TestAttack(t *testing.T) {
 			expectedCode: mc.CodeAttack,
 			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   testGameUuid,
-				PlayerUuid: testJoinPlayer.GetUuid(),
+				PlayerUuid: testJoinPlayer.Uuid(),
 				X:          5,
 				Y:          1,
 			}},
@@ -670,7 +670,7 @@ func TestAttack(t *testing.T) {
 			expectedCode: mc.CodeAttack,
 			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   testGameUuid,
-				PlayerUuid: testHostPlayer.GetUuid(),
+				PlayerUuid: testHostPlayer.Uuid(),
 				X:          3,
 				Y:          4,
 			}},
@@ -691,7 +691,7 @@ func TestAttack(t *testing.T) {
 			expectedCode: mc.CodeAttack,
 			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   testGameUuid,
-				PlayerUuid: testJoinPlayer.GetUuid(),
+				PlayerUuid: testJoinPlayer.Uuid(),
 				X:          5,
 				Y:          2,
 			}},
@@ -714,7 +714,7 @@ func TestAttack(t *testing.T) {
 			expectedCode: mc.CodeAttack,
 			reqPayload: mc.Message[mc.ReqAttack]{Code: mc.CodeAttack, Payload: mc.ReqAttack{
 				GameUuid:   testGameUuid,
-				PlayerUuid: testHostPlayer.GetUuid(),
+				PlayerUuid: testHostPlayer.Uuid(),
 				X:          4,
 				Y:          4,
 			}},
@@ -836,8 +836,8 @@ func TestRematchAcceptance(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if testHostPlayer.GetMatchStatus() != mb.PlayerMatchStatusUndefined || testJoinPlayer.GetMatchStatus() != mb.PlayerMatchStatusUndefined {
-		t.Fatalf("both players match status must be undefined after reset game but\n host: %d join: %d", testHostPlayer.GetMatchStatus(), testJoinPlayer.GetMatchStatus())
+	if testHostPlayer.MatchStatus() != mb.PlayerMatchStatusUndefined || testJoinPlayer.MatchStatus() != mb.PlayerMatchStatusUndefined {
+		t.Fatalf("both players match status must be undefined after reset game but\n host: %d join: %d", testHostPlayer.MatchStatus(), testJoinPlayer.MatchStatus())
 	}
 
 	if testHostPlayer.IsReady() || testJoinPlayer.IsReady() {
@@ -888,7 +888,7 @@ func TestRematchRejection(t *testing.T) {
 	hostSession, err := testSessionManager.FindSession(HostSessionID)
 	if err == nil {
 		// This line will be done by IOS client
-		testSessionManager.TerminateSession(hostSession.GetId())
+		testSessionManager.TerminateSession(hostSession.Id())
 	}
 
 	_, err = testSessionManager.FindSession(HostSessionID)

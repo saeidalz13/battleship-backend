@@ -127,16 +127,24 @@ func (rp RequestProcessor) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (rp *RequestProcessor) processSessionRequests(session *mc.Session) {
-	defer rp.sessionManager.TerminateSession(session.GetId())
-
 	var (
 		otherSessionPlayer mb.Player
 		sessionPlayer      mb.Player
 		sessionGame        *mb.Game
 
 		receiverSessionId string
-		sessionId         = session.GetId()
+		sessionId         = session.Id()
 	)
+
+	defer func() {
+		if sessionGame != nil {
+			rp.gameManager.TerminateGame(sessionGame.Uuid())
+		}
+		if session != nil && session.Conn() != nil {
+			session.Conn().Close()
+		}
+		rp.sessionManager.TerminateSession(sessionId)
+	}()
 
 	resp := mc.NewMessage[mc.RespSessionId](mc.CodeSessionID)
 	resp.AddPayload(mc.RespSessionId{SessionID: sessionId})
@@ -207,8 +215,8 @@ sessionLoop:
 			sessionGame = game
 
 			if otherSessionPlayer == nil {
-				otherSessionPlayer = sessionGame.GetPlayer(!sessionPlayer.IsHost())
-				receiverSessionId = otherSessionPlayer.GetSessionId()
+				otherSessionPlayer = sessionGame.FetchPlayer(!sessionPlayer.IsHost())
+				receiverSessionId = otherSessionPlayer.SessionId()
 			}
 
 			readyRespMsg := mc.NewMessage[mc.NoPayload](mc.CodeSelectGrid)
@@ -235,8 +243,8 @@ sessionLoop:
 			}
 
 			if otherSessionPlayer == nil {
-				otherSessionPlayer = sessionGame.GetPlayer(!sessionPlayer.IsHost())
-				receiverSessionId = otherSessionPlayer.GetSessionId()
+				otherSessionPlayer = sessionGame.FetchPlayer(!sessionPlayer.IsHost())
+				receiverSessionId = otherSessionPlayer.SessionId()
 			}
 
 			if sessionGame.IsReadyToStart() {

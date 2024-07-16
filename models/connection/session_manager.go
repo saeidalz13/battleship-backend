@@ -65,7 +65,6 @@ func (bsm *BattleshipSessionManager) FindSession(sessionId string) (*Session, er
 }
 
 func (bsm *BattleshipSessionManager) TerminateSession(sessionId string) {
-	// _ = session.conn.Close()
 	delete(bsm.sessions, sessionId)
 }
 

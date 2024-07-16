@@ -42,8 +42,12 @@ func NewSession(id string, conn *websocket.Conn) *Session {
 	}
 }
 
-func (s *Session) GetId() string {
+func (s *Session) Id() string {
 	return s.id
+}
+
+func (s *Session) Conn() *websocket.Conn {
+	return s.conn
 }
 
 func (s *Session) onConnErr(err error) uint8 {

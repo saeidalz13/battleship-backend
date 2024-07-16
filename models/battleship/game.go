@@ -52,7 +52,7 @@ func newGame(difficulty uint8, uuid string) *Game {
 	return game
 }
 
-func (g *Game) GetUuid() string {
+func (g *Game) Uuid() string {
 	return g.uuid
 }
 
@@ -66,19 +66,19 @@ func (g *Game) CreateJoinPlayer(sessionId string) *BattleshipPlayer {
 	return g.joinPlayer
 }
 
-func (g *Game) GetDifficulty() uint8 {
+func (g *Game) Difficulty() uint8 {
 	return g.difficulty
 }
 
-func (g *Game) GetHostPlayer() *BattleshipPlayer {
+func (g *Game) HostPlayer() *BattleshipPlayer {
 	return g.hostPlayer
 }
 
-func (g *Game) GetJoinPlayer() *BattleshipPlayer {
+func (g *Game) JoinPlayer() *BattleshipPlayer {
 	return g.joinPlayer
 }
 
-func (g *Game) GetPlayer(isHost bool) *BattleshipPlayer {
+func (g *Game) FetchPlayer(isHost bool) *BattleshipPlayer {
 	if isHost {
 		return g.hostPlayer
 	}

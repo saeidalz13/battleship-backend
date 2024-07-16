@@ -45,6 +45,6 @@ func (sh *Ship) IsSunk() bool {
 	return sh.hits == sh.length
 }
 
-func (sh *Ship) GetHitCoordinates() []Coordinates {
+func (sh *Ship) HitCoordinates() []Coordinates {
 	return sh.hitCoordinates
 }

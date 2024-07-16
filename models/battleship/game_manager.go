@@ -9,7 +9,8 @@ import (
 
 type GameManager interface {
 	CreateGame(difficulty uint8) (*Game, error)
-	GetGame(gameUuid string) (*Game, error)
+	FetchGame(gameUuid string) (*Game, error)
+	TerminateGame(gameUuid string)
 
 	isDifficultyValid(uint8) bool
 }
@@ -37,7 +38,7 @@ func (bgm *BattleshipGameManager) CreateGame(difficulty uint8) (*Game, error) {
 	return bgm.games[gameUuid], nil
 }
 
-func (bgm *BattleshipGameManager) GetGame(gameUuid string) (*Game, error) {
+func (bgm *BattleshipGameManager) FetchGame(gameUuid string) (*Game, error) {
 	bgm.mu.RLock()
 	game, prs := bgm.games[gameUuid]
 	bgm.mu.RUnlock()
@@ -46,6 +47,13 @@ func (bgm *BattleshipGameManager) GetGame(gameUuid string) (*Game, error) {
 	}
 
 	return game, nil
+}
+
+func (bgm *BattleshipGameManager) TerminateGame(gameUuid string) {
+	bgm.mu.Lock()
+	defer bgm.mu.Unlock()
+
+	delete(bgm.games, gameUuid)
 }
 
 func (bgm *BattleshipGameManager) isDifficultyValid(difficulty uint8) bool {

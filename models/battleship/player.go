@@ -17,8 +17,8 @@ const (
 )
 
 type Player interface {
-	GetSessionId() string
-	GetUuid() string
+	SessionId() string
+	Uuid() string
 
 	AreAllShipsSunken() bool
 	IsShipSunken(uint8) bool
@@ -42,12 +42,12 @@ type Player interface {
 	SetTurnFalse()
 	IsHost() bool
 
-	GetShipCode(coordinates Coordinates) uint8
-	GetShipHitCoordinates(shipCode uint8) []Coordinates
+	ShipCode(coordinates Coordinates) uint8
+	ShipHitCoordinates(shipCode uint8) []Coordinates
 
-	GetMatchStatus() uint8
+	MatchStatus() uint8
 
-	GetSunkenShips() uint8
+	SunkenShips() uint8
 
 	IsReady() bool
 	IsTurn() bool
@@ -81,11 +81,11 @@ func newPlayer(isHost, isTurn bool, sessionID string, gridSize uint8) *Battleshi
 	}
 }
 
-func (bp *BattleshipPlayer) GetSessionId() string {
+func (bp *BattleshipPlayer) SessionId() string {
 	return bp.sessionID
 }
 
-func (bp *BattleshipPlayer) GetUuid() string {
+func (bp *BattleshipPlayer) Uuid() string {
 	return bp.uuid
 }
 
@@ -123,12 +123,12 @@ func (bp *BattleshipPlayer) SetMatchStatusToLost() {
 	bp.matchStatus = PlayerMatchStatusLost
 }
 
-func (bp *BattleshipPlayer) GetShipCode(coordinates Coordinates) uint8 {
+func (bp *BattleshipPlayer) ShipCode(coordinates Coordinates) uint8 {
 	return bp.defenceGrid[coordinates.X][coordinates.Y]
 }
 
-func (bp *BattleshipPlayer) GetShipHitCoordinates(shipCode uint8) []Coordinates {
-	return bp.ships[shipCode].GetHitCoordinates()
+func (bp *BattleshipPlayer) ShipHitCoordinates(shipCode uint8) []Coordinates {
+	return bp.ships[shipCode].HitCoordinates()
 }
 
 func (bp *BattleshipPlayer) AreAllShipsSunken() bool {
@@ -181,7 +181,7 @@ func (bp *BattleshipPlayer) IsHost() bool {
 	return bp.isHost
 }
 
-func (bp *BattleshipPlayer) GetMatchStatus() uint8 {
+func (bp *BattleshipPlayer) MatchStatus() uint8 {
 	return bp.matchStatus
 }
 
@@ -189,7 +189,7 @@ func (bp *BattleshipPlayer) IsReady() bool {
 	return bp.isReady
 }
 
-func (bp *BattleshipPlayer) GetSunkenShips() uint8 {
+func (bp *BattleshipPlayer) SunkenShips() uint8 {
 	return bp.sunkenShips
 }
 

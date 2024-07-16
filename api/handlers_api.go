@@ -55,7 +55,7 @@ func (r Request) HandleCreateGame(gm mb.GameManager, sessionId string) (*mb.Game
 
 	hostPlayer := game.CreateHostPlayer(sessionId)
 
-	respMsg.AddPayload(mc.RespCreateGame{GameUuid: game.GetUuid(), HostUuid: hostPlayer.GetUuid()})
+	respMsg.AddPayload(mc.RespCreateGame{GameUuid: game.Uuid(), HostUuid: hostPlayer.Uuid()})
 	return game, hostPlayer, respMsg
 }
 
@@ -70,7 +70,7 @@ func (r Request) HandleJoinPlayer(gm mb.GameManager, sessionId string) (*mb.Game
 		return nil, nil, respMsg
 	}
 
-	game, err := gm.GetGame(joinGameReq.Payload.GameUuid)
+	game, err := gm.FetchGame(joinGameReq.Payload.GameUuid)
 	if err != nil {
 		respMsg.AddError(err.Error(), cerr.ConstErrJoin)
 		return nil, nil, respMsg
@@ -78,7 +78,7 @@ func (r Request) HandleJoinPlayer(gm mb.GameManager, sessionId string) (*mb.Game
 
 	joinPlayer := game.CreateJoinPlayer(sessionId)
 
-	respMsg.AddPayload(mc.RespJoinGame{GameUuid: game.GetUuid(), PlayerUuid: joinPlayer.GetUuid(), GameDifficulty: game.GetDifficulty()})
+	respMsg.AddPayload(mc.RespJoinGame{GameUuid: game.Uuid(), PlayerUuid: joinPlayer.Uuid(), GameDifficulty: game.Difficulty()})
 	return game, joinPlayer, respMsg
 }
 
@@ -120,7 +120,7 @@ func (r Request) HandleAttack(game *mb.Game, attacker mb.Player, defender mb.Pla
 
 	// Attack validity check
 	if !attacker.IsTurn() {
-		resp.AddError(cerr.ErrNotTurnForAttacker(attacker.GetUuid()).Error(), cerr.ConstErrAttack)
+		resp.AddError(cerr.ErrNotTurnForAttacker(attacker.Uuid()).Error(), cerr.ConstErrAttack)
 		return resp
 	}
 
@@ -137,8 +137,8 @@ func (r Request) HandleAttack(game *mb.Game, attacker mb.Player, defender mb.Pla
 	attacker.SetTurnFalse()
 	defender.SetTurnTrue()
 
-	hostPlayer := game.GetHostPlayer()
-	joinPlayer := game.GetJoinPlayer()
+	hostPlayer := game.HostPlayer()
+	joinPlayer := game.JoinPlayer()
 
 	if defender.IsAttackMiss(coordinates) {
 		attacker.SetAttackGridToMiss(coordinates)
@@ -147,14 +147,14 @@ func (r Request) HandleAttack(game *mb.Game, attacker mb.Player, defender mb.Pla
 			X:               coordinates.X,
 			Y:               coordinates.Y,
 			PositionState:   mb.PositionStateAttackGridMiss,
-			SunkenShipsHost: hostPlayer.GetSunkenShips(),
-			SunkenShipsJoin: joinPlayer.GetSunkenShips(),
+			SunkenShipsHost: hostPlayer.SunkenShips(),
+			SunkenShipsJoin: joinPlayer.SunkenShips(),
 			IsTurn:          attacker.IsTurn(),
 		})
 		return resp
 	}
 
-	shipCode := defender.GetShipCode(coordinates)
+	shipCode := defender.ShipCode(coordinates)
 	defender.IncrementShipHit(shipCode, coordinates)
 	attacker.SetAttackGridToHit(coordinates)
 
@@ -169,7 +169,7 @@ func (r Request) HandleAttack(game *mb.Game, attacker mb.Player, defender mb.Pla
 	// Check if the attack caused the ship to sink
 	if defender.IsShipSunken(shipCode) {
 		defender.IncrementSunkenShips()
-		resp.Payload.DefenderSunkenShipsCoords = defender.GetShipHitCoordinates(shipCode)
+		resp.Payload.DefenderSunkenShipsCoords = defender.ShipHitCoordinates(shipCode)
 
 		// Check if this sunken ship was the last one and the attacker is lost
 		if defender.AreAllShipsSunken() {
@@ -179,8 +179,8 @@ func (r Request) HandleAttack(game *mb.Game, attacker mb.Player, defender mb.Pla
 	}
 
 	log.Println("attack complete")
-	resp.Payload.SunkenShipsHost = hostPlayer.GetSunkenShips()
-	resp.Payload.SunkenShipsJoin = joinPlayer.GetSunkenShips()
+	resp.Payload.SunkenShipsHost = hostPlayer.SunkenShips()
+	resp.Payload.SunkenShipsJoin = joinPlayer.SunkenShips()
 	return resp
 }
 
