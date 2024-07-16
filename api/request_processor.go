@@ -333,6 +333,11 @@ sessionLoop:
 			rp.sessionManager.Communicate(sessionId, receiverSessionId, msg, mc.MessageTypeJSON)
 			break sessionLoop
 
+		case mc.CodePlayerInteraction:
+			if err := rp.sessionManager.Communicate(sessionId, receiverSessionId, payload, mc.MessageTypeBytes); err != nil {
+				break sessionLoop
+			}
+
 		default:
 			respInvalidSignal := mc.NewMessage[mc.NoPayload](mc.CodeInvalidSignal)
 			respInvalidSignal.AddError("", "invalid code in the incoming payload")

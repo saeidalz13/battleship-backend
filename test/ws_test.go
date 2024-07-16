@@ -283,6 +283,7 @@ func TestReadyGame(t *testing.T) {
 
 func TestPlayerInteraction(t *testing.T) {
 	msg := mc.NewMessage[mc.PlayerInteraction](mc.CodePlayerInteraction)
+	msg.AddPayload(mc.PlayerInteraction{Content: "salam!"})
 
 	tests := []Test[mc.Message[mc.PlayerInteraction], mc.Message[mc.PlayerInteraction]]{
 		{
@@ -799,7 +800,6 @@ func TestAttack(t *testing.T) {
 			}
 
 			if test.respPayload.Error != nil {
-				log.Printf("%+v\n", test.respPayload.Error)
 				if test.respPayload.Error.ErrorDetails != test.expectedErr {
 					t.Fatalf("expected error: %s\t got: %s", test.expectedErr, test.respPayload.Error.ErrorDetails)
 				}
