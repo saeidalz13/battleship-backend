@@ -1,9 +1,13 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/saeidalz13/battleship-backend/api"
@@ -42,6 +46,23 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle("GET /battleship", requestProcessor)
 
-	log.Printf("Listening to port %s\n", port)
-	log.Fatalln(http.ListenAndServe("0.0.0.0:"+port, mux))
+	s := &http.Server{
+		Addr:    ":" + port,
+		Handler: mux,
+	}
+
+	go func() {
+		log.Printf("Listening to port %s\n", port)
+		log.Fatalln(s.ListenAndServe())
+	}()
+
+	sigChan := make(chan os.Signal, 1)
+
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	sig := <-sigChan
+	log.Println("Server termination signal from OS, graceful shutdown\treason:", sig)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel()
+	s.Shutdown(ctx)
 }
