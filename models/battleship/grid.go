@@ -9,10 +9,17 @@ const (
 const (
 	PositionStateDefenceGridEmpty uint8 = iota
 	PositionStateDefenceGridHit
+
+	// Ship codes in defence grid
 	PositionStateDefenceDestroyer
 	PositionStateDefenceCruiser
 	PositionStateDefenceBattleship
 )
+
+// Chosse the max uint8 to make the
+// mine code unique. Hitting this will
+// cause player to lose
+const PositionStateMine uint8 = 255
 
 type Coordinates struct {
 	X uint8 `json:"x"`

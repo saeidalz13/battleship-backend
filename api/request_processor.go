@@ -279,17 +279,16 @@ sessionLoop:
 			if err := rp.sessionManager.Communicate(sessionId, receiverSessionId, respMsg, mc.MessageTypeJSON); err != nil {
 				break sessionLoop
 			}
-			log.Println("attack resp sent to other")
 
-			if sessionPlayer.IsWinner() {
+			if sessionPlayer.IsMatchOver() {
 				respAttacker := mc.NewMessage[mc.RespEndGame](mc.CodeEndGame)
-				respAttacker.AddPayload(mc.RespEndGame{PlayerMatchStatus: mb.PlayerMatchStatusWon})
+				respAttacker.AddPayload(mc.RespEndGame{PlayerMatchStatus: sessionPlayer.MatchStatus()})
 				if err := rp.sessionManager.WriteToSessionConn(session, respAttacker, mc.MessageTypeJSON, receiverSessionId); err != nil {
 					break sessionLoop
 				}
 
 				respDefender := mc.NewMessage[mc.RespEndGame](mc.CodeEndGame)
-				respDefender.AddPayload(mc.RespEndGame{PlayerMatchStatus: mb.PlayerMatchStatusLost})
+				respDefender.AddPayload(mc.RespEndGame{PlayerMatchStatus: otherSessionPlayer.MatchStatus()})
 				if err := rp.sessionManager.Communicate(sessionId, receiverSessionId, respDefender, mc.MessageTypeJSON); err != nil {
 					break sessionLoop
 				}

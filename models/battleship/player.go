@@ -17,6 +17,7 @@ type Player interface {
 	AreAllShipsSunken() bool
 	IsShipSunken(uint8) bool
 	IsWinner() bool
+	IsMatchOver() bool
 	IncrementShipHit(code uint8, coordinates Coordinates)
 	SetAttackGrid(newGrid Grid)
 	SetReady(newGrid Grid)
@@ -45,6 +46,8 @@ type Player interface {
 
 	IsReady() bool
 	IsTurn() bool
+
+	DidAttackerHitMine(coordinates Coordinates) bool
 }
 
 type BattleshipPlayer struct {
@@ -146,8 +149,16 @@ func (bp *BattleshipPlayer) IncrementSunkenShips() {
 	bp.sunkenShips++
 }
 
+func (bp *BattleshipPlayer) DidAttackerHitMine(coordinates Coordinates) bool {
+	return bp.defenceGrid[coordinates.X][coordinates.Y] == PositionStateMine
+}
+
 func (bp *BattleshipPlayer) IsWinner() bool {
 	return bp.matchStatus == PlayerMatchStatusWon
+}
+
+func (bp *BattleshipPlayer) IsMatchOver() bool {
+	return bp.matchStatus != PlayerMatchStatusUndefined
 }
 
 func (bp *BattleshipPlayer) PrepareForRematch(gridSize uint8) {

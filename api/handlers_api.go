@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"log"
 
 	cerr "github.com/saeidalz13/battleship-backend/internal/error"
 	mb "github.com/saeidalz13/battleship-backend/models/battleship"
@@ -140,6 +139,23 @@ func (r Request) HandleAttack(game *mb.Game, attacker mb.Player, defender mb.Pla
 	hostPlayer := game.HostPlayer()
 	joinPlayer := game.JoinPlayer()
 
+	// TODO: Check for game mode for this section
+	if defender.DidAttackerHitMine(coordinates) {
+		attacker.SetMatchStatusToLost()
+		defender.SetMatchStatusToWon()
+
+		resp.AddPayload(mc.RespAttack{
+			X:               coordinates.X,
+			Y:               coordinates.Y,
+			PositionState:   mb.PositionStateMine,
+			SunkenShipsHost: hostPlayer.SunkenShips(),
+			SunkenShipsJoin: joinPlayer.SunkenShips(),
+			IsTurn:          attacker.IsTurn(),
+		})
+
+		return resp
+	}
+
 	if defender.IsAttackMiss(coordinates) {
 		attacker.SetAttackGridToMiss(coordinates)
 
@@ -178,7 +194,6 @@ func (r Request) HandleAttack(game *mb.Game, attacker mb.Player, defender mb.Pla
 		}
 	}
 
-	log.Println("attack complete")
 	resp.Payload.SunkenShipsHost = hostPlayer.SunkenShips()
 	resp.Payload.SunkenShipsJoin = joinPlayer.SunkenShips()
 	return resp
