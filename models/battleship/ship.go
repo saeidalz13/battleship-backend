@@ -1,23 +1,25 @@
 package battleship
 
 const (
-	PositionStateDefenceGridHit    = -1
-	PositionStateDefenceGridEmpty  = 0
-	PositionStateDefenceDestroyer  = 2
-	PositionStateDefenceCruiser    = 3
-	PositionStateDefenceBattleship = 4
+	PositionStateDefenceGridEmpty uint8 = iota
+	PositionStateDefenceGridHit
+	PositionStateDefenceDestroyer
+	PositionStateDefenceCruiser
+	PositionStateDefenceBattleship
+)
 
-	SunkenShipsToLose = 3
+const (
+	sunkenShipsToLose uint8 = 3
 )
 
 type Ship struct {
-	Code           int
-	length         int
-	hits           int
+	Code           uint8
+	length         uint8
+	hits           uint8
 	hitCoordinates []Coordinates
 }
 
-func NewShip(code, length int) *Ship {
+func NewShip(code, length uint8) *Ship {
 	return &Ship{
 		Code:           code,
 		length:         length,
@@ -26,8 +28,8 @@ func NewShip(code, length int) *Ship {
 	}
 }
 
-func NewShipsMap() map[int]*Ship {
-	ships := make(map[int]*Ship, SunkenShipsToLose)
+func NewShipsMap() map[uint8]*Ship {
+	ships := make(map[uint8]*Ship, sunkenShipsToLose)
 	ships[PositionStateDefenceDestroyer] = NewShip(PositionStateDefenceDestroyer, 2)
 	ships[PositionStateDefenceCruiser] = NewShip(PositionStateDefenceCruiser, 3)
 	ships[PositionStateDefenceBattleship] = NewShip(PositionStateDefenceBattleship, 4)
@@ -43,6 +45,6 @@ func (sh *Ship) IsSunk() bool {
 	return sh.hits == sh.length
 }
 
-func (sh *Ship) GetHitCoordinates() []Coordinates {
+func (sh *Ship) HitCoordinates() []Coordinates {
 	return sh.hitCoordinates
 }

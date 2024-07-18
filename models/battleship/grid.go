@@ -1,26 +1,23 @@
 package battleship
 
-type Grid [][]int
-
 type Coordinates struct {
-	X int `json:"x"`
-	Y int `json:"y"`
+	X uint8 `json:"x"`
+	Y uint8 `json:"y"`
 }
 
-func NewCoordinates(x, y int) Coordinates {
+func NewCoordinates(x, y uint8) Coordinates {
 	return Coordinates{X: x, Y: y}
 }
 
-const (
-	GameGridSize = 5
-)
+type Grid [][]uint8
 
 // Creates a new default grid
 // All indexes are zero/PositionStatusNeutral
-func NewGrid(gridSize int) Grid {
+func NewGrid(gridSize uint8) Grid {
 	grid := make(Grid, gridSize)
-	for i := 0; i < gridSize; i++ {
-		grid[i] = make([]int, gridSize)
+
+	for i := uint8(0); i < gridSize; i++ {
+		grid[i] = make([]uint8, gridSize)
 	}
 	return grid
 }

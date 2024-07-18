@@ -7,7 +7,7 @@ import (
 type RespJoinGame struct {
 	GameUuid       string `json:"game_uuid"`
 	PlayerUuid     string `json:"player_uuid"`
-	GameDifficulty int    `json:"game_difficulty"`
+	GameDifficulty uint8    `json:"game_difficulty"`
 }
 
 type RespCreateGame struct {
@@ -16,12 +16,12 @@ type RespCreateGame struct {
 }
 
 type RespAttack struct {
-	X                         int              `json:"x"`
-	Y                         int              `json:"y"`
-	PositionState             int              `json:"position_state"`
+	X                         uint8              `json:"x"`
+	Y                         uint8              `json:"y"`
+	PositionState             uint8              `json:"position_state"`
 	IsTurn                    bool             `json:"is_turn"`
-	SunkenShipsHost           int              `json:"sunken_ships_host"`
-	SunkenShipsJoin           int              `json:"sunken_ships_join"`
+	SunkenShipsHost           uint8              `json:"sunken_ships_host"`
+	SunkenShipsJoin           uint8              `json:"sunken_ships_join"`
 	DefenderSunkenShipsCoords []mb.Coordinates `json:"defender_sunken_ships_coords,omitempty"`
 }
 
@@ -30,7 +30,7 @@ type RespSessionId struct {
 }
 
 type RespEndGame struct {
-	PlayerMatchStatus int `json:"player_match_status"`
+	PlayerMatchStatus uint8 `json:"player_match_status"`
 }
 
 type RespErr struct {

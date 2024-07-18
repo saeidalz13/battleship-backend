@@ -3,6 +3,7 @@ package error
 import "fmt"
 
 const (
+	ConstErrCreateGame     = "create game operation failed"
 	ConstErrAttack         = "attack operation failed"
 	ConstErrReady          = "ready player operation failed"
 	ConstErrJoin           = "join player operation failed"
@@ -45,19 +46,25 @@ func ErrValueNotGridInt() error {
 	return fmt.Errorf("the value is not of type GridInt")
 }
 
-// Create Game
+// Game Errors
 
 func ErrInvalidGameDifficulty() error {
 	return fmt.Errorf("invalid difficulty")
 }
 
+func ErrGameAleardyRecalled() error {
+	return fmt.Errorf("")
+}
+
+
+
 // Attack Errors
 
-func ErrXorYOutOfGridBound(x, y int) error {
+func ErrXorYOutOfGridBound(x, y uint8) error {
 	return fmt.Errorf("incoming x or y is out of game grid bound\tx: %d\ty: %d", x, y)
 }
 
-func ErrAttackPositionAlreadyFilled(x, y int) error {
+func ErrAttackPositionAlreadyFilled(x, y uint8) error {
 	return fmt.Errorf("current position in grid already taken\tx: %d\ty: %d", x, y)
 }
 
@@ -67,19 +74,19 @@ func ErrNotTurnForAttacker(attackerId string) error {
 
 // DefenceGrid
 
-func ErrDefenceGridPositionAlreadyHit(x, y int) error {
+func ErrDefenceGridPositionAlreadyHit(x, y uint8) error {
 	return fmt.Errorf("this position is already hit by the attacker in previous rounds\tx: %d\ty: %d", x, y)
 }
 
-func ErrDefenceGridPositionEmpty(x, y int) error {
+func ErrDefenceGridPositionEmpty(x, y uint8) error {
 	return fmt.Errorf("this position in defence grid is empty\tx: %d\ty: %d", x, y)
 }
 
-func ErrDefenceGridRowsOutOfBounds(rows, gameGridSize int) error {
+func ErrDefenceGridRowsOutOfBounds(rows, gameGridSize uint8) error {
 	return fmt.Errorf("rows of defence grid must be %d \trows: %d", gameGridSize, rows)
 }
 
-func ErrDefenceGridColsOutOfBounds(cols, gameGridSize int) error {
+func ErrDefenceGridColsOutOfBounds(cols, gameGridSize uint8) error {
 	return fmt.Errorf("cols of defence grid must be %d \tcols: %d", gameGridSize, cols)
 }
 

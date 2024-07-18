@@ -9,36 +9,66 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/saeidalz13/battleship-backend/api"
+	"github.com/saeidalz13/battleship-backend/db/sqlc"
 
 	mb "github.com/saeidalz13/battleship-backend/models/battleship"
 	mc "github.com/saeidalz13/battleship-backend/models/connection"
+
+	"github.com/DATA-DOG/go-sqlmock"
+)
+
+const (
+	testPort                = "127.0.0.1"
+	testWsUrl               = "ws://127.0.0.1:7171/battleship"
+	outOfGridBoundNum uint8 = 255
 )
 
 var (
 	HostConn       *websocket.Conn
 	JoinConn       *websocket.Conn
-	GameUuid       string
-	testHostPlayer *mb.Player
-	testJoinPlayer *mb.Player
+	testGame       *mb.Game
+	testGameUuid   string
+	testHostPlayer *mb.BattleshipPlayer
+	testJoinPlayer *mb.BattleshipPlayer
 	HostSessionID  string
 	JoinSessionID  string
-	testServer     *api.Server
+	testRp         api.RequestProcessor
 	dialer         = websocket.Dialer{
 		HandshakeTimeout: 10 * time.Second,
 	}
+	testMock           sqlmock.Sqlmock
+	testGameManager    *mb.BattleshipGameManager
+	testSessionManager *mc.BattleshipSessionManager
+	testQuerier        sqlc.Querier
 )
 
 func TestMain(m *testing.M) {
-	go func() {
-		stage := "dev"
-		server := api.NewServer(api.WithPort("7171"), api.WithStage(stage))
-		testServer = server
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+	testMock = mock
 
-		go server.SessionManager.ManageCommunication()
-		go server.SessionManager.CleanUpPeriodically()
+	go func() {
+		// test db manager
+		querier := sqlc.New(db)
+		testQuerier = querier
+
+		// test session manager
+		bsm := mc.NewBattleshipSessionManager()
+		testSessionManager = bsm
+		go bsm.CleanupPeriodically()
+
+		// test game manager
+		bgm := mb.NewBattleshipGameManager()
+		testGameManager = bgm
+
+		rp := api.NewRequestProcessor(bsm, bgm, querier)
+		testRp = rp
 
 		mux := http.NewServeMux()
-		mux.HandleFunc("GET /battleship", server.HandleWs)
+		mux.Handle("GET /battleship", rp)
 
 		log.Println("Listening to port 7171...")
 		if err := http.ListenAndServe(":7171", mux); err != nil {
@@ -52,7 +82,7 @@ func TestMain(m *testing.M) {
 	time.Sleep(time.Second * 2)
 
 	log.Println("dialing...")
-	c, _, err := dialer.Dial("ws://localhost:7171/battleship", nil)
+	c, _, err := dialer.Dial(testWsUrl, nil)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
@@ -64,7 +94,7 @@ func TestMain(m *testing.M) {
 	_ = HostConn.ReadJSON(&respSessionId)
 	HostSessionID = respSessionId.Payload.SessionID
 
-	c2, _, err := dialer.Dial("ws://localhost:7171/battleship", nil)
+	c2, _, err := dialer.Dial(testWsUrl, nil)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
@@ -77,7 +107,6 @@ func TestMain(m *testing.M) {
 
 	log.Println("Host session ID:", HostSessionID)
 	log.Println("Join session ID:", JoinSessionID)
-
 	log.Printf("host: %s\tjoin: %s", HostConn.LocalAddr().String(), JoinConn.LocalAddr().String())
 	os.Exit(m.Run())
 }

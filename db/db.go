@@ -16,13 +16,16 @@ const (
 	maxIdleConns = 100
 	connMaxLife  = time.Minute * 15
 
+	// there is a 'SchemeFromURL' function that splits the migrationDir by ':', so db/migration will be the URL
+	migrationDir = "file:db/migration"
+
 	ErrFileNotExists     = "first .: file does not exist"
 	ErrMigrationNoChange = "no change"
 	ErrDirtyDatabase     = "database is dirty"
 	ErrNoMigration       = "no migration"
 )
 
-func MustMigrate(db *sql.DB, migrationDir string) {
+func MustMigrate(db *sql.DB) {
 	driver, err := postgres.WithInstance(db, &postgres.Config{
 		DatabaseName: "battleship",
 	})
@@ -61,6 +64,7 @@ func MustMigrate(db *sql.DB, migrationDir string) {
 }
 
 func MustConnectToDb(psqlUrl string) *sql.DB {
+
 	// open a database driver or instance
 	// Open may just validate its arguments without creating a connection to the database
 	db, err := sql.Open("postgres", psqlUrl)
@@ -78,8 +82,7 @@ func MustConnectToDb(psqlUrl string) *sql.DB {
 	db.SetMaxIdleConns(maxIdleConns)
 	db.SetConnMaxLifetime(connMaxLife)
 
-	// there is a 'SchemeFromURL' function that splits the migrationDir by ':', so db/migration will be the URL
-	MustMigrate(db, "file:db/migration")
+	MustMigrate(db)
 	log.Println("connected to database...")
 	return db
 }

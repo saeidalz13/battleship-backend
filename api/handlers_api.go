@@ -10,210 +10,208 @@ import (
 )
 
 type RequestHandler interface {
-	HandleCreateGame() mc.Message[mc.RespCreateGame]
-	HandleReadyPlayer() (mc.Message[mc.NoPayload], *mb.Game)
-	HandleJoinPlayer() (mc.Message[mc.RespJoinGame], *mb.Game)
-	HandleAttack() (mc.Message[mc.RespAttack], *mb.Player)
+	HandleCreateGame(gm mb.GameManager, sessionId string) (*mb.Game, mb.Player, mc.Message[mc.RespCreateGame])
+	HandleReadyPlayer(gm mb.GameManager, sessionGame *mb.Game, sessionPlayer mb.Player) mc.Message[mc.NoPayload]
+	HandleJoinPlayer(gm mb.GameManager, sessionId string) (*mb.Game, mb.Player, mc.Message[mc.RespJoinGame])
+	HandleAttack(*mb.Game, mb.Player, mb.Player, mb.GameManager) mc.Message[mc.RespAttack]
+	HandleCallRematch(bgm mb.GameManager, sessionGame *mb.Game) (mc.Message[mc.NoPayload], error)
+	HandleAcceptRematchCall(bgm mb.GameManager, sessionGame *mb.Game, sessionPlayer, otherSessionPlayer mb.Player) (mc.Message[mc.RespRematch], mc.Message[mc.RespRematch], error)
 }
 
 // Every incoming valid request will have this structure
 // The request then is handled in line with WsRequestHandler interface
 type Request struct {
-	Payload []byte
-	Session *Session
+	payload []byte
 }
 
 // This tells the compiler that WsRequest struct must be of type of WsRequestHandler
 var _ RequestHandler = (*Request)(nil)
 
-func NewRequest(session *Session, payload ...[]byte) *Request {
-	if len(payload) > 1 {
-		log.Println("cannot accept more than one payload")
-		return nil
+func NewRequest(payloads ...[]byte) Request {
+	if len(payloads) > 1 {
+		panic("request cannot accept more than one payload")
 	}
-
-	wsReq := Request{
-		Session: session,
+	r := Request{}
+	if len(payloads) == 1 {
+		r.payload = payloads[0]
 	}
-	if len(payload) != 0 {
-		wsReq.Payload = payload[0]
-	}
-	return &wsReq
+	return r
 }
 
-func (r *Request) HandleCreateGame() mc.Message[mc.RespCreateGame] {
+func (r Request) HandleCreateGame(gm mb.GameManager, sessionId string) (*mb.Game, mb.Player, mc.Message[mc.RespCreateGame]) {
 	var reqCreateGame mc.Message[mc.ReqCreateGame]
-	resp := mc.NewMessage[mc.RespCreateGame](mc.CodeCreateGame)
+	respMsg := mc.NewMessage[mc.RespCreateGame](mc.CodeCreateGame)
 
-	if err := json.Unmarshal(r.Payload, &reqCreateGame); err != nil {
-		resp.AddError(err.Error(), cerr.ConstErrInvalidPayload)
-		return resp
+	if err := json.Unmarshal(r.payload, &reqCreateGame); err != nil {
+		respMsg.AddError(err.Error(), cerr.ConstErrInvalidPayload)
+		return nil, nil, respMsg
 	}
 
-	gameDifficulty := reqCreateGame.Payload.GameDifficulty
-	if !r.Session.GameManager.isDifficultyValid(gameDifficulty) {
-		resp.AddError(cerr.ErrInvalidGameDifficulty().Error(), "")
-		return resp
+	game, err := gm.CreateGame(reqCreateGame.Payload.GameDifficulty)
+	if err != nil {
+		respMsg.AddError(err.Error(), cerr.ConstErrCreateGame)
+		return nil, nil, respMsg
 	}
 
-	game := r.Session.GameManager.AddGame(gameDifficulty)
-	r.Session.GameUuid = game.Uuid
+	hostPlayer := game.CreateHostPlayer(sessionId)
 
-	hostPlayer := game.CreateHostPlayer(r.Session.ID)
-	r.Session.Player = hostPlayer
-
-	resp.AddPayload(mc.RespCreateGame{GameUuid: game.Uuid, HostUuid: hostPlayer.Uuid})
-	return resp
+	respMsg.AddPayload(mc.RespCreateGame{GameUuid: game.Uuid(), HostUuid: hostPlayer.Uuid()})
+	return game, hostPlayer, respMsg
 }
 
 // Join user sends the game uuid and if this game exists,
 // a new join player is created and added to the database
-func (r *Request) HandleJoinPlayer() (mc.Message[mc.RespJoinGame], *mb.Game) {
+func (r Request) HandleJoinPlayer(gm mb.GameManager, sessionId string) (*mb.Game, mb.Player, mc.Message[mc.RespJoinGame]) {
 	var joinGameReq mc.Message[mc.ReqJoinGame]
-	resp := mc.NewMessage[mc.RespJoinGame](mc.CodeJoinGame)
+	respMsg := mc.NewMessage[mc.RespJoinGame](mc.CodeJoinGame)
 
-	if err := json.Unmarshal(r.Payload, &joinGameReq); err != nil {
-		resp.AddError(err.Error(), cerr.ConstErrInvalidPayload)
-		return resp, nil
+	if err := json.Unmarshal(r.payload, &joinGameReq); err != nil {
+		respMsg.AddError(err.Error(), cerr.ConstErrInvalidPayload)
+		return nil, nil, respMsg
 	}
 
-	game, err := r.Session.GameManager.FindGame(joinGameReq.Payload.GameUuid)
+	game, err := gm.FetchGame(joinGameReq.Payload.GameUuid)
 	if err != nil {
-		resp.AddError(err.Error(), cerr.ConstErrJoin)
-		return resp, nil
+		respMsg.AddError(err.Error(), cerr.ConstErrJoin)
+		return nil, nil, respMsg
 	}
 
-	joinPlayer := game.CreateJoinPlayer(r.Session.ID)
+	joinPlayer := game.CreateJoinPlayer(sessionId)
 
-	r.Session.GameUuid = game.Uuid
-	r.Session.Player = joinPlayer
-
-	resp.AddPayload(mc.RespJoinGame{GameUuid: game.Uuid, PlayerUuid: joinPlayer.Uuid, GameDifficulty: game.Difficulty})
-	return resp, game
+	respMsg.AddPayload(mc.RespJoinGame{GameUuid: game.Uuid(), PlayerUuid: joinPlayer.Uuid(), GameDifficulty: game.Difficulty()})
+	return game, joinPlayer, respMsg
 }
 
 // User will choose the configurations of ships on defence grid.
 // Then the grid is sent to backend and adjustment happens accordingly.
-func (r *Request) HandleReadyPlayer() (mc.Message[mc.NoPayload], *mb.Game) {
+func (r Request) HandleReadyPlayer(bgm mb.GameManager, game *mb.Game, sessionPlayer mb.Player) mc.Message[mc.NoPayload] {
 	var readyPlayerReq mc.Message[mc.ReqReadyPlayer]
 	resp := mc.NewMessage[mc.NoPayload](mc.CodeReady)
 
-	if err := json.Unmarshal(r.Payload, &readyPlayerReq); err != nil {
+	if err := json.Unmarshal(r.payload, &readyPlayerReq); err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrInvalidPayload)
-		return resp, nil
-	}
-
-	game, err := r.Session.GameManager.FindGame(readyPlayerReq.Payload.GameUuid)
-	if err != nil {
-		resp.AddError(err.Error(), cerr.ConstErrReady)
-		return resp, nil
-	}
-
-	player, err := game.FindPlayer(readyPlayerReq.Payload.PlayerUuid)
-	if err != nil {
-		resp.AddError(err.Error(), cerr.ConstErrReady)
-		return resp, nil
+		return resp
 	}
 
 	// Check to see if rows and cols are equal to game's grid size
-	gameGridSize := game.GridSize
-	rows := len(readyPlayerReq.Payload.DefenceGrid)
-	if rows != gameGridSize {
-		resp.AddError(cerr.ErrDefenceGridRowsOutOfBounds(rows, game.GridSize).Error(), cerr.ConstErrReady)
-		return resp, nil
-	}
-	cols := len(readyPlayerReq.Payload.DefenceGrid[0])
-	if cols != gameGridSize {
-		resp.AddError(cerr.ErrDefenceGridColsOutOfBounds(cols, game.GridSize).Error(), cerr.ConstErrReady)
-		return resp, nil
+	if err := game.SetPlayerReadyForGame(sessionPlayer, readyPlayerReq.Payload.DefenceGrid); err != nil {
+		resp.AddError(err.Error(), cerr.ConstErrReady)
+		return resp
 	}
 
-	player.SetReady(readyPlayerReq.Payload.DefenceGrid)
-	return resp, game
+	return resp
 }
 
 // Handle the attack logic for the incoming request
-func (r *Request) HandleAttack() (mc.Message[mc.RespAttack], *mb.Player) {
+func (r Request) HandleAttack(game *mb.Game, attacker mb.Player, defender mb.Player, gm mb.GameManager) mc.Message[mc.RespAttack] {
 	var reqAttack mc.Message[mc.ReqAttack]
 	resp := mc.NewMessage[mc.RespAttack](mc.CodeAttack)
 
-	if err := json.Unmarshal(r.Payload, &reqAttack); err != nil {
+	if err := json.Unmarshal(r.payload, &reqAttack); err != nil {
 		resp.AddError(err.Error(), cerr.ConstErrInvalidPayload)
-		return resp, nil
-	}
-
-	game, attacker, err := r.Session.GameManager.FindGameAndPlayer(reqAttack.Payload.GameUuid, reqAttack.Payload.PlayerUuid)
-	if err != nil {
-		resp.AddError(err.Error(), cerr.ConstErrAttack)
-		return resp, nil
+		return resp
 	}
 
 	coordinates := mb.NewCoordinates(reqAttack.Payload.X, reqAttack.Payload.Y)
-	if !game.AreIncomingCoordinatesValid(coordinates) {
+	if !game.AreAttackCoordinatesValid(coordinates) {
 		resp.AddError(cerr.ErrXorYOutOfGridBound(coordinates.X, coordinates.Y).Error(), cerr.ConstErrAttack)
-		return resp, nil
+		return resp
 	}
 
 	// Attack validity check
-	if !attacker.IsTurn {
-		resp.AddError(cerr.ErrNotTurnForAttacker(attacker.Uuid).Error(), cerr.ConstErrAttack)
-		return resp, nil
+	if !attacker.IsTurn() {
+		resp.AddError(cerr.ErrNotTurnForAttacker(attacker.Uuid()).Error(), cerr.ConstErrAttack)
+		return resp
 	}
-	if attacker.DidAttackThisCoordinatesBefore(coordinates) {
+
+	if !attacker.IsAttackGridEmptyInCoordinates(coordinates) {
 		resp.AddError(cerr.ErrAttackPositionAlreadyFilled(coordinates.X, coordinates.Y).Error(), cerr.ConstErrAttack)
-		return resp, nil
+		return resp
 	}
 
-	// Idenitify the defender
-	defender := game.GetOtherPlayer(attacker)
-
-	if defender.AreCoordinatesAlreadyHit(coordinates) {
+	if defender.IsDefenceGridAlreadyHitInCoordinates(coordinates) {
 		resp.AddError(cerr.ErrDefenceGridPositionAlreadyHit(coordinates.X, coordinates.Y).Error(), cerr.ConstErrAttack)
-		return resp, defender
+		return resp
 	}
 
-	attacker.IsTurn = false
-	defender.IsTurn = true
+	attacker.SetTurnFalse()
+	defender.SetTurnTrue()
 
-	if defender.IsIncomingAttackMiss(coordinates) {
-		attacker.AttackGrid[coordinates.X][coordinates.Y] = mb.PositionStateAttackGridMiss
+	hostPlayer := game.HostPlayer()
+	joinPlayer := game.JoinPlayer()
+
+	if defender.IsAttackMiss(coordinates) {
+		attacker.SetAttackGridToMiss(coordinates)
+
 		resp.AddPayload(mc.RespAttack{
 			X:               coordinates.X,
 			Y:               coordinates.Y,
 			PositionState:   mb.PositionStateAttackGridMiss,
-			SunkenShipsHost: game.HostPlayer.SunkenShips,
-			SunkenShipsJoin: game.JoinPlayer.SunkenShips,
-			IsTurn:          attacker.IsTurn,
+			SunkenShipsHost: hostPlayer.SunkenShips(),
+			SunkenShipsJoin: joinPlayer.SunkenShips(),
+			IsTurn:          attacker.IsTurn(),
 		})
-		return resp, defender
+		return resp
 	}
 
-	shipCode := defender.DefenceGrid[coordinates.X][coordinates.Y]
-
-	defender.HitShip(shipCode, coordinates)
-	attacker.AttackGrid[coordinates.X][coordinates.Y] = mb.PositionStateAttackGridHit
+	shipCode := defender.ShipCode(coordinates)
+	defender.IncrementShipHit(shipCode, coordinates)
+	attacker.SetAttackGridToHit(coordinates)
 
 	// Initialize the response payload
 	resp.AddPayload(mc.RespAttack{
 		X:             coordinates.X,
 		Y:             coordinates.Y,
 		PositionState: mb.PositionStateAttackGridHit,
-		IsTurn:          attacker.IsTurn,
+		IsTurn:        attacker.IsTurn(),
 	})
 
 	// Check if the attack caused the ship to sink
 	if defender.IsShipSunken(shipCode) {
-		resp.Payload.DefenderSunkenShipsCoords = defender.Ships[shipCode].GetHitCoordinates()
+		defender.IncrementSunkenShips()
+		resp.Payload.DefenderSunkenShipsCoords = defender.ShipHitCoordinates(shipCode)
 
 		// Check if this sunken ship was the last one and the attacker is lost
-		if defender.IsLoser() {
-			defender.MatchStatus = mb.PlayerMatchStatusLost
-			attacker.MatchStatus = mb.PlayerMatchStatusWon
-			game.FinishGame()
+		if defender.AreAllShipsSunken() {
+			defender.SetMatchStatusToLost()
+			attacker.SetMatchStatusToWon()
 		}
 	}
 
-	resp.Payload.SunkenShipsHost = game.HostPlayer.SunkenShips
-	resp.Payload.SunkenShipsJoin = game.JoinPlayer.SunkenShips
-	return resp, defender
+	log.Println("attack complete")
+	resp.Payload.SunkenShipsHost = hostPlayer.SunkenShips()
+	resp.Payload.SunkenShipsJoin = joinPlayer.SunkenShips()
+	return resp
+}
+
+func (r Request) HandleCallRematch(bgm mb.GameManager, game *mb.Game) (mc.Message[mc.NoPayload], error) {
+	respMsg := mc.NewMessage[mc.NoPayload](mc.CodeRematchCall)
+
+	if game.IsRematchAlreadyCalled() {
+		return respMsg, cerr.ErrGameAleardyRecalled()
+	}
+
+	game.CallRematchForGame()
+	return respMsg, nil
+}
+
+func (r Request) HandleAcceptRematchCall(
+	bgm mb.GameManager,
+	game *mb.Game,
+	sessionPlayer, otherSessionPlayer mb.Player,
+) (mc.Message[mc.RespRematch], mc.Message[mc.RespRematch], error) {
+
+	if err := game.ResetRematchForGame(); err != nil {
+		return mc.NewMessage[mc.RespRematch](mc.CodeRematch), mc.NewMessage[mc.RespRematch](mc.CodeRematch), err
+	}
+
+	sessionPlayer.SetTurnFalse()
+	msgPlayer := mc.NewMessage[mc.RespRematch](mc.CodeRematch)
+	msgPlayer.AddPayload(mc.RespRematch{IsTurn: sessionPlayer.IsTurn()})
+
+	otherSessionPlayer.SetTurnTrue()
+	msgOtherPlayer := mc.NewMessage[mc.RespRematch](mc.CodeRematch)
+	msgOtherPlayer.AddPayload(mc.RespRematch{IsTurn: otherSessionPlayer.IsTurn()})
+
+	return msgPlayer, msgOtherPlayer, nil
 }

@@ -6,8 +6,12 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
-	// "github.com/saeidalz13/battleship-backend/db"
 	"github.com/saeidalz13/battleship-backend/api"
+	"github.com/saeidalz13/battleship-backend/db"
+	"github.com/saeidalz13/battleship-backend/db/sqlc"
+	mb "github.com/saeidalz13/battleship-backend/models/battleship"
+	mc "github.com/saeidalz13/battleship-backend/models/connection"
+	ms "github.com/saeidalz13/battleship-backend/models/server"
 )
 
 func main() {
@@ -17,20 +21,26 @@ func main() {
 		}
 	}
 	stage := os.Getenv("STAGE")
-	if stage != "dev" && stage != "prod" {
+	if stage != ms.DevStageCode && stage != ms.ProdStageCode {
 		panic("stage must be either dev or prod")
 	}
+
 	port := os.Getenv("PORT")
-	// psqlUrl := os.Getenv("DATABASE_URL")
-	// DB = db.MustConnectToDb(psqlUrl)
+	psqlUrl := os.Getenv("DATABASE_URL")
 
-	server := api.NewServer(api.WithPort(port), api.WithStage(stage))
+	psqlDb := db.MustConnectToDb(psqlUrl)
 
-	go server.SessionManager.ManageCommunication()
-	go server.SessionManager.CleanUpPeriodically()
+	querier := sqlc.New(psqlDb)
+
+	bsm := mc.NewBattleshipSessionManager()
+	go bsm.CleanupPeriodically()
+
+	bgm := mb.NewBattleshipGameManager()
+
+	requestProcessor := api.NewRequestProcessor(bsm, bgm, querier)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /battleship", server.HandleWs)
+	mux.Handle("GET /battleship", requestProcessor)
 
 	log.Printf("Listening to port %s\n", port)
 	log.Fatalln(http.ListenAndServe("0.0.0.0:"+port, mux))
