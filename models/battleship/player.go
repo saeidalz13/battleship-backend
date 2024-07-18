@@ -10,12 +10,6 @@ const (
 	PlayerMatchStatusWon
 )
 
-const (
-	PositionStateAttackGridEmpty uint8 = iota
-	PositionStateAttackGridMiss
-	PositionStateAttackGridHit
-)
-
 type Player interface {
 	SessionId() string
 	Uuid() string

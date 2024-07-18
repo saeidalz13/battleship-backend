@@ -1,14 +1,6 @@
 package battleship
 
 const (
-	PositionStateDefenceGridEmpty uint8 = iota
-	PositionStateDefenceGridHit
-	PositionStateDefenceDestroyer
-	PositionStateDefenceCruiser
-	PositionStateDefenceBattleship
-)
-
-const (
 	sunkenShipsToLose uint8 = 3
 )
 

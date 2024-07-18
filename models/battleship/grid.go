@@ -1,5 +1,19 @@
 package battleship
 
+const (
+	PositionStateAttackGridEmpty uint8 = iota
+	PositionStateAttackGridMiss
+	PositionStateAttackGridHit
+)
+
+const (
+	PositionStateDefenceGridEmpty uint8 = iota
+	PositionStateDefenceGridHit
+	PositionStateDefenceDestroyer
+	PositionStateDefenceCruiser
+	PositionStateDefenceBattleship
+)
+
 type Coordinates struct {
 	X uint8 `json:"x"`
 	Y uint8 `json:"y"`
