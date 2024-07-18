@@ -24,14 +24,14 @@ const (
 )
 
 var (
-	HostConn       *websocket.Conn
-	JoinConn       *websocket.Conn
-	testGame       *mb.Game
-	testGameUuid   string
+	hostConn       *websocket.Conn
+	joinConn       *websocket.Conn
+
 	testHostPlayer *mb.BattleshipPlayer
 	testJoinPlayer *mb.BattleshipPlayer
-	HostSessionID  string
-	JoinSessionID  string
+	
+	hostSessionID  string
+	joinSessionID  string
 	testRp         api.RequestProcessor
 	dialer         = websocket.Dialer{
 		HandshakeTimeout: 10 * time.Second,
@@ -87,26 +87,26 @@ func TestMain(m *testing.M) {
 		log.Println(err)
 		os.Exit(1)
 	}
-	HostConn = c
+	hostConn = c
 
 	// Read host session ID
 	var respSessionId mc.Message[mc.RespSessionId]
-	_ = HostConn.ReadJSON(&respSessionId)
-	HostSessionID = respSessionId.Payload.SessionID
+	_ = hostConn.ReadJSON(&respSessionId)
+	hostSessionID = respSessionId.Payload.SessionID
 
 	c2, _, err := dialer.Dial(testWsUrl, nil)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
 	}
-	JoinConn = c2
+	joinConn = c2
 
 	// Read Join sessoin ID
-	_ = JoinConn.ReadJSON(&respSessionId)
-	JoinSessionID = respSessionId.Payload.SessionID
+	_ = joinConn.ReadJSON(&respSessionId)
+	joinSessionID = respSessionId.Payload.SessionID
 
-	log.Println("Host session ID:", HostSessionID)
-	log.Println("Join session ID:", JoinSessionID)
-	log.Printf("host: %s\tjoin: %s", HostConn.LocalAddr().String(), JoinConn.LocalAddr().String())
+	log.Println("Host session ID:", hostSessionID)
+	log.Println("Join session ID:", joinSessionID)
+	log.Printf("host: %s\tjoin: %s", hostConn.LocalAddr().String(), joinConn.LocalAddr().String())
 	os.Exit(m.Run())
 }

@@ -24,6 +24,7 @@ migrate_down:
 test:
 	go test -v ./test -count=1
 
+
 # Fly
 # Log
 flogs_prod:
@@ -32,16 +33,16 @@ flogs_prod:
 flogs_staging:
 	fly logs -a battleship-go-ios-staging
 
-
+# Deploy
 depstage:
 	fly deploy --app battleship-go-ios-staging --dockerfile Dockerfile.staging
 
+# Console
 flyconsole:
 	fly console --app $(APP)
-## With games with titles -> like 10 wins => captain
 
 flypdb:
-#   Connect to production db
+# Connect to production db
 	fly pg connect -a battleship-db
 
 # Websocket
