@@ -121,15 +121,14 @@ func (bsm *BattleshipSessionManager) CleanupPeriodically() {
 func (bsm *BattleshipSessionManager) HandleAbnormalClosureSession(s *Session, otherSessionId string) error {
 	// Absence of otherPlayer session means this game is invalid
 	otherSession, err := bsm.FindSession(otherSessionId)
-	if err != nil {
-		return NewConnErr(ConnLoopBreak).AddDesc("other session is nil; invalid session")
+	if err == nil {
+		// return NewConnErr(ConnLoopBreak).AddDesc("other session is nil; invalid session")
+		if err := otherSession.writeToConnWithRetry(NewMessage[NoPayload](CodeOtherPlayerGracePeriod), MessageTypeJSON); err != nil {
+			return err
+		}
 	}
 
 	// If the other session connection is faulty too, there is no need to continue
-	if err := otherSession.writeToConnWithRetry(NewMessage[NoPayload](CodeOtherPlayerGracePeriod), MessageTypeJSON); err != nil {
-		return err
-	}
-
 	timer := time.NewTimer(gracePeriod)
 	select {
 	case <-timer.C:
