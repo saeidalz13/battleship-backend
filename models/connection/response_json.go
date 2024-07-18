@@ -26,6 +26,10 @@ type RespAttack struct {
 	DefenderSunkenShipsCoords []mb.Coordinates `json:"defender_sunken_ships_coords,omitempty"`
 }
 
+type RespReady struct {
+	MinePosition mb.Coordinates `json:"mine_position"`
+}
+
 type RespSessionId struct {
 	SessionID string `json:"session_id"`
 }

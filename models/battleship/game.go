@@ -144,3 +144,7 @@ func (g *Game) SetPlayerReadyForGame(player Player, selectedGrid Grid) error {
 
 	return nil
 }
+
+func (g *Game) IsModeMine() bool {
+	return g.mode == GameModeMine
+}

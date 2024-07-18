@@ -1,6 +1,8 @@
 package battleship
 
 import (
+	"math/rand"
+
 	"github.com/google/uuid"
 )
 
@@ -48,6 +50,7 @@ type Player interface {
 	IsTurn() bool
 
 	DidAttackerHitMine(coordinates Coordinates) bool
+	PlantMineInDefenceGrid() Coordinates
 }
 
 type BattleshipPlayer struct {
@@ -196,6 +199,25 @@ func (bp *BattleshipPlayer) IsReady() bool {
 
 func (bp *BattleshipPlayer) SunkenShips() uint8 {
 	return bp.sunkenShips
+}
+
+func (bp *BattleshipPlayer) PlantMineInDefenceGrid() Coordinates {
+	rand.New(rand.NewSource(0))
+
+	emptyCoordinates := make([]Coordinates, len(bp.defenceGrid))
+	for x := range bp.defenceGrid {
+		for y := range bp.defenceGrid {
+			if bp.defenceGrid[x][y] == PositionStateDefenceGridEmpty {
+				emptyCoordinates = append(emptyCoordinates, NewCoordinates(uint8(x), uint8(y)))
+			}
+		}
+	}
+
+	// rmp stands for random mine position
+	rmp := emptyCoordinates[rand.Intn(len(emptyCoordinates))]
+	bp.defenceGrid[rmp.X][rmp.Y] = PositionStateMine
+
+	return rmp
 }
 
 var _ Player = (*BattleshipPlayer)(nil)
