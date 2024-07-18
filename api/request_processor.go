@@ -279,7 +279,6 @@ sessionLoop:
 			if err := rp.sessionManager.Communicate(sessionId, receiverSessionId, respMsg, mc.MessageTypeJSON); err != nil {
 				break sessionLoop
 			}
-			log.Println("attack resp sent to other")
 
 			if sessionPlayer.IsWinner() {
 				respAttacker := mc.NewMessage[mc.RespEndGame](mc.CodeEndGame)

@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"log"
 
 	cerr "github.com/saeidalz13/battleship-backend/internal/error"
 	mb "github.com/saeidalz13/battleship-backend/models/battleship"
@@ -178,7 +177,6 @@ func (r Request) HandleAttack(game *mb.Game, attacker mb.Player, defender mb.Pla
 		}
 	}
 
-	log.Println("attack complete")
 	resp.Payload.SunkenShipsHost = hostPlayer.SunkenShips()
 	resp.Payload.SunkenShipsJoin = joinPlayer.SunkenShips()
 	return resp
