@@ -70,6 +70,7 @@ func TestCreateGame(t *testing.T) {
 			expectedCode: mc.CodeCreateGame,
 			reqPayload: mc.Message[mc.ReqCreateGame]{Code: mc.CodeCreateGame, Payload: mc.ReqCreateGame{
 				GameDifficulty: mb.GameDifficultyEasy,
+				GameMode:       mb.GameModeDefault,
 			}},
 			respPayload: mc.NewMessage[mc.RespCreateGame](mc.CodeCreateGame),
 			conn:        HostConn,
