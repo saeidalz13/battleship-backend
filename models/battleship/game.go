@@ -13,6 +13,11 @@ const (
 )
 
 const (
+	GameModeDefault uint8 = iota
+	GameModeMine
+)
+
+const (
 	GridSizeEasy   uint8 = 6
 	GridSizeNormal uint8 = 7
 	GridSizeHard   uint8 = 8
@@ -21,20 +26,22 @@ const (
 )
 
 type Game struct {
-	uuid                    string
-	hostPlayer              *BattleshipPlayer
-	joinPlayer              *BattleshipPlayer
 	difficulty              uint8
 	gridSize                uint8
 	validUpperBound         uint8
+	mode                    uint8
 	rematchAlreadyRequested bool
+	uuid                    string
+	hostPlayer              *BattleshipPlayer
+	joinPlayer              *BattleshipPlayer
 	mu                      sync.Mutex
 }
 
-func newGame(difficulty uint8, uuid string) *Game {
+func newGame(difficulty uint8, mode uint8, uuid string) *Game {
 	game := &Game{
 		uuid:       uuid,
 		difficulty: difficulty,
+		mode:       mode,
 	}
 
 	var newGridSize uint8
@@ -54,6 +61,10 @@ func newGame(difficulty uint8, uuid string) *Game {
 
 func (g *Game) Uuid() string {
 	return g.uuid
+}
+
+func (g *Game) Mode() uint8 {
+	return g.mode
 }
 
 func (g *Game) CreateHostPlayer(sessionId string) *BattleshipPlayer {

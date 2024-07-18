@@ -38,15 +38,15 @@ func NewRequest(payloads ...[]byte) Request {
 }
 
 func (r Request) HandleCreateGame(gm mb.GameManager, sessionId string) (*mb.Game, mb.Player, mc.Message[mc.RespCreateGame]) {
-	var reqCreateGame mc.Message[mc.ReqCreateGame]
+	var req mc.Message[mc.ReqCreateGame]
 	respMsg := mc.NewMessage[mc.RespCreateGame](mc.CodeCreateGame)
 
-	if err := json.Unmarshal(r.payload, &reqCreateGame); err != nil {
+	if err := json.Unmarshal(r.payload, &req); err != nil {
 		respMsg.AddError(err.Error(), cerr.ConstErrInvalidPayload)
 		return nil, nil, respMsg
 	}
 
-	game, err := gm.CreateGame(reqCreateGame.Payload.GameDifficulty)
+	game, err := gm.CreateGame(req.Payload.GameDifficulty, req.Payload.GameMode)
 	if err != nil {
 		respMsg.AddError(err.Error(), cerr.ConstErrCreateGame)
 		return nil, nil, respMsg
@@ -77,7 +77,12 @@ func (r Request) HandleJoinPlayer(gm mb.GameManager, sessionId string) (*mb.Game
 
 	joinPlayer := game.CreateJoinPlayer(sessionId)
 
-	respMsg.AddPayload(mc.RespJoinGame{GameUuid: game.Uuid(), PlayerUuid: joinPlayer.Uuid(), GameDifficulty: game.Difficulty()})
+	respMsg.AddPayload(mc.RespJoinGame{
+		GameUuid:       game.Uuid(),
+		PlayerUuid:     joinPlayer.Uuid(),
+		GameDifficulty: game.Difficulty(),
+		GameMode:       game.Mode(),
+	})
 	return game, joinPlayer, respMsg
 }
 

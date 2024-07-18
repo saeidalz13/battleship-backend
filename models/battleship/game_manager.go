@@ -8,11 +8,12 @@ import (
 )
 
 type GameManager interface {
-	CreateGame(difficulty uint8) (*Game, error)
+	CreateGame(difficulty, mode uint8) (*Game, error)
 	FetchGame(gameUuid string) (*Game, error)
 	TerminateGame(gameUuid string)
 
 	isDifficultyValid(uint8) bool
+	isModeValid(uint8) bool
 }
 
 type BattleshipGameManager struct {
@@ -27,13 +28,17 @@ func NewBattleshipGameManager() *BattleshipGameManager {
 		games: make(map[string]*Game, 10),
 	}
 }
-func (bgm *BattleshipGameManager) CreateGame(difficulty uint8) (*Game, error) {
+func (bgm *BattleshipGameManager) CreateGame(difficulty, mode uint8) (*Game, error) {
 	if !bgm.isDifficultyValid(difficulty) {
-		return nil, cerr.ErrInvalidGameDifficulty()
+		return nil, cerr.ErrInvalidGameDifficulty(difficulty)
+	}
+
+	if !bgm.isModeValid(mode) {
+		return nil, cerr.ErrInvalidGameMode(mode)
 	}
 
 	gameUuid := uuid.NewString()[:6]
-	bgm.games[gameUuid] = newGame(difficulty, gameUuid)
+	bgm.games[gameUuid] = newGame(difficulty, mode, gameUuid)
 
 	return bgm.games[gameUuid], nil
 }
@@ -58,4 +63,8 @@ func (bgm *BattleshipGameManager) TerminateGame(gameUuid string) {
 
 func (bgm *BattleshipGameManager) isDifficultyValid(difficulty uint8) bool {
 	return !(difficulty != GameDifficultyEasy && difficulty != GameDifficultyNormal && difficulty != GameDifficultyHard)
+}
+
+func (bgm *BattleshipGameManager) isModeValid(mode uint8) bool {
+	return mode == GameModeDefault || mode == GameModeMine
 }

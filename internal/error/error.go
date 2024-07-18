@@ -48,8 +48,12 @@ func ErrValueNotGridInt() error {
 
 // Game Errors
 
-func ErrInvalidGameDifficulty() error {
-	return fmt.Errorf("invalid difficulty")
+func ErrInvalidGameDifficulty(difficulty uint8) error {
+	return fmt.Errorf("invalid difficulty: %d", difficulty)
+}
+
+func ErrInvalidGameMode(mode uint8) error {
+	return fmt.Errorf("invalid game mode: %d", mode)
 }
 
 func ErrGameAleardyRecalled() error {
