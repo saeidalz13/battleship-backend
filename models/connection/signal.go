@@ -28,6 +28,9 @@ const (
 	CodeRematchCallAccepted
 	CodeRematchCallRejected
 	CodeRematch
+
+	// Players can send template texts and emojis to each other
+	CodePlayerInteraction
 )
 
 type Signal struct {
