@@ -40,6 +40,10 @@ flyconsole:
 	fly console --app $(APP)
 ## With games with titles -> like 10 wins => captain
 
+flypdb:
+#   Connect to production db
+	fly pg connect -a battleship-db
+
 # Websocket
 fly ws_staging:
 	websocat wss://battleship-go-ios-staging.fly.dev/battleship
