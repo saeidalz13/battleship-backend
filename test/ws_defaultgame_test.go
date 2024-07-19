@@ -33,21 +33,21 @@ type Test[T, K any] struct {
 	otherConn *websocket.Conn // Used for attack when we need to know defender
 }
 
-func TestInvalidCode(t *testing.T) {
+func TestInvalidCodDefault(t *testing.T) {
 	tests := []Test[mc.Message[mc.NoPayload], mc.Message[mc.NoPayload]]{
 		{
 			name:         "random invalid code host",
 			expectedCode: mc.CodeInvalidSignal,
 			reqPayload:   mc.NewMessage[mc.NoPayload](255),
 			respPayload:  mc.NewMessage[mc.NoPayload](mc.CodeInvalidSignal),
-			conn:         hostConn,
+			conn:         hostClientConn,
 		},
 		{
 			name:         "random invalid code join",
 			expectedCode: mc.CodeInvalidSignal,
 			reqPayload:   mc.NewMessage[mc.NoPayload](200),
 			respPayload:  mc.NewMessage[mc.NoPayload](mc.CodeInvalidSignal),
-			conn:         joinConn,
+			conn:         joinClientConn,
 		},
 	}
 
@@ -68,7 +68,7 @@ func TestInvalidCode(t *testing.T) {
 	}
 }
 
-func TestCreateGame(t *testing.T) {
+func TestCreateGameDefault(t *testing.T) {
 	tests := []Test[mc.Message[mc.ReqCreateGame], mc.Message[mc.RespCreateGame]]{
 		{
 			name:         "create default game code",
@@ -78,7 +78,7 @@ func TestCreateGame(t *testing.T) {
 				GameMode:       mb.GameModeDefault,
 			}},
 			respPayload: mc.NewMessage[mc.RespCreateGame](mc.CodeCreateGame),
-			conn:        hostConn,
+			conn:        hostClientConn,
 		},
 	}
 
@@ -135,14 +135,14 @@ func TestCreateGame(t *testing.T) {
 	}
 }
 
-func TestJoinPlayer(t *testing.T) {
+func TestJoinPlayerDefault(t *testing.T) {
 	tests := []Test[mc.Message[mc.ReqJoinGame], mc.Message[mc.RespJoinGame]]{
 		{
 			name:         "valid game uuid",
 			expectedCode: mc.CodeJoinGame,
 			reqPayload:   mc.Message[mc.ReqJoinGame]{Code: mc.CodeJoinGame, Payload: mc.ReqJoinGame{GameUuid: testGameUuid}},
 			respPayload:  mc.NewMessage[mc.RespJoinGame](mc.CodeJoinGame),
-			conn:         joinConn,
+			conn:         joinClientConn,
 		},
 		// Any invalid join request will close the connection
 		// {
@@ -176,7 +176,7 @@ func TestJoinPlayer(t *testing.T) {
 				// we have to read it so it frees up the queue for the next steps of host read
 				// when join player is added, a select grid code is sent to both players
 				var respSelectGridJoin mc.Message[mc.NoPayload]
-				if err := joinConn.ReadJSON(&respSelectGridJoin); err != nil {
+				if err := joinClientConn.ReadJSON(&respSelectGridJoin); err != nil {
 					t.Fatal(err)
 				}
 				if respSelectGridJoin.Error != nil {
@@ -184,7 +184,7 @@ func TestJoinPlayer(t *testing.T) {
 				}
 
 				var respSelectGridHost mc.Message[mc.NoPayload]
-				if err := hostConn.ReadJSON(&respSelectGridHost); err != nil {
+				if err := hostClientConn.ReadJSON(&respSelectGridHost); err != nil {
 					t.Fatal(err)
 				}
 				if respSelectGridHost.Error != nil {
@@ -196,25 +196,7 @@ func TestJoinPlayer(t *testing.T) {
 	}
 }
 
-func TestReadyGame(t *testing.T) {
-	defenceGridHost := mb.Grid{
-		{0, mb.PositionStateDefenceDestroyer, mb.PositionStateDefenceDestroyer, 0, 0, 0},
-		{mb.PositionStateDefenceCruiser, 0, 0, mb.PositionStateDefenceBattleship, 0, 0},
-		{mb.PositionStateDefenceCruiser, 0, 0, mb.PositionStateDefenceBattleship, 0, 0},
-		{mb.PositionStateDefenceCruiser, 0, 0, mb.PositionStateDefenceBattleship, 0, 0},
-		{0, 0, 0, mb.PositionStateDefenceBattleship, 0, 0},
-		{0, 0, 0, 0, 0, 0},
-	}
-
-	defenceGridJoin := mb.Grid{
-		{0, mb.PositionStateDefenceDestroyer, mb.PositionStateDefenceDestroyer, 0, 0, 0},
-		{mb.PositionStateDefenceCruiser, 0, 0, 0, mb.PositionStateDefenceBattleship, 0},
-		{mb.PositionStateDefenceCruiser, 0, 0, 0, mb.PositionStateDefenceBattleship, 0},
-		{mb.PositionStateDefenceCruiser, 0, 0, 0, mb.PositionStateDefenceBattleship, 0},
-		{0, 0, 0, 0, mb.PositionStateDefenceBattleship, 0},
-		{0, 0, 0, 0, 0, 0},
-	}
-
+func TestReadyGameDefault(t *testing.T) {
 	tests := []Test[mc.Message[mc.ReqReadyPlayer], mc.Message[mc.RespReady]]{
 		{
 			name:         "set defence grid ready host",
@@ -228,7 +210,7 @@ func TestReadyGame(t *testing.T) {
 				},
 			},
 			respPayload: mc.Message[mc.RespReady]{},
-			conn:        hostConn,
+			conn:        hostClientConn,
 		},
 		{
 			name:         "set defence grid ready join",
@@ -242,7 +224,7 @@ func TestReadyGame(t *testing.T) {
 				},
 			},
 			respPayload: mc.Message[mc.RespReady]{},
-			conn:        joinConn,
+			conn:        joinClientConn,
 		},
 	}
 
@@ -273,13 +255,13 @@ func TestReadyGame(t *testing.T) {
 
 				// Host
 				var respStartGameHost mc.Message[mc.NoPayload]
-				if err := hostConn.ReadJSON(&respStartGameHost); err != nil {
+				if err := hostClientConn.ReadJSON(&respStartGameHost); err != nil {
 					t.Fatal(err)
 				}
 
 				// Join
 				var respStartGameJoin mc.Message[mc.NoPayload]
-				if err := joinConn.ReadJSON(&respStartGameJoin); err != nil {
+				if err := joinClientConn.ReadJSON(&respStartGameJoin); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -287,7 +269,7 @@ func TestReadyGame(t *testing.T) {
 	}
 }
 
-func TestPlayerInteraction(t *testing.T) {
+func TestPlayerInteractionDefault(t *testing.T) {
 	msg := mc.NewMessage[mc.PlayerInteraction](mc.CodePlayerInteraction)
 	msg.AddPayload(mc.PlayerInteraction{Content: "salam!"})
 
@@ -297,16 +279,16 @@ func TestPlayerInteraction(t *testing.T) {
 			expectedCode: mc.CodePlayerInteraction,
 			reqPayload:   msg,
 			respPayload:  mc.Message[mc.PlayerInteraction]{},
-			conn:         hostConn,
-			otherConn:    joinConn,
+			conn:         hostClientConn,
+			otherConn:    joinClientConn,
 		},
 		{
 			name:         "successful msg join to host",
 			expectedCode: mc.CodePlayerInteraction,
 			reqPayload:   msg,
 			respPayload:  mc.Message[mc.PlayerInteraction]{},
-			conn:         joinConn,
-			otherConn:    hostConn,
+			conn:         joinClientConn,
+			otherConn:    hostClientConn,
 		},
 	}
 
@@ -333,7 +315,7 @@ func TestPlayerInteraction(t *testing.T) {
 	}
 }
 
-func TestAttack(t *testing.T) {
+func TestAttackDefault(t *testing.T) {
 	tests := []Test[mc.Message[mc.ReqAttack], mc.Message[mc.RespAttack]]{
 		{
 			name:         "successful hit attack destroyer valid payload host 1",
@@ -353,8 +335,8 @@ func TestAttack(t *testing.T) {
 				SunkenShipsHost: 0,
 				SunkenShipsJoin: 0,
 			}},
-			conn:      hostConn,
-			otherConn: joinConn,
+			conn:      hostClientConn,
+			otherConn: joinClientConn,
 		},
 
 		{
@@ -375,8 +357,8 @@ func TestAttack(t *testing.T) {
 				SunkenShipsHost: 0,
 				SunkenShipsJoin: 0,
 			}},
-			conn:      joinConn,
-			otherConn: hostConn,
+			conn:      joinClientConn,
+			otherConn: hostClientConn,
 		},
 
 		{
@@ -401,8 +383,8 @@ func TestAttack(t *testing.T) {
 					{X: 0, Y: 2},
 				},
 			}},
-			conn:      hostConn,
-			otherConn: joinConn,
+			conn:      hostClientConn,
+			otherConn: joinClientConn,
 		},
 
 		{
@@ -423,8 +405,8 @@ func TestAttack(t *testing.T) {
 				SunkenShipsHost: 0,
 				SunkenShipsJoin: 1,
 			}},
-			conn:      joinConn,
-			otherConn: hostConn,
+			conn:      joinClientConn,
+			otherConn: hostClientConn,
 		},
 
 		{
@@ -439,8 +421,8 @@ func TestAttack(t *testing.T) {
 			}},
 			respPayload:         mc.Message[mc.RespAttack]{},
 			expectedRespPayload: mc.Message[mc.RespAttack]{Code: mc.CodeAttack},
-			conn:                joinConn,
-			otherConn:           hostConn,
+			conn:                joinClientConn,
+			otherConn:           hostClientConn,
 		},
 
 		{
@@ -455,8 +437,8 @@ func TestAttack(t *testing.T) {
 			}},
 			respPayload:         mc.Message[mc.RespAttack]{},
 			expectedRespPayload: mc.Message[mc.RespAttack]{Code: mc.CodeAttack},
-			conn:                hostConn,
-			otherConn:           joinConn,
+			conn:                hostClientConn,
+			otherConn:           joinClientConn,
 		},
 
 		{
@@ -471,8 +453,8 @@ func TestAttack(t *testing.T) {
 			}},
 			respPayload:         mc.Message[mc.RespAttack]{},
 			expectedRespPayload: mc.Message[mc.RespAttack]{Code: mc.CodeAttack},
-			conn:                hostConn,
-			otherConn:           joinConn,
+			conn:                hostClientConn,
+			otherConn:           joinClientConn,
 		},
 
 		{
@@ -487,8 +469,8 @@ func TestAttack(t *testing.T) {
 			}},
 			respPayload:         mc.Message[mc.RespAttack]{},
 			expectedRespPayload: mc.Message[mc.RespAttack]{Code: mc.CodeAttack},
-			conn:                hostConn,
-			otherConn:           joinConn,
+			conn:                hostClientConn,
+			otherConn:           joinClientConn,
 		},
 
 		/*
@@ -512,8 +494,8 @@ func TestAttack(t *testing.T) {
 				SunkenShipsHost: 0,
 				SunkenShipsJoin: 1,
 			}},
-			conn:      hostConn,
-			otherConn: joinConn,
+			conn:      hostClientConn,
+			otherConn: joinClientConn,
 		},
 		{
 			name:         "successful miss attack valid payload join",
@@ -533,8 +515,8 @@ func TestAttack(t *testing.T) {
 				SunkenShipsHost: 0,
 				SunkenShipsJoin: 1,
 			}},
-			conn:      joinConn,
-			otherConn: hostConn,
+			conn:      joinClientConn,
+			otherConn: hostClientConn,
 		},
 
 		{
@@ -555,8 +537,8 @@ func TestAttack(t *testing.T) {
 				SunkenShipsHost: 0,
 				SunkenShipsJoin: 1,
 			}},
-			conn:      hostConn,
-			otherConn: joinConn,
+			conn:      hostClientConn,
+			otherConn: joinClientConn,
 		},
 		{
 			name:         "successful miss attack valid payload join",
@@ -576,8 +558,8 @@ func TestAttack(t *testing.T) {
 				SunkenShipsHost: 0,
 				SunkenShipsJoin: 1,
 			}},
-			conn:      joinConn,
-			otherConn: hostConn,
+			conn:      joinClientConn,
+			otherConn: hostClientConn,
 		},
 
 		{
@@ -603,8 +585,8 @@ func TestAttack(t *testing.T) {
 					{X: 3, Y: 0},
 				},
 			}},
-			conn:      hostConn,
-			otherConn: joinConn,
+			conn:      hostClientConn,
+			otherConn: joinClientConn,
 		},
 		{
 			name:         "successful miss attack valid payload join",
@@ -624,8 +606,8 @@ func TestAttack(t *testing.T) {
 				SunkenShipsHost: 0,
 				SunkenShipsJoin: 2,
 			}},
-			conn:      joinConn,
-			otherConn: hostConn,
+			conn:      joinClientConn,
+			otherConn: hostClientConn,
 		},
 
 		/*
@@ -649,8 +631,8 @@ func TestAttack(t *testing.T) {
 				SunkenShipsHost: 0,
 				SunkenShipsJoin: 2,
 			}},
-			conn:      hostConn,
-			otherConn: joinConn,
+			conn:      hostClientConn,
+			otherConn: joinClientConn,
 		},
 		{
 			name:         "successful miss attack valid payload join",
@@ -670,8 +652,8 @@ func TestAttack(t *testing.T) {
 				SunkenShipsHost: 0,
 				SunkenShipsJoin: 2,
 			}},
-			conn:      joinConn,
-			otherConn: hostConn,
+			conn:      joinClientConn,
+			otherConn: hostClientConn,
 		},
 
 		{
@@ -692,8 +674,8 @@ func TestAttack(t *testing.T) {
 				SunkenShipsHost: 0,
 				SunkenShipsJoin: 2,
 			}},
-			conn:      hostConn,
-			otherConn: joinConn,
+			conn:      hostClientConn,
+			otherConn: joinClientConn,
 		},
 		{
 			name:         "successful miss attack valid payload join",
@@ -713,8 +695,8 @@ func TestAttack(t *testing.T) {
 				SunkenShipsHost: 0,
 				SunkenShipsJoin: 2,
 			}},
-			conn:      joinConn,
-			otherConn: hostConn,
+			conn:      joinClientConn,
+			otherConn: hostClientConn,
 		},
 
 		{
@@ -735,8 +717,8 @@ func TestAttack(t *testing.T) {
 				SunkenShipsHost: 0,
 				SunkenShipsJoin: 2,
 			}},
-			conn:      hostConn,
-			otherConn: joinConn,
+			conn:      hostClientConn,
+			otherConn: joinClientConn,
 		},
 		{
 			name:         "successful miss attack valid payload join",
@@ -756,8 +738,8 @@ func TestAttack(t *testing.T) {
 				SunkenShipsHost: 0,
 				SunkenShipsJoin: 2,
 			}},
-			conn:      joinConn,
-			otherConn: hostConn,
+			conn:      joinClientConn,
+			otherConn: hostClientConn,
 		},
 
 		// Final attack that sinks the last ship
@@ -785,8 +767,8 @@ func TestAttack(t *testing.T) {
 					{X: 4, Y: 4},
 				},
 			}},
-			conn:      hostConn,
-			otherConn: joinConn,
+			conn:      hostClientConn,
+			otherConn: joinClientConn,
 		},
 	}
 
@@ -826,10 +808,10 @@ func TestAttack(t *testing.T) {
 				if test.name == "final hit attack valid battleship payload host 4 and sunk battleship" {
 					// When the game ends, both players receive this message
 					var endGameResp mc.Message[mc.RespEndGame]
-					if err := hostConn.ReadJSON(&endGameResp); err != nil {
+					if err := hostClientConn.ReadJSON(&endGameResp); err != nil {
 						t.Fatal(err)
 					}
-					if err := joinConn.ReadJSON(&endGameResp); err != nil {
+					if err := joinClientConn.ReadJSON(&endGameResp); err != nil {
 						t.Fatal(err)
 					}
 				}
@@ -838,10 +820,10 @@ func TestAttack(t *testing.T) {
 	}
 }
 
-func TestRematchAcceptance(t *testing.T) {
+func TestRematchAcceptanceDefault(t *testing.T) {
 	// Host client sends a rematch call
 	msg := mc.NewMessage[mc.NoPayload](mc.CodeRematchCall)
-	if err := hostConn.WriteJSON(msg); err != nil {
+	if err := hostClientConn.WriteJSON(msg); err != nil {
 		t.Fatal(err)
 	}
 
@@ -867,24 +849,24 @@ func TestRematchAcceptance(t *testing.T) {
 
 	// Join client receives this rematch call
 	var rematchCall mc.Message[mc.NoPayload]
-	if err := joinConn.ReadJSON(&rematchCall); err != nil {
+	if err := joinClientConn.ReadJSON(&rematchCall); err != nil {
 		t.Fatal(err)
 	}
 
 	// Join client sends this msg to server
 	msg = mc.NewMessage[mc.NoPayload](mc.CodeRematchCallAccepted)
-	if err := joinConn.WriteJSON(msg); err != nil {
+	if err := joinClientConn.WriteJSON(msg); err != nil {
 		t.Fatal(err)
 	}
 
 	// Host client reads this rematch response including their turn
 	var rematchHost mc.Message[mc.RespRematch]
-	if err := hostConn.ReadJSON(&rematchHost); err != nil {
+	if err := hostClientConn.ReadJSON(&rematchHost); err != nil {
 		t.Fatal(err)
 	}
 	// Join client reads this rematch response including their turn
 	var rematchJoin mc.Message[mc.RespRematch]
-	if err := joinConn.ReadJSON(&rematchJoin); err != nil {
+	if err := joinClientConn.ReadJSON(&rematchJoin); err != nil {
 		t.Fatal(err)
 	}
 
@@ -913,27 +895,27 @@ func TestRematchAcceptance(t *testing.T) {
 	// }
 }
 
-func TestRematchRejection(t *testing.T) {
+func TestRematchRejectionDefault(t *testing.T) {
 	// Host client sends a rematch call
 	msg := mc.NewMessage[mc.NoPayload](mc.CodeRematchCall)
-	if err := hostConn.WriteJSON(msg); err != nil {
+	if err := hostClientConn.WriteJSON(msg); err != nil {
 		t.Fatal(err)
 	}
 
 	// Join client receives this call and responds with no
 	var rematchCall mc.Message[mc.NoPayload]
-	if err := joinConn.ReadJSON(&rematchCall); err != nil {
+	if err := joinClientConn.ReadJSON(&rematchCall); err != nil {
 		t.Fatal(err)
 	}
 
 	msg = mc.NewMessage[mc.NoPayload](mc.CodeRematchCallRejected)
-	if err := joinConn.WriteJSON(msg); err != nil {
+	if err := joinClientConn.WriteJSON(msg); err != nil {
 		t.Fatal(err)
 	}
 
 	// Host client reads this acceptance
 	var rematchCallRejected mc.Message[mc.NoPayload]
-	if err := hostConn.ReadJSON(&rematchCallRejected); err != nil {
+	if err := hostClientConn.ReadJSON(&rematchCallRejected); err != nil {
 		t.Fatal(err)
 	}
 

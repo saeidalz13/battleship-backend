@@ -22,8 +22,8 @@ migrate_down:
 
 # Test
 test:
-	go test -v ./test -count=1
-
+#	go test -v ./test -count=1 -run Default
+	go test -v ./test -count=1 -run Mine
 
 # Fly
 # Log

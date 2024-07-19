@@ -149,8 +149,7 @@ func (r Request) HandleAttack(game *mb.Game, attacker mb.Player, defender mb.Pla
 	hostPlayer := game.HostPlayer()
 	joinPlayer := game.JoinPlayer()
 
-	// TODO: Check for game mode for this section
-	if defender.DidAttackerHitMine(coordinates) {
+	if game.IsModeMine() && defender.DidAttackerHitMine(coordinates) {
 		attacker.SetMatchStatusToLost()
 		defender.SetMatchStatusToWon()
 

@@ -24,22 +24,44 @@ const (
 )
 
 var (
-	hostConn       *websocket.Conn
-	joinConn       *websocket.Conn
+	hostClientConn *websocket.Conn
+	joinClientConn *websocket.Conn
 
 	testHostPlayer *mb.BattleshipPlayer
 	testJoinPlayer *mb.BattleshipPlayer
-	
-	hostSessionID  string
-	joinSessionID  string
-	testRp         api.RequestProcessor
-	dialer         = websocket.Dialer{
+
+	hostSessionID string
+	joinSessionID string
+
+	hostSession *mc.Session
+	joinSession *mc.Session
+
+	testRp api.RequestProcessor
+	dialer = websocket.Dialer{
 		HandshakeTimeout: 10 * time.Second,
 	}
 	testMock           sqlmock.Sqlmock
 	testGameManager    *mb.BattleshipGameManager
 	testSessionManager *mc.BattleshipSessionManager
 	testQuerier        sqlc.Querier
+
+	defenceGridHost = mb.Grid{
+		{0, mb.PositionStateDefenceDestroyer, mb.PositionStateDefenceDestroyer, 0, 0, 0},
+		{mb.PositionStateDefenceCruiser, 0, 0, mb.PositionStateDefenceBattleship, 0, 0},
+		{mb.PositionStateDefenceCruiser, 0, 0, mb.PositionStateDefenceBattleship, 0, 0},
+		{mb.PositionStateDefenceCruiser, 0, 0, mb.PositionStateDefenceBattleship, 0, 0},
+		{0, 0, 0, mb.PositionStateDefenceBattleship, 0, 0},
+		{0, 0, 0, 0, 0, 0},
+	}
+
+	defenceGridJoin = mb.Grid{
+		{0, mb.PositionStateDefenceDestroyer, mb.PositionStateDefenceDestroyer, 0, 0, 0},
+		{mb.PositionStateDefenceCruiser, 0, 0, 0, mb.PositionStateDefenceBattleship, 0},
+		{mb.PositionStateDefenceCruiser, 0, 0, 0, mb.PositionStateDefenceBattleship, 0},
+		{mb.PositionStateDefenceCruiser, 0, 0, 0, mb.PositionStateDefenceBattleship, 0},
+		{0, 0, 0, 0, mb.PositionStateDefenceBattleship, 0},
+		{0, 0, 0, 0, 0, 0},
+	}
 )
 
 func TestMain(m *testing.M) {
@@ -87,26 +109,36 @@ func TestMain(m *testing.M) {
 		log.Println(err)
 		os.Exit(1)
 	}
-	hostConn = c
+	hostClientConn = c
 
 	// Read host session ID
 	var respSessionId mc.Message[mc.RespSessionId]
-	_ = hostConn.ReadJSON(&respSessionId)
+	_ = hostClientConn.ReadJSON(&respSessionId)
 	hostSessionID = respSessionId.Payload.SessionID
+	hs, err := testSessionManager.FindSession(hostSessionID)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	hostSession = hs
 
 	c2, _, err := dialer.Dial(testWsUrl, nil)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
 	}
-	joinConn = c2
+	joinClientConn = c2
 
 	// Read Join sessoin ID
-	_ = joinConn.ReadJSON(&respSessionId)
+	_ = joinClientConn.ReadJSON(&respSessionId)
 	joinSessionID = respSessionId.Payload.SessionID
+	js, err := testSessionManager.FindSession(joinSessionID)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	joinSession = js
 
 	log.Println("Host session ID:", hostSessionID)
 	log.Println("Join session ID:", joinSessionID)
-	log.Printf("host: %s\tjoin: %s", hostConn.LocalAddr().String(), joinConn.LocalAddr().String())
+	log.Printf("host: %s\tjoin: %s", hostClientConn.LocalAddr().String(), joinClientConn.LocalAddr().String())
 	os.Exit(m.Run())
 }
