@@ -32,11 +32,9 @@ func main() {
 	go bsm.CleanupPeriodically()
 
 	bgm := mb.NewBattleshipGameManager()
-
-	requestProcessor := api.NewRequestProcessor(bsm, bgm, nil)
-
+	
 	mux := http.NewServeMux()
-	mux.Handle("GET /battleship", requestProcessor)
+	mux.Handle("GET /battleship", api.NewRequestProcessor(bsm, bgm, nil))
 
 	log.Printf("Listening to port %s\n", port)
 	log.Fatalln(http.ListenAndServe("0.0.0.0:"+port, mux))
