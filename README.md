@@ -1,6 +1,6 @@
 # battleship-backend
 
-Welcome to the **Battleship Game Backend**! This repository contains a self-hosted backend server written in Go for the \*\*classic Battleship game.
+Welcome to the **Battleship Game Backend**! This repository contains a self-hosted backend server written in Go for the classic Battleship game.
 
 ## Features
 
