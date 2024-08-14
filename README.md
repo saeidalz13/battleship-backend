@@ -16,7 +16,7 @@ Welcome to the **Battleship Game Backend**! This repository contains a self-host
 
 | Waiting Room | Choose Difficulty | Place Ships | Game Play I |
 |--------------|--------------|--------------|--------------|
-| <img src="https://github.com/mori-ahk/Battleship-iOS/Screenshots/1.jpeg" width="200"/> | <img src="https://github.com/mori-ahk/Battleship-iOS/Screenshots/2.jpeg" width="200"/> | <img src="https://github.com/mori-ahk/Battleship-iOS/Screenshots/3.jpeg" width="200"/> | <img src="https://github.com/mori-ahk/Battleship-iOS/Screenshots/4.jpeg" width="200"/> |
+| <img src="https://github.com/mori-ahk/Battleship-iOS/blob/main/Screenshots/1.jpeg" width="200"/> | <img src="https://github.com/mori-ahk/Battleship-iOS/Screenshots/2.jpeg" width="200"/> | <img src="https://github.com/mori-ahk/Battleship-iOS/Screenshots/3.jpeg" width="200"/> | <img src="https://github.com/mori-ahk/Battleship-iOS/Screenshots/4.jpeg" width="200"/> |
 
 | Game Play II | End Match | Rematch |              |
 |--------------|--------------|--------------|--------------|
