@@ -12,6 +12,17 @@ Welcome to the **Battleship Game Backend**! This repository contains a self-host
 - **Real-Time Gameplay:** Smooth, responsive gameplay with real-time updates.
 - **Docker Support:** Easily deploy the server using Docker.
 
+## Screenshots
+
+| Waiting Room | Choose Difficulty | Place Ships | Game Play I |
+|--------------|--------------|--------------|--------------|
+| <img src="Screenshots/1.jpeg" width="200"/> | <img src="Screenshots/2.jpeg" width="200"/> | <img src="Screenshots/3.jpeg" width="200"/> | <img src="Screenshots/4.jpeg" width="200"/> |
+
+| Game Play II | End Match | Rematch |              |
+|--------------|--------------|--------------|--------------|
+| <img src="Screenshots/5.jpeg" width="200"/> | <img src="Screenshots/6.jpeg" width="200"/> | <img src="Screenshots/7.jpeg" width="200"/> |              |
+
+
 ## Requirements
 
 - Go (version 1.22 or later)
