@@ -67,10 +67,10 @@ In case of abnormal closure and wanting to reconnect to resume the game:
 websocat ws://127.0.0.1:1313/battleship\?sessionID=MjhkOTUzNWEtYjYxNC00MjM1LTk2YTgtZTRmMWEyYWNlYjIz
 ```
 
-For a smooth experience of gaming, a frontend server is required which you can find here:
+For a smooth experience of gaming, a frontend is required which you can find here:
 
 ```bash
-SwiftRepoUrl
+https://github.com/mori-ahk/Battleship-iOS
 ```
 
 ## Environment Variables
