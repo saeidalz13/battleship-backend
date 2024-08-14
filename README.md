@@ -1,3 +1,5 @@
+<img src="https://github.com/mori-ahk/Battleship-iOS/blob/main/ShipGame/Battleship/Assets.xcassets/AppIcon.appiconset/Battleship%20Logo%20v1%20iOS%402x%20alpha.png" alt="drawing" width="200" height="200" class="center"/>
+
 # battleship-backend
 
 Welcome to the **Battleship Game Backend**! This repository contains a self-hosted backend server written in Go for the classic Battleship game.
