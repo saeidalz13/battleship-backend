@@ -9,7 +9,6 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/saeidalz13/battleship-backend/api"
-	"github.com/saeidalz13/battleship-backend/db/sqlc"
 
 	mb "github.com/saeidalz13/battleship-backend/models/battleship"
 	mc "github.com/saeidalz13/battleship-backend/models/connection"
@@ -39,7 +38,7 @@ var (
 	testMock           sqlmock.Sqlmock
 	testGameManager    *mb.BattleshipGameManager
 	testSessionManager *mc.BattleshipSessionManager
-	testQuerier        sqlc.Querier
+	// testQuerier        sqlc.Querier
 )
 
 func TestMain(m *testing.M) {
@@ -51,9 +50,9 @@ func TestMain(m *testing.M) {
 	testMock = mock
 
 	go func() {
-		// test db manager
-		querier := sqlc.New(db)
-		testQuerier = querier
+		// // test db manager
+		// querier := sqlc.New(db)
+		// testQuerier = querier
 
 		// test session manager
 		bsm := mc.NewBattleshipSessionManager()
@@ -64,7 +63,7 @@ func TestMain(m *testing.M) {
 		bgm := mb.NewBattleshipGameManager()
 		testGameManager = bgm
 
-		rp := api.NewRequestProcessor(bsm, bgm, querier)
+		rp := api.NewRequestProcessor(bsm, bgm, nil)
 		testRp = rp
 
 		mux := http.NewServeMux()

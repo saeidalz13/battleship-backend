@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"encoding/json"
 	"log"
 	"net"
@@ -12,7 +11,6 @@ import (
 	"github.com/saeidalz13/battleship-backend/db/sqlc"
 	mb "github.com/saeidalz13/battleship-backend/models/battleship"
 	mc "github.com/saeidalz13/battleship-backend/models/connection"
-	"github.com/sqlc-dev/pqtype"
 )
 
 const (
@@ -152,7 +150,7 @@ func (rp *RequestProcessor) processSessionRequests(session *mc.Session) {
 		return
 	}
 
-	serverPqtypeInet := pqtype.Inet{IPNet: rp.ipnet, Valid: true}
+	// serverPqtypeInet := pqtype.Inet{IPNet: rp.ipnet, Valid: true}
 
 sessionLoop:
 	for {
@@ -181,21 +179,19 @@ sessionLoop:
 
 		// In this branch we initialize the game and hence create a host player
 		case mc.CodeCreateGame:
-			ctx, cancel := context.WithTimeout(context.Background(), sqlc.QuerierCtxTimeout)
-			if err := rp.q.AnalyticsIncrementGamesCreatedCount(ctx, serverPqtypeInet); err != nil {
-				// for now not killing the game for it
-				log.Println(err)
-			}
+			// ctx, cancel := context.WithTimeout(context.Background(), sqlc.QuerierCtxTimeout)
+			// if err := rp.q.AnalyticsIncrementGamesCreatedCount(ctx, serverPqtypeInet); err != nil {
+			// 	// for now not killing the game for it
+			// 	log.Println(err)
+			// }
 
 			game, hostPlayer, respMsg := NewRequest(payload).HandleCreateGame(rp.gameManager, sessionId)
 			sessionPlayer = hostPlayer
 			sessionGame = game
 
 			if err := rp.sessionManager.WriteToSessionConn(session, respMsg, mc.MessageTypeJSON, receiverSessionId); err != nil {
-				cancel()
 				break sessionLoop
 			}
-			cancel()
 
 		// This branch handles joining a new player to an existing
 		// game.
@@ -295,23 +291,20 @@ sessionLoop:
 			}
 
 		case mc.CodeRematchCall:
-			ctx, cancel := context.WithTimeout(context.Background(), sqlc.QuerierCtxTimeout)
-			if err := rp.q.AnalyticsIncrementRematchCalledCount(ctx, serverPqtypeInet); err != nil {
-				// for now not killing the game for it
-				log.Println(err)
-			}
+			// ctx, cancel := context.WithTimeout(context.Background(), sqlc.QuerierCtxTimeout)
+			// if err := rp.q.AnalyticsIncrementRematchCalledCount(ctx, serverPqtypeInet); err != nil {
+			// 	// for now not killing the game for it
+			// 	log.Println(err)
+			// }
 
 			respMsg, err := NewRequest().HandleCallRematch(rp.gameManager, sessionGame)
 			if err != nil {
-				cancel()
 				continue sessionLoop
 			}
 
 			if err := rp.sessionManager.Communicate(sessionId, receiverSessionId, respMsg, mc.MessageTypeJSON); err != nil {
-				cancel()
 				break sessionLoop
 			}
-			cancel()
 
 		case mc.CodeRematchCallAccepted:
 			msgPlayer, msgOtherPlayer, err := NewRequest().HandleAcceptRematchCall(rp.gameManager, sessionGame, sessionPlayer, otherSessionPlayer)

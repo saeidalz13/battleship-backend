@@ -38,7 +38,6 @@ depstage:
 
 flyconsole:
 	fly console --app $(APP)
-## With games with titles -> like 10 wins => captain
 
 # Websocket
 fly ws_staging:

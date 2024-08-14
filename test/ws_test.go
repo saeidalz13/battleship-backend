@@ -1,17 +1,13 @@
 package test
 
 import (
-	"context"
 	"reflect"
 	"testing"
-	"time"
 
-	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/gorilla/websocket"
 	cerr "github.com/saeidalz13/battleship-backend/internal/error"
 	mb "github.com/saeidalz13/battleship-backend/models/battleship"
 	mc "github.com/saeidalz13/battleship-backend/models/connection"
-	"github.com/sqlc-dev/pqtype"
 )
 
 type Test[T, K any] struct {
@@ -106,24 +102,24 @@ func TestCreateGame(t *testing.T) {
 				hostPlayer := testGame.FetchPlayer(true)
 				testHostPlayer = hostPlayer
 
-				testMock.ExpectQuery(`SELECT games_created FROM game_server_analytics WHERE server_ip = \$1`).
-					WithArgs(pqtype.Inet{IPNet: testRp.GetIpNet(), Valid: true}).
-					WillReturnRows(sqlmock.NewRows([]string{"games_created"}).AddRow(1))
+				// testMock.ExpectQuery(`SELECT games_created FROM game_server_analytics WHERE server_ip = \$1`).
+				// 	WithArgs(pqtype.Inet{IPNet: testRp.GetIpNet(), Valid: true}).
+				// 	WillReturnRows(sqlmock.NewRows([]string{"games_created"}).AddRow(1))
 
-				ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-				defer cancel()
-				gamesCreated, err := testQuerier.AnalyticsGetGamesCreatedCount(ctx, pqtype.Inet{IPNet: testRp.GetIpNet(), Valid: true})
-				if err != nil {
-					t.Fatalf("failed to fetch created games: %v", err)
-				}
+				// ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+				// defer cancel()
+				// gamesCreated, err := testQuerier.AnalyticsGetGamesCreatedCount(ctx, pqtype.Inet{IPNet: testRp.GetIpNet(), Valid: true})
+				// if err != nil {
+				// 	t.Fatalf("failed to fetch created games: %v", err)
+				// }
 
-				if gamesCreated != 1 {
-					t.Fatalf("expected number of created games: %d\tgot: %d", 1, gamesCreated)
-				}
+				// if gamesCreated != 1 {
+				// 	t.Fatalf("expected number of created games: %d\tgot: %d", 1, gamesCreated)
+				// }
 
-				if err = testMock.ExpectationsWereMet(); err != nil {
-					t.Fatalf("expectations were not met: %v", err)
-				}
+				// if err = testMock.ExpectationsWereMet(); err != nil {
+				// 	t.Fatalf("expectations were not met: %v", err)
+				// }
 			}
 		})
 	}
@@ -793,25 +789,25 @@ func TestRematchAcceptance(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Test database
-	testMock.ExpectQuery(`SELECT rematch_called FROM game_server_analytics WHERE server_ip = \$1`).
-		WithArgs(pqtype.Inet{IPNet: testRp.GetIpNet(), Valid: true}).
-		WillReturnRows(sqlmock.NewRows([]string{"games_created"}).AddRow(1))
+	// // Test database
+	// testMock.ExpectQuery(`SELECT rematch_called FROM game_server_analytics WHERE server_ip = \$1`).
+	// 	WithArgs(pqtype.Inet{IPNet: testRp.GetIpNet(), Valid: true}).
+	// 	WillReturnRows(sqlmock.NewRows([]string{"games_created"}).AddRow(1))
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-	rematchCalls, err := testQuerier.AnalyticsGetRematchCalledCount(ctx, pqtype.Inet{IPNet: testRp.GetIpNet(), Valid: true})
-	if err != nil {
-		t.Fatalf("failed to fetch created games: %v", err)
-	}
+	// ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	// defer cancel()
+	// rematchCalls, err := testQuerier.AnalyticsGetRematchCalledCount(ctx, pqtype.Inet{IPNet: testRp.GetIpNet(), Valid: true})
+	// if err != nil {
+	// 	t.Fatalf("failed to fetch created games: %v", err)
+	// }
 
-	if err = testMock.ExpectationsWereMet(); err != nil {
-		t.Fatalf("expectations were not met: %v", err)
-	}
+	// if err = testMock.ExpectationsWereMet(); err != nil {
+	// 	t.Fatalf("expectations were not met: %v", err)
+	// }
 
-	if rematchCalls != 1 {
-		t.Fatal("rematch calls must be 1 at this point ")
-	}
+	// if rematchCalls != 1 {
+	// 	t.Fatal("rematch calls must be 1 at this point ")
+	// }
 
 	// Join client receives this rematch call
 	var rematchCall mc.Message[mc.NoPayload]
